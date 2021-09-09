@@ -1,0 +1,108 @@
+############################################
+
+Situazione:
+
+ACQUE SOTTERRANEE
+Lisciviazione: ok
+Trasporto in falda: ok
+
+ACQUE SUPERFICIALI
+Trasporto in corso d'acqua: ok
+Trasporto in laghi/bacini: ok
+
+ATMOSFERA
+Trasporto in atmosfera (modello pennacchio gaussiano): ok
+
+RUMORE
+Equazioni di propagazione del rumore outdoor: da fare direttamente nel GIS
+
+
+AMBIENTE MARINO/TRANSIZIONE
+??????????
+
+
+############################################
+
+
+ python leaching.py -s 57 -t sand -lf 1 -v 0.000025 -dgw 1587
+
+python3 plume.py -q 100 -u 5 -x 4 -y 1 -z 1 -c A -o c -h_s 10 -x_w 45
+
+python3 plume.py -q 10 -u 4.5 -x 8000 -y 0 -z 0 -c A -o c -h_s 25 -x_w 90
+
+python3 plume_loop.py -q 10 -u 4.5 -x 8000 -y 0 -z 0 -c A -o c -h_s 25 -x_w 90
+
+
+python3 plume_loop.py -q 720 -u 4.5 -x 500 -y 1 -z 0 -c A -o c -h_s 62 -x_w 90 -d_s 3 -v_s 11.8 -t_s 159
+
+
+python lake.py -Cs 5 -t 2 -x 5 -y 5 -Vx 1 -Vy 1 -Dx 2 -Dy 40
+
+python lake.py -Cs 2000 -t 20 -x 120 -y 120 -Vx 1 -Vy 1 -Dx 1000 -Dy 1000
+
+
+
+python river.py -Cs 20000 -t 60 -x 120 -v 2 -Dl 100 -w 10
+
+
+python daf.py -s 5 -t sand -c0 10000 -x 1 -y 1 -sw 10 -l 1
+
+python daf.py -s 5 -t sand -c0 10000 -x 1 -y 1 -sw 10 -l 1 -g 0.5 -T 5
+
+
+nuovo daf
+
+python daf.py -s 5 -t sand -c0 5 -x 2 -y 0 -T 8 -v 0.09 -opz 0
+
+python daf.py -s 5 -t sand -c0 5 -x 30 -y 0 -T 8 -v 0.09 -opz 1
+
+python daf.py -s 5 -t sand -c0 5 -x 30 -y 0 -T 8 -v 0.09 -opz 1 -lev 0
+
+
+python daf.py -s 56 -t sand -c0 5 -x 1000 -y 1580 -T 8 -v 0.09 -opz 0 -sw 100
+
+
+
+
+qgis --project /home/francescogeri/Documents/demo_data/demo.qgs
+
+
+
+############################################
+
+r.gwflow
+calcola l'alteza piezometrica della falda a partire da una serie di valiabili
+
+### Mappe di output ###
+output=name [required] Output raster map storing the numerical result [m]
+vx=name Output raster map to store the groundwater filter velocity vector part in x direction [m/s]
+vy=name Output raster map to store the groundwater filter velocity vector part in y direction [m/s]
+budget=name Output raster map to store the groundwater budget for each cell [m^3/s]
+
+
+
+######### per l'analisi temporale dei fiumi #########
+selection = layer.selectedFeatures()
+print len(selection)
+for feature in selection:
+    # do whatever you need with the feature
+
+# we assume that 'layer' is a polygon layer
+features = layer.getFeatures()
+for f in features:
+  geom = f.geometry()
+  print "Area:", geom.area()
+  print "Perimeter:", geom.length()
+
+
+  layer=punti generati
+  prendo non lo coordinate ma la distanza salvata! (e quindi è necessario prima far girare la pagina 1)
+
+
+  poi faccio girare il modello tenendo fissa la distanza ma variando il tempo
+
+
+  ######################################################
+
+
+  python3 sediment.py -Q 4 -t 9999 -hh 13 -dt 1 -dx 1 -dy 10 -x0 0 -y0 0 -x 10 -y 10 -V 1 -w 0.0359

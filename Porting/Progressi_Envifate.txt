@@ -1,0 +1,179 @@
+Problematiche e idee:
+- Meglio mutalbe structs o altri tipi di data structure per fare il porting da python?
+	I mutalbe sono più lenti, ma non so bene come fare altrimenti.
+
+	Come implementare i default values degli struct, Parameters.jl ha qualche problema
+
+- Come vanno gestiti i nomi dei moduli e dei file?
+	Tutti e due con prima lettera maiuscola? solo uno dei due?
+
+- Le classi/struct si potrebbero sostituire con delle matrici/array di array per essere più efficienti?
+
+
+
+
+Problemi codice:
+
+- ALL: 
+	TESTING NECESSARIO.
+
+       	PARAMETERS.JL SEMBRA AVERE QUALCHE PROBLEMA CON I DEFAULT VALUES (ALMENO DA TERMINALE).
+
+
+- ArrayToRaster:
+	function array2raster:
+		nel .py c'è un metodo "outband.FlushCache()" ma guardando le API di ArchGDAL mi viene da
+		pensare che quello che fa quel metodo viene fatto in automatico (not sure).
+		In ogni caso non so come tradurlo.
+
+- Daf:
+	0:
+		Secondo le convenzioni sarebbe da chiamare "DilutionAttenuationFactor" e non "Daf"
+	118:
+		Moltiplicazione per 0?
+
+ [V]	140:
+		forse c'è "c.alfa_x" al posto di "c.alfa_y" per calcolare "dy"
+	269:
+		Il lavoro di un bool fatto con un int ("opz" potrebbe essere rimpiazzato da un bool)
+	273:
+		Qui si potrebbe invece usare una enum, ma forse ne risentono le prestazioni
+	281 e 286:
+		Richiami a "functions" ( da tradurre )
+
+
+- Envifate:
+	All:
+		Il codice è completamente da rivedere.		
+			Ci sono un fracasso di chiamate a funzioni di librerie grafiche che non ho tradotto.
+	337-...:
+		Non so che cosa facia ne da dove provenga "exec_()"
+			
+
+- Functions:
+	All:
+		Manca ancora l'ultima funzione("applystyle") che non ho idea di come tradurre.		
+
+		Testing ASSOLUTEMENTE necessario, non ho idea se il codice per il lavoro sul database
+		funzioni, anche grazie alla disgustosa documentazione.
+		
+		Le funzioni "qualcosa_extract" sono al 90% uguali si potrebbe creare una funzione che faccia quel
+		90% comune.
+
+		Posso usare il risultato di una funzione come default value (in riferimento al fatto che
+		mettono default value nothing e dopo fanno il controllo e in caso riassegnano)?
+		E' abbastanza efficiente?
+
+
+	6 ... 8 (dove controlla se dblock è uguale a nothing, 1^ funzione):
+		Credo si possa mettere " dbloc = "" " direttamente nei parametri per fare il default value
+		invece di metterlo a "nothing" poi controllare se lo è e nel caso metterlo a " "" "	
+
+	19 (prima funzione e successive):
+		Serve fare un prepared statement? Non ci saranno utenti malintenzionati ma solo chi lavora 
+		con il database ( anche se è possibile che qualcuno metta cose problematiche )
+
+	51:
+		Nel path originale aggiungevano "/", ma io sono su windows quindi aggiungo "\\"
+
+	90:
+		Non so se funziona quella dictionary comprehension, nel caso sostituire con il codice
+		commentato sopra.
+
+- Lakes:
+	104-...:
+		Alcuni arg_type mancanti (Forse è giusto cosi?)
+
+
+- Leaching:
+	37-... :
+		Mancano tutte le definizioni dei parametri della struct
+	61:
+		Riga useless?
+	170 e 176:
+		Metodi di functions da modificare
+
+
+- Noises:
+	82:[V]
+		"value in range(start, stop, ..." oppure "value in range(start, stop-1, ..."
+
+
+- PlumeLoop:
+	GENERAL: "outdoor" è un char, con "c -> country" e "u -> urban" si potrebbe sostituire con un
+		 bool (Vale anche pre Plume)
+
+	36-... :
+		Mancano definizioni parametri struct
+	116:
+		Nella funzione "calc_C!" si ha "... p.q /...", nella stessa funzione in "Plume" si ha
+		"... p.q * 100 / ...", bug o feature?
+	208:
+		Lista inutilizzata
+
+	224:
+		Credo che "cfinal" sia una variabile e "distanza" sia una stringa con uno string litteral.
+		Oppure on ho idea del perchè faccia print di due variabili insieme
+
+- Scs:
+	102:
+		Chiamata a metodo di functions
+
+
+- SedimentLoop:
+	196-207:
+		Viene fatto un while loop per popolare una lista con valori collegati a sediment ma invece di
+		mettere i valori nella lista (il comando per farlo è commentato) si stampa e basta, wtf?
+	
+		Il loop crea un certo numero di "sediment" in base al rapporto tra tempo e deltatempo ma per creare
+		sediment vengono usati sempre gli stessi parametri wtf?
+	
+	Fine codice parte commentata:
+		Fa una cosa simile al ciclo che crea sedimenti ma salva i risultati su un file, non so bene
+		come si faccia ed essendo tutto commentato lascio stare al momento
+
+- TestCn:
+	Non so se la dict comprehensio è giusta
+
+
+
+
+
+
+Functions:
+[V]- Main
+[ ]- ArrayToRaster
+[ ]- Daf
+[ ]- Functions
+[V]- Leaching
+[V]- Noises
+[V]- Plumes
+[V]- PlumeLoop
+[V]- Rivers
+[ ]- Scs
+[V]- Sediments
+[ ]- SedimentLoop (vedi problematiche codice)
+[ ]- TestCn
+
+
+
+
+
+
+TODONOW:
+
+
+
+
+
+
+
+
+
+PER FARE IL PORTING:
+1) creare un nuovo progetto (il progetto sarà formato dal codice tradotto)
+2) torvare i file di cui fare il porting
+3) cambiare l'estensione dei file da .py a .jl (tramite il rename in VSCode )
+4) Modificare la sintassi dove necessario (Non necessariamente ovunque Python e Julia sono abbastanza simili)
+5) Spostare i file modificati nella cartella del progetto creato
+

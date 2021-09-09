@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/plugins/envifate" >
+        <file>icons/EnviFate_mini.png</file>
+        <file>icons/EnviFate.png</file>
+        <file>icons/acquifer_icon.png</file>
+        <file>icons/atm_icon.png</file>
+        <file>icons/lake_icon.png</file>
+        <file>icons/river_icon.png</file>
+        <file>icons/noise_icon.png</file>
+        <file>icons/wnoise_icon.png</file>
+        <file>icons/light_icon.png</file>
+        <file>icons/sediment_icon.png</file>
+        <file>icons/runoff_icon.png</file>
+        <file>icons/thermic_icon.png</file>
+    </qresource>
+</RCC>

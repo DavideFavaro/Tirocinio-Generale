@@ -1,0 +1,39 @@
+# This file contains metadata for your plugin. Since 
+# version 2.0 of QGIS this is the proper way to supply 
+# information about a plugin. The old method of 
+# embedding metadata in __init__.py will 
+# is no longer supported since version 2.0.
+
+# This file should be included when you package your plugin.# Mandatory items:
+
+[general]
+name=EnviFate
+qgisMinimumVersion=3.0
+description=EnviFate: Open source tool for environmental risk analysis
+version=2.0
+author=Francesco Geri, Marco Ciolli
+email=francescogeri@tim.it
+
+about=The ENVIFATE software is currently under development by the Department of Civil, Environmental and Mechanical Engineering (DICAM) of the University of Trento, Italy, in the frame of the project "Definizione di metodi standard e di strumenti applicativi informatici per il calcolo degli effetti dei fattori di perturbazione ai sensi della decisione 2011/484/Ue, da impiegarsi nell’ambito della valutazione di incidenza", funded by the Italian Veneto Region. The project aims to make available to non-specialist operators a set of tools able to perform screening analysis to assess the risks of different possible environmental pollution sources in protected areas. Authors: Francesco Geri (Software development), Marco Ciolli (supervisor and scientific responsible of the project), Paolo Zatelli and Oscar Cainelli (Technical and scientific consultants) and Gianluca Salogni (Technical and scientific referent for Regione Veneto). GPL license v3.
+
+tracker=https://bitbucket.org/fragit/envifate/issues
+repository=https://bitbucket.org/fragit/envifate/
+# End of mandatory metadata
+
+# Recommended items:
+
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+tags=contamination modelling, raster, vector, environment
+
+homepage=https://bitbucket.org/fragit/envifate/
+category=Plugins
+icon=icon.png
+# experimental flag
+experimental=True
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+

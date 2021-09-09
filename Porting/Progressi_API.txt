@@ -1,0 +1,345 @@
+Dubbi e idee:
+	E' meglio ridefinire funzioni piuttosto che definire comportamenti diversi di una funzione in base
+	a parametri opzionali, vero?
+
+	"rPaste" è più veloce rispetto a "paste0" di RCall ma occupa (molta (relativamente)) più memoria,
+        per il momento opto per la velocità.
+
+
+Traduzioni: ( R ==> Julia )
+
+	which()  ==>  find()/findall()
+
+	sprintf()  ==>  *see below
+		Se il primo argomento è uno string literal si fa con l'interpolazione altrimenti non si fa.
+
+	Sys.Date()  ==>  (Dates.)today()
+
+	grep( "stringa", "array di stringhe" )  ==>  findall(occursin( "stringa", "array di stringhe"))
+		grepl(...) ==> occursin.(...) (valore di ritorno logical vector )
+	
+
+	gsub( "str target", "str replacement", "file" )  ==>  replace(.)( "file", "target" => "replacement" )
+
+	as.factor()  ==>  CategoricalArrays.CategoricalArray()
+
+	readWKT()  ==>  ArchGDAL.fromWKT()
+
+	cat( "string", "file" )  ==>  
+
+	file( "file", open = " "w" o "r" ")  ==>  open( "file", " "w" o "r" " )
+
+	"datastructure"[ !is.na(...) ]  ==>  "datastructure"[ findall( !ismissing, ... ) ]
+
+	"dtstr" <- "dtstr"[ !duplicated("dtstr") ]  ==>  unique!("dtstr")
+
+	rownames("df") <- "vals"  ==>  insert!( "df", 1, :"newColumnName" => "vals(Array)" )
+
+	qual.cosa@qual.cos.altro  ==>  qual_cosa.qual_cos_altro
+
+	apply( set, x -> {...} )  ==>  map(set) do x
+						...
+					end
+
+
+
+
+
+
+Problematiche codice:
+- ALL:
+	TESTING NECESSARIO.
+
+ [V]	Sostituire le conversioni con "String()" co quelle più appropriate tra "rPaste()", "join()" e
+	"string()/string.()"
+
+ [V]	Sostituire i "print/println" nella cui sede c'era originariamente un "out()"
+
+	Bisogna capire come gestire le options, al momento faccio con una variabile globale.
+
+	Dove viene fatto "rownames(...) <- ..." Si può inserire una nuova colonna in prima posizione con
+	i valori desiderati con:"insert!( 'dataframe', '# posizione', :'nomecolonna' => 'array di valori')"
+	Bisogna quindi modificare tutti le traduzioni fatte di queste righe.
+
+
+- Esacron:
+	All:
+		Chiunque abbia scritto questo codice abusa troppo di map, regexp e grep.
+			Il matching su regexp o stringhe in julia fa schifo
+
+ [V]		Non ho idea di come si traducano le righe di interfaccia con il database.
+
+ [/]		Conversioni in factor e numeric da tradurre. (factor [V])
+
+		Format da mettere a posto.
+	
+	29, 40, 182, 189, 312:
+		"readRDS" legge un oggetto di R salvato su file con "saveRDS", non riesco a trovare un
+		equivalente in Julia e  non credo che in julia leggere e scrivere dati nel formato di R
+		sia una buona idea.
+
+		Si può usare la libreria JLD2.jl che si occupa di salvare dati e leggere in sotto-formato HDF5.
+		Il pacchetto sembra avere bug piuttosto impattanti e una maintenance incostante.
+
+		Uso CSV perchè sembra il più reliable (è inutile salvare e leggere i dati velocemente se poi
+		li perdi), c'è il problema che non so se ciò che deve essere letto col "read..." è un DF.
+
+	63:
+		Non so se nel write bisogni mettere "lns" o "join(lns)" o una qualche trasformazione di
+		"lns", in quanto non so di che tipo è.
+
+	
+	71, 72:
+		""orbitdirection"" è il nome della colonna, non so se vada messo come simbolo o lasciato
+		come stringa.
+
+	104:
+		Quel "format(Date(...))" potrebbe non essere corretto.
+
+
+	112, 115, 232, 245, 248, 251:
+		Non so come si faccia la trasformazione in numerico data da "as.numeric()".
+
+ [V]	120:
+		Non so come tradurre "readKWT()".
+
+	128-135, 281, 294:
+		I metodi qui usati sono della libreria "sp" che si occupa di spatial data non riesco a
+		trovare un pacchetto che abbia tutte le funzionalità necessarie.
+		In alternativa, credo ci si possa appoggiare a ArchGDAL, ma il codice in R (quindi la
+		libreria sp in sè) sembra avere un forte orientamento agli oggetti, che in julia manca.
+
+	192:
+		Non so se vada "string" o "string.", al momento metto "string".
+		Non so se "platform" contiene format strings a cui va sostituito ".log" o se è una stringa
+		a cui va aggiunto ".log", al momento considero il secondo caso.
+
+	261:
+		Non so cosa dovrebbe fare "...[-nempty,...]"
+
+	279:
+		"chull" computa il "Convex Hull"(qualunque cosa voglia dire), in Julia ci sono 35 pacchetti che
+		lo fanno, ma come sempre non so quali sono seguiti quali sono buoni, ecc.
+
+- GetSpatialDataDev:
+	All:
+		Non capisco cosa rappresentano le options "gSD. ...", se e dove sono definite
+		Si potrebbero rappresentare come variabili globali ma non so la portata del loro scope
+
+ [V]		Non so da dove tirano fuori gSD e gSD.get
+
+	function set_archive:
+		Non ho idea di quale sia l'equivalente a options() di R.
+		Per il momento ho fatto con un dictionary globale.
+
+
+	function login_CopHub:
+		Sarà che non capisco bene il tipo di dati in input (stringhe o vettori di stringhe?), ma
+		creare un dizionario mi sembra inutile.
+
+	
+	56:
+		Non so da dove salti fuori "getPass()".
+		Sembra non essere una funzione di libreria.
+
+	112:
+		In R si lavora per caratteri e quindi cose come: " 'ciao' " sono considerate caratteri per
+		cui "length('ciao') = 1", quindi in questa parte in cui si controlla la lunghezza di
+		"time_range"(che è un carattere in R, per noi è una stringa) creerà errori 100/100,
+		soprattutto perchè non ho idea di cosa possa venir passato come valore di "time_range"	
+
+	181-...:
+		Tutta questa sezione è fatta della stessa sostanza di cui sono fatti gli incubi.
+		Also, qui bisogna testare attentamente.
+
+	200:
+		Ho usato filter per ottenere tutte le stringhe in query_xml che contengono "entry", il
+		problema è che assumo che "query_xml" sia un'array di stringhe (il che non è detto)		
+
+	239:
+		eachmatch() prende solo regexp come prametro su cui fare matching e non so se names(x) si
+		suppone ritorni un qualcosa di valido come regexp
+
+	340-343:
+		Va tradotto, non è necessario, cosa devo farci?
+		
+
+
+-GetSpatialDataDevInternal:
+	All:
+		Tutto il codice che lavora con/su dataframes va rivisto attentamente e testato
+
+		Sono rimaste parecchietraduzioni in sospeso perchè non ho la più pallida idea di cosa
+		faccia esattamente il codice, di quale sia l'obbiettivo da ottenere o di come sono fatti/
+		che tipo hanno i dati su cui sto lavorando
+
+
+	44( function "isFalse" ):
+		Perchè non mettere semplicemente "return !evalute" o "evaluate ==/=== false"?
+
+	60( function "isTrue"):
+		Come sopra ma per testare la verità
+
+	76( function "checkCmd" ):
+		Come sopra "if" per ritornare "bool".
+
+		Il check sul tipo di exception è, molto probabilmente, sbagliato, controllare il tipo
+		giusto da checkare.
+
+
+
+	109... - 151...( function "gSD_get" e "gSD_post" ):
+		Così come sono non vanno bene, ma per mettere a posto devo vedere/modificare le funzioni
+		GET e POST a cui si appoggiano.
+
+	270(EE_ds):
+		Non so se il valore ritornato da "content(x)" abbia effettivamente quel campo e se quel
+		campo abbia effettivamente quel campo
+
+	function EE_query:
+		ci sono le "mapply" che sembrano essere delle "map" su gruppi di collections, non ho idea
+		di come si traducano.
+
+	295(EE_query):
+		Non so cosa sia quel "content" che usa come funzione per il mapping, per il momento lo
+		traduco con "x -> content(x)"
+
+	310(EE_query):
+		non so se le operazioni su "x" necessitino di broadcasting
+
+	314(EE_query):
+		Non mi ricordo come si traduce il "grep"
+
+	316(EE_query):
+		A quanto pare non c'è un modo di fare una conversione da stringa a intero in modo facile
+
+	function EE_preview:
+		Vengono usate funzioni che non so come tradurre ( funzioni delle librerie "raster", "mapview",
+		ecc. )
+
+
+
+-Global:
+	23:
+		"source()" fa in modo che l'input venga preso dal file indicato.
+		Forse si può tradurre con "open()" o più semplicemente con "include"
+
+	25:
+		Julia non sembra avere un equivalente di "sys.setlocale()"
+
+	26:
+		E nemmeno un modo per cambiare linguaggio
+
+	31:
+		A quanto pare si appoggiano su un web server di "shiny", non ho idea di come si traduca
+		sta roba
+	34:
+		Si potrebbe non usare un dict per una variabile binaria
+
+	52-84:
+		Nel .R creano un dataframe unendo i vettori per riga con i nomi dati a ciascuna di esse,
+		in julia ciò non è possibile perchè i dataframe (di DataFrames.jl) non hanno veri e propri
+		indici, la cosa più vicina che si può fare è unire per colonna avendo i nomi delle righe
+		del .R come nomi delle colonne( tenendo anche presente che nel .R i nomi delle colonne sono
+		numeri semplici, quindi la mia versione è semplicemente una trasposizione dell'originale).
+
+	116-117:
+		Non so quale sia l'equivalente di "icon()" della libreria "shiny"
+	
+
+- Server:
+	13 - 30:
+		Parte non tradotta fa uso della libreria "leaflet" di R che a quanto pare serve a generare
+		output grafico tramite JS.
+		"%>%" è un simbolo di pipe di CRAN (packages: "magrittr", "dplyr").
+		Il corrispondente in Julia dovrebbe essere "|>".
+
+		Non so se la pipeline di Julia funziona esattamente allo stesso modo.
+
+	32, 49, 76, 82, 89, 110:
+		Funzioni di "Shiny" per output grafico
+
+	49:
+		Non si può fare "end = ..." quindi ho tolto la e da "end"
+
+	82:
+		Se vogliono ottenere un valore in un modo un po' più astruso, non so.
+
+	90, 161, 165, 182, 184, 226:
+		"<<-" super assegnamento, se nello scope non trova una variabile con quel nome a cui
+		 assegnare sale di scope finchè non la trova, se non la trova comunque la crea.
+		 io lo sostituisco con "=", ma mi sa che crea problemi. 
+
+	93, 97, 104:
+		Funzione di "shinyWidgets"
+
+	150:
+		Non ho capito cosa dovrebbe fare il codice originale io metto "join( ... join(...) ...)"
+
+	161, 165 (Vale anche per il resto del codice):
+		Mi sa che è più corretto dt[:data][:sp][:df] ma non ne ho idea perchè in R il punto viene
+		usato a caso.
+
+	182, 184:
+		"get(...)(...)" il "get(...)" ottiene una funzione che viene applicata agli argomenti nella
+		seconda coppia di parentesi.
+		Detto questo non ho capito cosa esattamente faccia "get()"
+
+	196:
+		Qual'è il senso della lista( "list()" tradotta in "[]" ) che contiene un singolo dizionario.
+
+	197:
+		Non so se l'espressione è equivalente a quella in R
+
+	212:
+		"sprintf( 'variabile', 'valore1', 'valore2', ... )", In cui "variabile" è una variabile di 
+		 tipo stringa contenente caratteri di formattazione( %s, %f, ...) e i valori dopo sono
+		 quelli da inserire nella stringa(nelle posizioni corrispondenti), non è traducibile in
+		 Julia in quanto questo supporta solo interpolazione su string literals ("$'variabile'").
+
+		 Il pacchetto "Formatting.jl" forse aggiunge roba utile.
+
+	229:
+		Dopo l'uguale si tenta di ottenere i nomi delle righe, in julia non c'è un'equivalente
+		(in fondo, perchè dovrebbe esserci un'equivalente a qualcosa di così basilare?), quindi
+		poniamo di aggiungere una colonna con i nomi delle righe(una colonna ulteriore a quella con
+		gli index, quindi la riga 2? O la 1?).
+
+
+
+
+
+
+
+
+options = Dict(
+  gSD_api => Dict(
+    dhus => "https://scihub.copernicus.eu/dhus/",
+    s3 => "https://scihub.copernicus.eu/s3/",
+    espa => "https://espa.cr.usgs.gov/api/v0/",
+    ee => "https://earthexplorer.usgs.gov/inventory/json/v/1.4.0/",
+    aws_l8 => "https://landsat-pds.s3.amazonaws.com/c1/L8/",
+    aws_l8.sl => "https://landsat-pds.s3.amazonaws.com/c1/L8/scene_list.gz"
+  ),
+  gSD_verbose => false,
+  gSD_cophub_user => false,
+  gSD_cophub_pass => false,
+  gSD_cophub_set => false,
+  gSD_usgs_user => false,
+  gSD_usgs_pass => false,
+  gSD_usgs_set => false,
+  gSD_usgs_apikey => false,
+  gSD_archive => false,
+  gSD_archive_set => false,
+  gSD_aoi => false,
+  gSD_aoi_set => false
+)
+
+
+
+
+
+
+
+
+

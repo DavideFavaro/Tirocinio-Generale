@@ -1,0 +1,17 @@
+<PAMDataset>
+  <Metadata>
+    <MDI key="credits">Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto</MDI>
+    <MDI key="data">10-10-19</MDI>
+    <MDI key="descrizione">Simulazione di dispersione inquinante in falda</MDI>
+    <MDI key="modulo">Dispersione in falda</MDI>
+    <MDI key="srs">EPSG:32632</MDI>
+  </Metadata>
+  <PAMRasterBand band="1">
+    <Metadata>
+      <MDI key="STATISTICS_MAXIMUM">1.4237545364892e-08</MDI>
+      <MDI key="STATISTICS_MEAN">3.1018361314185e-11</MDI>
+      <MDI key="STATISTICS_MINIMUM">0</MDI>
+      <MDI key="STATISTICS_STDDEV">1.5001879194167e-10</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>

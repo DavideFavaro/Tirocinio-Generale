@@ -1,0 +1,17 @@
+<PAMDataset>
+  <Metadata>
+    <MDI key="credits">Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto</MDI>
+    <MDI key="data">25-10-19</MDI>
+    <MDI key="descrizione">Analisi inquinamento acustico in ambiente outdoor su base del modello Spread</MDI>
+    <MDI key="modulo">Analisi rumore</MDI>
+    <MDI key="srs">EPSG:3003</MDI>
+  </Metadata>
+  <PAMRasterBand band="1">
+    <Metadata>
+      <MDI key="STATISTICS_MAXIMUM">253.5041809082</MDI>
+      <MDI key="STATISTICS_MEAN">168.32601303827</MDI>
+      <MDI key="STATISTICS_MINIMUM">142.04629516602</MDI>
+      <MDI key="STATISTICS_STDDEV">14.209373284502</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>

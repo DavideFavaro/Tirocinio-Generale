@@ -1,0 +1,4 @@
+PACKAGES:
+- gdal = GDAL.jl / ArchGDAL.jl
+- gis = Geostats.jl
+- QT = QML.jl
