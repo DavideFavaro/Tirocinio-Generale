@@ -1,3 +1,0 @@
-"run(`codice`)" permette di eseguire codice su command line di julia
- ( ` -> Alt + 96 tastierino numerico ) 
-
