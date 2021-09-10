@@ -9,7 +9,7 @@ export Lake, #struct
 # -*- coding: utf-8 -*-
 
 #importazione moduli
-"""imports
+#=imports
   from __future__ import print_function
   from builtins import object
   import os, osr, sys, argparse, math
@@ -27,7 +27,7 @@ export Lake, #struct
     print("librerie numpy non trovare")
 
   import functions
-"""
+=#
 
 using ArchGDAL
 using ArgParse
@@ -50,11 +50,11 @@ mutable struct Lake
   C
 
 
-  """
+  #=
     element=Lake(args.concentration,args.time,args.distance_x,args.distance_y,
               args.fickian_x,args.fickian_y,args.velocity_x,args.velocity_y,
               args.lambdak)  
-  """
+  =#
   Lake(ma,t,x,y,d_x,d_y,v_x,v_y,k_d) = new(float(ma),float(t),float(x),float(y),float(d_x),float(d_y),float(v_x),float(v_y),float(k_d))
 end
 

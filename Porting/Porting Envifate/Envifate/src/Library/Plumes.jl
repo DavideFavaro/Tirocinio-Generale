@@ -8,7 +8,7 @@ export Plume #struct,
 # -*- coding: utf-8 -*-
 
 #importazione moduli
-"""imports 
+#= imports 
   from __future__ import print_function
   from builtins import object
   import os, osr, sys, argparse, math
@@ -26,7 +26,7 @@ export Plume #struct,
     print("librerie numpy non trovare")
 
   import functions
-"""
+=#
 
 using ArchGDAL
 using ArgParse

@@ -8,7 +8,7 @@ export Leach, #struct
 # -*- coding: utf-8 -*-
 
 #importazione moduli
-""" Imports
+#= imports
   from __future__ import print_function
   from builtins import object
   import os, osr, sys, argparse,math
@@ -26,7 +26,7 @@ export Leach, #struct
     print("librerie numpy non trovare")
 
   import functions
-"""
+=#
 
 #using Pkg
 #Pkg.add("ArgParse")

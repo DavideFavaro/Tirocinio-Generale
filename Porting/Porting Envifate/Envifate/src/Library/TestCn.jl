@@ -1,9 +1,9 @@
 module TestCn
 
-"""imports
+#= imports
 	import sqlite3
 	import ipdb
-"""
+=#
 
 import DBInterface as dbi
 import SQLite as sql

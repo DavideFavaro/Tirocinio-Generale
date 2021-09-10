@@ -2,9 +2,6 @@ Dubbi e idee:
 	E' meglio ridefinire funzioni piuttosto che definire comportamenti diversi di una funzione in base
 	a parametri opzionali, vero?
 
-	"rPaste" è più veloce rispetto a "paste0" di RCall ma occupa (molta (relativamente)) più memoria,
-        per il momento opto per la velocità.
-
 
 Traduzioni: ( R ==> Julia )
 

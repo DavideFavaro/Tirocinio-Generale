@@ -15,7 +15,7 @@ export find_distances, find_coords, seq #functions
 # ALGORITHM|2017-04-26 14:53:46|processing.runalg("grass7:r.walk","/home/francescogeri/Desktop/rumore/dddd.tif","/home/francescogeri/Desktop/rrr.tif","/home/francescogeri/Desktop/rumore/sorg_buf.shp","0","100","0.72,6.0,1.9998,-1.9998","1.0","-0.2125",True,True,True,"1739000.0,1747700.0,5135700.0,5141600.0",0,-1,0.0001,None)   
 
 #importazione moduli
-"""imports
+#= imports
     from __future__ import print_function
     from builtins import range
     import os, osr, sys, argparse, math  
@@ -30,7 +30,7 @@ export find_distances, find_coords, seq #functions
     # fix_print_with_import
     print("librerie numpy non trovare")  
     import functions
-"""
+=#
 
 using ArchGDAL
 

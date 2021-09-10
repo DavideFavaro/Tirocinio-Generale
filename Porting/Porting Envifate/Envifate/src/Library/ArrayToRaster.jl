@@ -2,10 +2,10 @@ module ArrayToRaster
 
 export array2raster!, writeRaster! #functions
 
-"""imports
+#= imports
     import gdal, ogr, os, osr
     import numpy as np
-"""
+=#
 
 import ArchGDAL as agd
 

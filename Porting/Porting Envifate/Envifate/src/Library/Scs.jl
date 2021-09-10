@@ -1,6 +1,5 @@
 module Scs
 
-using ArchGDAL: isempty
 export ScsClass, #struct
        calc_R, calc_S, #functions associated with ScsClass
        fuori #function
@@ -9,7 +8,7 @@ export ScsClass, #struct
 # -*- coding: utf-8 -*-
 
 #importazione moduli
-""" imports
+#= imports
   from __future__ import print_function
   from builtins import object
   import os, osr, sys, argparse,math
@@ -28,7 +27,7 @@ export ScsClass, #struct
 
 
   import functions
-"""
+=#
 
 using ArchGDAL
 using ArgParse

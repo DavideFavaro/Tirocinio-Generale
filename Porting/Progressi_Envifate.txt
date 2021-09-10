@@ -11,6 +11,13 @@ Problematiche e idee:
 
 
 
+-  __file__  ==>  @__FILE__
+   Le funzioni di "os.path" sembrano avere tutte un diretto corrispettivo in Julia
+-  os.path.dirname(__file__)  ==>  @__DIR__
+-  os.path.basename()  ==>  basename()
+-  os.path.splitext()  ==>  splitext()
+
+
 
 
 
@@ -142,6 +149,28 @@ Problemi codice:
 
 
 
+- DoLake:
+	221 - 227:
+		Per qualche motivo "Sys" non viene trovato anche se la documentazione ufficiale propone di usarlo in questi casi.
+
+		Il comando applicato da "run" apre il pdf della cartella tutorial, ma il path per quella cartella non è lo stesso
+
+	477:
+		Li potrebbe essere necessarion un "round" al posto di "parse"
+
+	565:
+		"collect" potrebbe non essere la funzione giusta
+
+	576, 577:
+		Le funzioni di "time" sono ancora da tradurre
+
+
+
+
+
+
+
+
 Functions:
 [V]- Main
 [ ]- ArrayToRaster
@@ -156,26 +185,3 @@ Functions:
 [V]- Sediments
 [ ]- SedimentLoop (vedi problematiche codice)
 [ ]- TestCn
-
-
-
-
-
-
-TODONOW:
-
-
-
-
-
-
-
-
-
-PER FARE IL PORTING:
-1) creare un nuovo progetto (il progetto sarà formato dal codice tradotto)
-2) torvare i file di cui fare il porting
-3) cambiare l'estensione dei file da .py a .jl (tramite il rename in VSCode )
-4) Modificare la sintassi dove necessario (Non necessariamente ovunque Python e Julia sono abbastanza simili)
-5) Spostare i file modificati nella cartella del progetto creato
-

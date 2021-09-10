@@ -8,7 +8,7 @@ export Sediment, #struct
 # -*- coding: utf-8 -*-
 
 #importazione moduli
-""" Imports
+#= imports
   from __future__ import print_function
   from builtins import object
   import os, osr, sys, argparse, math,pdb
@@ -24,7 +24,7 @@ export Sediment, #struct
   except:
     # fix_print_with_import
     print("librerie numpy non trovare")
-"""
+=#
 
 using ArchGDAL
 using ArgParse

@@ -21,7 +21,7 @@
  ***************************************************************************/
 """
 
-""" imports
+#= imports
     from __future__ import print_function
     from builtins import str
     from builtins import range
@@ -78,7 +78,7 @@
     sys.path.append( os.path.dirname(__file__)+"/../library" )
 
     import functions, leaching, daf, do_setting
-"""
+=#
 
 using ArchGDAL
 using Dates
