@@ -1,16 +1,15 @@
 module GetSpatialDataDev
 
 
-using Base: Bool
 export cophub_api, getSentinel_query2, login_CopHub, set_archive #Functions
 
 
 #Global variables
-"""imports
+#= imports
   library(httr)
   library(xml2)
   source("getSpatialData_dev_internal.R")
-"""
+=#
 
 using DataFrames
 using Dates

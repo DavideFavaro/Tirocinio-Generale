@@ -1,6 +1,6 @@
 module Global
 
-""" libraries
+#= libraries
   library(shiny)
   library(shinyWidgets)
   library(leaflet)
@@ -13,7 +13,7 @@ module Global
   library(DT)
   library(htmlwidgets)
   library(rpostgis)
-"""
+=#
 
 using DataFrames
 using Dates
