@@ -176,7 +176,7 @@ Problematiche codice:
 
 
 
-	109... - 151...( function "gSD_get" e "gSD_post" ):
+[V]	109... - 151...( function "gSD_get" e "gSD_post" ):
 		Così come sono non vanno bene, ma per mettere a posto devo vedere/modificare le funzioni
 		GET e POST a cui si appoggiano.
 
@@ -224,7 +224,7 @@ Problematiche codice:
 	34:
 		Si potrebbe non usare un dict per una variabile binaria
 
-	52-84:
+	52-113:
 		Nel .R creano un dataframe unendo i vettori per riga con i nomi dati a ciascuna di esse,
 		in julia ciò non è possibile perchè i dataframe (di DataFrames.jl) non hanno veri e propri
 		indici, la cosa più vicina che si può fare è unire per colonna avendo i nomi delle righe
@@ -244,16 +244,16 @@ Problematiche codice:
 
 		Non so se la pipeline di Julia funziona esattamente allo stesso modo.
 
-	32, 49, 76, 82, 89, 110:
+	33, 51, 76, 82, 89, 110:
 		Funzioni di "Shiny" per output grafico
 
-	49:
+	51:
 		Non si può fare "end = ..." quindi ho tolto la e da "end"
 
 	82:
 		Se vogliono ottenere un valore in un modo un po' più astruso, non so.
 
-	90, 161, 165, 182, 184, 226:
+	90, 161, 165, 182, 184, 209, 212, 252, 253:
 		"<<-" super assegnamento, se nello scope non trova una variabile con quel nome a cui
 		 assegnare sale di scope finchè non la trova, se non la trova comunque la crea.
 		 io lo sostituisco con "=", ma mi sa che crea problemi. 
@@ -261,10 +261,10 @@ Problematiche codice:
 	93, 97, 104:
 		Funzione di "shinyWidgets"
 
-	150:
+[V]	150:
 		Non ho capito cosa dovrebbe fare il codice originale io metto "join( ... join(...) ...)"
 
-	161, 165 (Vale anche per il resto del codice):
+[]	161, 165 (Vale anche per il resto del codice):
 		Mi sa che è più corretto dt[:data][:sp][:df] ma non ne ho idea perchè in R il punto viene
 		usato a caso.
 
@@ -288,10 +288,9 @@ Problematiche codice:
 		 Il pacchetto "Formatting.jl" forse aggiunge roba utile.
 
 	229:
-		Dopo l'uguale si tenta di ottenere i nomi delle righe, in julia non c'è un'equivalente
-		(in fondo, perchè dovrebbe esserci un'equivalente a qualcosa di così basilare?), quindi
-		poniamo di aggiungere una colonna con i nomi delle righe(una colonna ulteriore a quella con
-		gli index, quindi la riga 2? O la 1?).
+		Dopo l'uguale si tenta di ottenere i nomi delle righe, in julia non c'è un'equivalente,
+		quindi poniamo di aggiungere una colonna con i nomi delle righe(una colonna ulteriore a 
+		quella con gli index (quindi la riga 2).
 
 
 
