@@ -64,16 +64,11 @@ Problematiche codice:
 
 - Esacron:
 	All:
-		Chiunque abbia scritto questo codice abusa troppo di map, regexp e grep.
-			Il matching su regexp o stringhe in julia fa schifo
-
- [V]		Non ho idea di come si traducano le righe di interfaccia con il database.
-
  [/]		Conversioni in factor e numeric da tradurre. (factor [V])
 
 		Format da mettere a posto.
 	
-	29, 40, 182, 189, 312:
+	29, 40, 182, 188, 312:
 		"readRDS" legge un oggetto di R salvato su file con "saveRDS", non riesco a trovare un
 		equivalente in Julia e  non credo che in julia leggere e scrivere dati nel formato di R
 		sia una buona idea.
@@ -89,7 +84,7 @@ Problematiche codice:
 		"lns", in quanto non so di che tipo è.
 
 	
-	71, 72:
+	68:
 		""orbitdirection"" è il nome della colonna, non so se vada messo come simbolo o lasciato
 		come stringa.
 
@@ -97,13 +92,13 @@ Problematiche codice:
 		Quel "format(Date(...))" potrebbe non essere corretto.
 
 
-	112, 115, 232, 245, 248, 251:
+	93, 106, 109, 112, 230, 243, 246, 249:
 		Non so come si faccia la trasformazione in numerico data da "as.numeric()".
 
- [V]	120:
+ [V]	117, 266:
 		Non so come tradurre "readKWT()".
 
-	128-135, 281, 294:
+	126-133, 279, 292:
 		I metodi qui usati sono della libreria "sp" che si occupa di spatial data non riesco a
 		trovare un pacchetto che abbia tutte le funzionalità necessarie.
 		In alternativa, credo ci si possa appoggiare a ArchGDAL, ma il codice in R (quindi la
@@ -152,16 +147,9 @@ Problematiche codice:
 		Tutta questa sezione è fatta della stessa sostanza di cui sono fatti gli incubi.
 		Also, qui bisogna testare attentamente.
 
-	200:
+[V]	200:
 		Ho usato filter per ottenere tutte le stringhe in query_xml che contengono "entry", il
 		problema è che assumo che "query_xml" sia un'array di stringhe (il che non è detto)		
-
-	239:
-		eachmatch() prende solo regexp come prametro su cui fare matching e non so se names(x) si
-		suppone ritorni un qualcosa di valido come regexp
-
-	340-343:
-		Va tradotto, non è necessario, cosa devo farci?
 		
 
 
