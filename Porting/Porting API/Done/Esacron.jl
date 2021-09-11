@@ -67,12 +67,12 @@ for platform in names(platforms_startdate)
       products[:format] = CategoricalArray(products[:format])
       replace!.( products[:orbitdirection], Ref("ASCENDING" => "ASC"), Ref("DESCENDING" => "DESC") )
       
-      products[:orbitnumber] = convert.( Int64, products[:orbitnumber] )
+      products[:orbitnumber] = tryparse.( Int64, products[:orbitnumber] )
       if :lastorbitnumber in names(products)
-        products[:lastorbitnumber] = convert( Int64, products[:lastorbitnumber] )
+        products[:lastorbitnumber] = tryparse( Int64, products[:lastorbitnumber] )
       end
       if :lastrelativeorbitnumber in names(products)
-        products[:lastrelativeorbitnumber] = convert( Int64, products[:lastrelativeorbitnumber] )
+        products[:lastrelativeorbitnumber] = tryparse( Int64, products[:lastrelativeorbitnumber] )
       end
       products[:polygon] = nothing
       products[:gmlfootprint] = nothing
@@ -81,16 +81,16 @@ for platform in names(platforms_startdate)
       products[:summary] = nothing
       
       products[:platformname] = nothing
-      #products[:platformname] = convert( Int64, products[:platformname] )
+      #products[:platformname] = tryparse( Int64, products[:platformname] )
       products[:instrumentname] = nothing
-      #products[:instrumentname] = convert( Int64, products[:instrumentname] )
+      #products[:instrumentname] = tryparse( Int64, products[:instrumentname] )
       products[:instrumentshortname] = platform[10:12]
-      products[:instrumentshortname] = convert( Int64, products[:instrumentshortname] )
+      products[:instrumentshortname] = tryparse( Int64, products[:instrumentshortname] )
       
       
       if "status" in names(products) 
         products[:status] = CategoricalArray(products[:status])
-        products[:status] = as.numeric(products[:status]) #ARCHIVED
+        products[:status] = tryparse( Int64, products[:status] ) #ARCHIVED
       end
       ## icon just add to url.alt + Products('Quicklook')/$value
       ## url just add to url.alt + $value
@@ -103,13 +103,13 @@ for platform in names(platforms_startdate)
       products[:size] = map( x -> { 
         ret = missing
         if x[2] == "MB"
-          ret = as.numeric(x[1])
+          ret = tryparse( Int64, x[1] )
         end
         if x[2] == "GB"
-          ret = as.numeric(x[1]) * 1000
+          ret = tryparse( Int64, x[1] ) * 1000
         end
         if x[2] == "KB"
-          ret = as.numeric(x[1]) / 1000
+          ret = tryparse( Int64, x[1] ) / 1000
         end
         return ret
       }, tmp_size )
@@ -204,12 +204,12 @@ for platform in names(platforms_startdate)
     products[:format] = CategoricalArray(products[:format])
     replace!.( products[:orbitdirection], Ref("ASCENDING" => "ASC"), Ref("DESCENDING" => "DESC") )
     
-    products[:orbitnumber] = convert( Int64, products[:orbitnumber] )
+    products[:orbitnumber] = tryparse( Int64, products[:orbitnumber] )
     if "lastorbitnumber" in names(products)
-      products[:lastorbitnumber] = convert( Int64, products[:lastorbitnumber] )
+      products[:lastorbitnumber] = tryparse( Int64, products[:lastorbitnumber] )
     end
     if "lastrelativeorbitnumber" in names(products)
-      products[:lastrelativeorbitnumber] = convert( Int64, products[:lastrelativeorbitnumber] )
+      products[:lastrelativeorbitnumber] = tryparse( Int64, products[:lastrelativeorbitnumber] )
     end
     products[:polygon] = nothing
     products[:gmlfootprint] = nothing
@@ -218,16 +218,16 @@ for platform in names(platforms_startdate)
     products[:summary] = nothing
   
     products[:platformname] = nothing
-    #products[:platformname] = convert( Int64, products[:platformname] )
+    #products[:platformname] = tryparse( Int64, products[:platformname] )
     products[:instrumentname] = nothing
-    #products[:instrumentname] = convert( Int64, products[:instrumentname] )
+    #products[:instrumentname] = tryparse( Int64, products[:instrumentname] )
     products[:instrumentshortname] = platform[10:12]
-    products[:instrumentshortname] = convert( Int64, products[:instrumentshortname] ) 
+    products[:instrumentshortname] = tryparse( Int64, products[:instrumentshortname] ) 
 
     
     if "status" in names(products) 
       products[:status] = CategoricalArray(products[:status])
-      products[:status] = as.numeric(products[:status]) #ARCHIVED
+      products[:status] = tryparse( Int64, products[:status] ) #ARCHIVED
     end
     ## icon just add to url.alt + Products('Quicklook')/[:value]
     ## url just add to url.alt + [:value
@@ -235,18 +235,18 @@ for platform in names(platforms_startdate)
     products[:(url_icon)] = nothing
     products[:(url_alt)] = nothing
      
-    products[:month] = convert( Int64, Dates.format( Date(products[:beginposition]), "%m") )
+    products[:month] = tryparse( Int64, Dates.format( Date(products[:beginposition]), "m" ) )
     tmp_size = split( products[:size], " ", keepempty = false )
     products[:size] = map( x -> { 
       ret = missing
       if x[2] == "MB"
-        ret = as.numeric(x[1])
+        ret = tryparse( Int64, x[1] )
       end
       if x[2] == "GB"
-        ret = as.numeric(x[1]) * 1000 
+        ret = tryparse( Int64, x[1] ) * 1000 
       end
       if x[2] == "KB"
-        ret = as.numeric(x[1]) / 1000
+        ret = tryparse( Int64, x[1] ) / 1000
       end
       return ret
       }, tmp_size )
