@@ -100,25 +100,25 @@ for platform in names(platforms_startdate)
 
       products[:month] = format( Date(products[:beginposition]), "%m") 
       tmp_size = split( products[:size], " " )
-      products[:size] = map( x -> { 
-        ret = missing
-        if x[2] == "MB"
-          ret = tryparse( Int64, x[1] )
-        end
-        if x[2] == "GB"
-          ret = tryparse( Int64, x[1] ) * 1000
-        end
-        if x[2] == "KB"
-          ret = tryparse( Int64, x[1] ) / 1000
-        end
-        return ret
-      }, tmp_size )
-      dt_data = map( x -> {
-        tg = ArchGDAL.fromWKT(products[x,"footprint"])
-        pl = tg.polygons[1]
-        pl.ID = string.(products[x,"uuid"])
-        return pl
-      }, products[:,1] )
+      products[:size] = map( function (x)
+                               ret = missing
+                               if x[2] == "MB"
+                                ret = tryparse( Int64, x[1] )
+                                end
+                                if x[2] == "GB"
+                                  ret = tryparse( Int64, x[1] ) * 1000
+                                end
+                                if x[2] == "KB"
+                                  ret = tryparse( Int64, x[1] ) / 1000
+                                end
+                                return ret
+                             end, tmp_size )
+      dt_data = map( function (x)
+                       tg = ArchGDAL.fromWKT(products[x,"footprint"])
+                       pl = tg.polygons[1]
+                       pl.ID = string.(products[x,"uuid"])
+                       return pl
+                     end, products[:,1] )
       
       #ftp = products[:footprint]
       products[:footprint] = nothing
@@ -237,19 +237,19 @@ for platform in names(platforms_startdate)
      
     products[:month] = tryparse( Int64, Dates.format( Date(products[:beginposition]), "m" ) )
     tmp_size = split( products[:size], " ", keepempty = false )
-    products[:size] = map( x -> { 
-      ret = missing
-      if x[2] == "MB"
-        ret = tryparse( Int64, x[1] )
-      end
-      if x[2] == "GB"
-        ret = tryparse( Int64, x[1] ) * 1000 
-      end
-      if x[2] == "KB"
-        ret = tryparse( Int64, x[1] ) / 1000
-      end
-      return ret
-      }, tmp_size )
+    products[:size] = map( function (x)
+                             ret = missing
+                             if x[2] == "MB"
+                               ret = tryparse( Int64, x[1] )
+                             end
+                             if x[2] == "GB"
+                               ret = tryparse( Int64, x[1] ) * 1000 
+                             end
+                             if x[2] == "KB"
+                               ret = tryparse( Int64, x[1] ) / 1000
+                             end
+                             return ret
+                           end, tmp_size )
     
     error = nothing
     nempty = findall( occursin.( "EMPTY", products[:footprint] ) )
@@ -259,31 +259,31 @@ for platform in names(platforms_startdate)
       products = products[ -nempty, : ]
     end
     
-    dt_data = map( x -> {
- 
-      fp = products[x,:footprint] 
+    dt_data = map( function (x)
 
-      tgt = ArchGDAL.fromWKT(fp)
-      tg = tgt 
-      if length( tg.polygons[1].Polygons ) != 1
-        dat = map( xx -> unique( xx.coords ), tg.polygons[1].Polygons )
-        dat2 = vcat( dat )
-        map( xx -> {  
-          if dat2[xx,1] < 0
-            dat2[xx,1] += 360
-          end
-        }, 1:nrow(dat2) )
-        
-        ch = chull( dat2 ) 
-        coords = dat2[ [ch, ch[1]], : ]  # closed polygon  
-        pl = Polygons(list(Polygon(coords)), ID=1) 
-      else 
-        pl = tg.polygons[1]
-      end
-      
-      pl.ID = string( products[x,"uuid"] )
-      return pl
-    }, products[:,1] )
+                     fp = products[x,:footprint]
+
+                     tgt = ArchGDAL.fromWKT(fp)
+                     tg = tgt
+                     if length( tg.polygons[1].Polygons ) != 1
+                       dat = map( xx -> unique( xx.coords ), tg.polygons[1].Polygons )
+                       dat2 = vcat( dat )
+                       map( function (xx)
+                              if dat2[xx,1] < 0
+                                dat2[xx,1] += 360
+                              end
+                            end, 1:nrow(dat2) )
+
+                       ch = chull( dat2 ) 
+                       coords = dat2[ [ch, ch[1]], : ]  # closed polygon  
+                       pl = Polygons(list(Polygon(coords)), ID=1) 
+                     else 
+                       pl = tg.polygons[1]
+                     end
+
+                     pl.ID = string( products[x,"uuid"] )
+                     return pl
+                   end, products[:,1] )
     
     #products
     #ftp = products[:footprint

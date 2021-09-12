@@ -176,15 +176,15 @@ function server(input, output, session)
                    
                    insert!( dt.data.sp.df[:data], 1, :Rownames => dt.data.sp.df[:data][:, columns_lut[ input[:platform] ]["rownames"] ] )
                    
-                   map( x -> {
-                     if !ismissing(x[2])
-                       if x[2][1:3] == "as." 
-                         dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data][ x[1] ] )
-                       else
-                         dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data] )
-                       end
-                     end
-                   }, columns_lut[ input[:platform] ]["lut"] )
+                   map( function (x)
+                          if !ismissing(x[2])
+                            if x[2][1:3] == "as." 
+                              dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data][ x[1] ] )
+                            else
+                              dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data] )
+                            end
+                          end
+                        end, columns_lut[ input[:platform] ]["lut"] )
                    updateTabsetPanel( session, "mytabset", selected = "tabletab" )
                    output[:mytable] = DT.renderDataTable({
                      DT.datatable(
@@ -210,10 +210,10 @@ function server(input, output, session)
     if length(s)
       
       map( x -> push!( download.script.selected,  sprintf([ download.script,
-                                                                input[:user],
-                                                                input[:password],
-                                                                dt.data.sp.df[:data][x,"uuid"],
-                                                                dt.data.sp.df[:data][x,"uuid"] ]) ), s )
+                                                            input[:user],
+                                                            input[:password],
+                                                            dt.data.sp.df[:data][x,"uuid"],
+                                                            dt.data.sp.df[:data][x,"uuid"] ]) ), s )
       println("These rows were selected:\n\n")
       bounds = "[  [ $(search_bounds[:west]), $(search_bounds[:east]) ], [ $(search_bounds[:south]), $(search_bounds[:north]) ]  ]"
       

@@ -21,7 +21,7 @@ include("getSpatialDataDevInternal.jl")
 
 
 
-function cophub_api(x::AbstrctString, p::AbstractString, user, pw) 
+function cophub_api(x::AbstractString, p::AbstractString, user, pw) 
   if x == "auto"
     x = ( p == "Sentinel-1" || p == "Sentinel-2" ) ? "operational" : "pre-ops"
   elseif x == "operational"
@@ -69,8 +69,7 @@ end
 
 
 
-function getSentinel_query2(time_range, platform, aoi = nothing, username = nothing, password = nothing, hub = "auto", verbose = true,
-                            ingestiondate = false, extra = nothing)
+function getSentinel_query2(time_range, platform, aoi=nothing, username=nothing, password=nothing, hub="auto", verbose=true, ingestiondate=false, extra=nothing)
   if options[:gSD_cophub_set]
     if isnothing(username) 
       username = options[:gSD_cophub_user]
@@ -132,7 +131,7 @@ function getSentinel_query2(time_range, platform, aoi = nothing, username = noth
 
     #aoi_str = join( join.( ext_xy, "%20" ), "," )
 
-    timeRange = map( (x) -> tt = format( DateTime( timeRange ), "%Y-%m-%dT%H:%M:%S.000Z" ), timeRange )
+    timeRange = map( x -> tt = format( DateTime( timeRange ), "%Y-%m-%dT%H:%M:%S.000Z" ), timeRange )
     if isnothing(extra)
       urlstring = join([ qs[:urlRoot], (qs[:search])[1], rowStart,
                          (qs[:search])[2], qs[:platformName], platform,
@@ -182,21 +181,12 @@ function getSentinel_query2(time_range, platform, aoi = nothing, username = noth
     field_names = [ "title", "url", "url.alt", "url.icon", "summary" ]
 
     query_cont = map( (x, field = field_tag) -> map( (f, y = x) -> filter( line ->  occursin(f, line), y ), field ), query_list )
-    query_names = map( 
-                    (x, field_n = field_names) -> append!( field_n, map(
-                                                                      y -> split( y, '\"', keepempty = false )[2],
-                                                                      x[length(field_n)+1 : end] )
-                                                                    ),
-                    query_cont
-                  )
+    query_names = map( (x, field_n = field_names) -> append!( field_n, map( y -> split( y, '\"', keepempty = false )[2], x[length(field_n)+1 : end] ) ), query_cont )
     query_fields = map( x -> map( y -> split( split(y, '<', keepempty = false)[2], '>', keepempty = false )[1], x ), query_cont )
     
     function fun( i, qf, qc, qn )
         x = qf[i]
-        x[ ismissing.(x) ] = map(
-                             y -> split( split(y, "href=\"")[2], "\">" )[1],
-                             qc[i][ ismissing.(x) .== true ]
-                            )
+        x[ ismissing.(x) ] = map( y -> split( split(y, "href=\"")[2], "\">" )[1], qc[i][ ismissing.(x) .== true ] )
         #names(x) <- qn[[i]]
         return x
     end

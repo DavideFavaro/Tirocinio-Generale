@@ -56,7 +56,7 @@ function isFalse(evaluate)
   #else
   #  return false
   #end
-  return !evaluate
+  return evaluate != true
 end
 
 
@@ -73,7 +73,7 @@ function isTrue(evaluate)
   #else
   #  return false
   #end
-  return evaluate
+  return evaluate == true
 end
 
 
@@ -325,38 +325,38 @@ function EE_query(aoi, time_range, name, api_key, meta_fields = nothing )
     #  colnames(df)[ncol(df)] <- "product"
     #  return(df)
     #}), SIMPLIFY = F), recursive = F)
-    query_df = map( (y = query_results, n = query_names) -> map( (x, ds_name = n) -> {
-      x_names = names(x)
-      x_char = string.(x)
+    query_df = map( (y = query_results, n = query_names) -> map( function (x, ds_name = n)
+                                                                   x_names = names(x)
+                                                                   x_char = string.(x)
     
-      # Make sf polygon filed from spatialFootprint
-      spf_sub = grep("spatialFoot", x.names)
-      spf = x[spf_sub]
-      spf = tryparse( Int64, spf[grep("coordinates", names(spf))] )
-      spf_sf = make_aoi( hcat( spf[range(1, length(spf), by = 2)], spf[range(2, length(spf), by = 2)] ), type = "sf", quiet = true )
+                                                                   # Make sf polygon filed from spatialFootprint
+                                                                   spf_sub = grep("spatialFoot", x.names)
+                                                                   spf = x[spf_sub]
+                                                                   spf = tryparse( Int64, spf[grep("coordinates", names(spf))] )
+                                                                   spf_sf = make_aoi( hcat( spf[range(1, length(spf), by = 2)], spf[range(2, length(spf), by = 2)] ), type = "sf", quiet = true )
 
-      df = DataFrame( x_char )
-      rename!( df, x_names )
-      df[spf_sub] = st_as_text(spf_sf)
-      df = DataFrame( df, ds_name )
+                                                                   df = DataFrame( x_char )
+                                                                   rename!( df, x_names )
+                                                                   df[spf_sub] = st_as_text(spf_sf)
+                                                                   df = DataFrame( df, ds_name )
 
-      rename!( df[ncol(df)], "product" )
-      return df
-      }, y ), [query_results, query_names] )
+                                                                   rename!( df[ncol(df)], "product" )
+                                                                   return df
+                                                                 end, y ), [query_results, query_names] )
 
     
     ## Read out meta data
     out("Reading meta data of search results from USGS EarthExplorer...")
     meta = gSD_get.( getindex.( query_df, :metadataUrl ) )
     meta_list = map( x -> as_list( xml_contents( xml_contents( content(x) )[1] ) ), meta )
-    meta_val = map.( x -> {
-      try
-        z = x[:metadataValue][1]
-      catch exception
-        return nothing
-      end
-      return z
-    },meta_list )
+    meta_val = map.( function (x)
+                       try
+                         z = x[:metadataValue][1]
+                       catch exception
+                         return nothing
+                       end
+                       return z
+                     end, meta_list )
     meta_name = map.( x -> names(x)[:name], meta_list )
 
 
@@ -365,28 +365,28 @@ function EE_query(aoi, time_range, name, api_key, meta_fields = nothing )
       meta_fields = unique(meta_name)
     end
     meta_subs = map( (mnames, mf = meta_fields) -> map( (x, mn = mnames) -> findall( x .== mn ), mf ), meta_name )
-    meta_df = map.( (v = meta_val, n = meta_name, i = meta_subs ) -> {
-      x = v[i]
-      x = map( y -> isnothing(y) ? "" : y, x )
-      x = DataFrame(x)
-      rename!( x, gsub(" ", "", n[i]) )
-      return x
-    }, [meta_val, meta_name, meta_subs] )
+    meta_df = map.( function (v = meta_val, n = meta_name, i = meta_subs )
+                      x = v[i]
+                      x = map( y -> isnothing(y) ? "" : y, x )
+                      x = DataFrame(x)
+                      rename!( x, gsub(" ", "", n[i]) )
+                      return x
+                    end, [meta_val, meta_name, meta_subs] )
 
-    query_df = map( (q = query_df, m = meta_df) -> {
-      ## apply meaningful order and replace startTime and endTime with meta outputs
-      x = DataFrame( q[:acquisitionDate], m, q[:, 4:end] )
-      reaname!( x[1], names(q[1]) )
-      return x
-    }, [query_df, meta_df] )
+    query_df = map( function (q = query_df, m = meta_df)
+                      ## apply meaningful order and replace startTime and endTime with meta outputs
+                      x = DataFrame( q[:acquisitionDate], m, q[:, 4:end] )
+                      reaname!( x[1], names(q[1]) )
+                      return x
+                    end, [query_df, meta_df] )
     
 
     return_names = unique(names.(query_df))
     return_df = DataFrame( names!( zeroes( Int64, length(return_names) ) ), return_names )
-    return_df = DataFrame( map( (x, rn = return_names, rdf = return_df) -> {
-      rdf[1, findall( in(rn) names(x) )] = x
-      return rdf
-    }, query_df ) )
+    return_df = DataFrame( map( function (x, rn = return_names, rdf = return_df)
+                                  rdf[1, findall( in(rn), names(x) )] = x
+                                  return rdf
+                                end, query_df ) )
     return return_df
   else
     return nothing
@@ -479,14 +479,14 @@ end
 #' @keywords internal
 #' @noRd
 function convMODIS_names(names)
-  map( x -> {
-    y = split( x, "_", keepempty = false )[1]
-    y = y[2:end]
-    if length(y) > 1
-      y = rPaste( y[1:end-1], collapse = "_" )
-    end
-    return y 
-  }, names )
+  map( function (x)
+         y = split( x, "_", keepempty = false )[1]
+         y = y[2:end]
+         if length(y) > 1
+           y = rPaste( y[1:end-1], collapse = "_" )
+         end
+         return y 
+       end, names )
 end
 
 
@@ -501,17 +501,17 @@ end
 #' @keywords internal
 #' @importFrom httr content
 #' @noRd
-function ESPA_order( id, level = "sr", username, password, format = "gtiff", verbose )
+function ESPA_order( id, username, password, verbose, level = "sr", format = "gtiff" )
   
   ## check query and abort, if not available
   out("Ordering requested items from ESPA...")
-  checked = map( (x, v = verbose) -> {
-    r = gSD_get( join([ options[:gSD_api][:espa], "available-products/", x ]), options[:gSD_usgs_user], options[:gSD_usgs_pass] )
-    if names(content(r)) == "not_implemented"
-      out( join([ "'", x, "': This ID is invalid, as it cannot be found in the ESPA database. Please remove it from input and reexecute." ]), type = 3)
-    end
-    vcat(x, r)
-  }, id )
+  checked = map( function (x, v = verbose)
+                   r = gSD_get( join([ options[:gSD_api][:espa], "available-products/", x ]), options[:gSD_usgs_user], options[:gSD_usgs_pass] )
+                   if names(content(r)) == "not_implemented"
+                     out( join([ "'", x, "': This ID is invalid, as it cannot be found in the ESPA database. Please remove it from input and reexecute." ]), type = 3)
+                   end
+                   vcat(x, r)
+                 end, id )
 
   ## group request by collection (single or multi order)
   req_data = map( x -> vcat( names( content(x[2]) ), x[1] ), checked )
@@ -521,10 +521,10 @@ function ESPA_order( id, level = "sr", username, password, format = "gtiff", ver
   req_coll = map( (x, c = coll, rd = req_data) -> rd[findall( c .== x )], coll_uni )
 
   ## build request
-  req_body = map( (x, p = level, f = format) -> {
-    i = join( map( y -> y[2], x ), "\", \"" )
-    join([ "{\"", x[1][1], "\": { \"inputs\": [\"", i, "\"], \"products\": [\"", p, "\"]}, \"format\": \"", f, "\"}" ])
-  }, req_coll )
+  req_body = map( function (x, p = level, f = format)
+                    i = join( map( y -> y[2], x ), "\", \"" )
+                    join([ "{\"", x[1][1], "\": { \"inputs\": [\"", i, "\"], \"products\": [\"", p, "\"]}, \"format\": \"", f, "\"}" ])
+                  end, req_coll )
   
   ## order
   order = map( (x, user = username, pass = password) -> gSD_post(url = join([ options[:gSD_api][:espa], "order/" ]), username = user, password = pass, body = x), req_body )
@@ -549,7 +549,7 @@ end
 #' @keywords internal
 #' @noRd
 ## check order(s)
-function ESPA_download(order_list, username, password, file_down, delay = 10, dir_out)
+function ESPA_download(order_list, username, password, file_down, dir_out, delay = 10)
   remain_active = true
   ini = true
   show_status = true
@@ -560,10 +560,10 @@ function ESPA_download(order_list, username, password, file_down, delay = 10, di
                  order_list )
 
     ## get items content
-    items = map( x -> map( y -> {
-      rename!( r, names(y) )
-      return r
-    }, x[1] ), items )
+    items = map( x -> map( function (y)
+                             rename!( r, names(y) )
+                             return r
+                           end, x[1] ), items )
 
 
     ## make items data.frame containing recieve status
@@ -597,11 +597,11 @@ function ESPA_download(order_list, username, password, file_down, delay = 10, di
         
         items_get = items_df[sub_download,:]
         out( join([ "Starting download of product(s) '", join( items_get[:name], "', " ), "'." ]), msg = true )
-        items_df[Symbol(recieved[sub_download])] = map( (x, d = dir_out) -> {
-          y = DataFrame(x)
-          rename!( y, names(x) )
-          gSD_download( name = y[:name], url_file = y[:product_dload_url], url_checksum = y[:cksum_download_url], file = y[:file] )
-        }, items_get )
+        items_df[Symbol(recieved[sub_download])] = map( function (x, d = dir_out)
+                                                          y = DataFrame(x)
+                                                          rename!( y, names(x) )
+                                                          gSD_download( name=y[:name], url_file=y[:product_dload_url], url_checksum=y[:cksum_download_url], file=y[:file] )
+                                                        end, items_get )
         show_status = true
       else
         if isTRUE(show_status)
@@ -637,6 +637,7 @@ function make_aoi(aoi, type = "matrix", quiet = false)
     if isFALSE(quiet)
       out(join([ "Argument 'aoi' is a matrix, assuming '", st_crs(aoi)[:proj4string], "' projection." ]), type = 2)
     end
+  end
   if inherits(aoi, "Spatial") 
     aoi <- st_as_sf(aoi)
   end
@@ -674,26 +675,26 @@ end
 
 
 options = Dict(
-  gSD_api => Dict(
-    dhus => "https://scihub.copernicus.eu/dhus/",
-    s3 => "https://scihub.copernicus.eu/s3/",
-    espa => "https://espa.cr.usgs.gov/api/v0/",
-    ee => "https://earthexplorer.usgs.gov/inventory/json/v/1.4.0/",
-    aws_l8 => "https://landsat-pds.s3.amazonaws.com/c1/L8/",
-    aws_l8.sl => "https://landsat-pds.s3.amazonaws.com/c1/L8/scene_list.gz"
+  :gSD_api => Dict(
+    :dhus => "https://scihub.copernicus.eu/dhus/",
+    :s3 => "https://scihub.copernicus.eu/s3/",
+    :espa => "https://espa.cr.usgs.gov/api/v0/",
+    :ee => "https://earthexplorer.usgs.gov/inventory/json/v/1.4.0/",
+    :aws_l8 => "https://landsat-pds.s3.amazonaws.com/c1/L8/",
+    :aws_l8_sl => "https://landsat-pds.s3.amazonaws.com/c1/L8/scene_list.gz"
   ),
-  gSD_verbose => false,
-  gSD_cophub_user => false,
-  gSD_cophub_pass => false,
-  gSD_cophub_set => false,
-  gSD_usgs_user => false,
-  gSD_usgs_pass => false,
-  gSD_usgs_set => false,
-  gSD_usgs_apikey => false,
-  gSD_archive => false,
-  gSD_archive_set => false,
-  gSD_aoi => false,
-  gSD_aoi_set => false
+  :gSD_verbose => false,
+  :gSD_cophub_user => false,
+  :gSD_cophub_pass => false,
+  :gSD_cophub_set => false,
+  :gSD_usgs_user => false,
+  :gSD_usgs_pass => false,
+  :gSD_usgs_set => false,
+  :gSD_usgs_apikey => false,
+  :gSD_archive => false,
+  :gSD_archive_set => false,
+  :gSD_aoi => false,
+  :gSD_aoi_set => false
 )
 #toset <- !(names(op.gSD) %in% names(op))
 #if(any(toset)) options(op.gSD[toset])
