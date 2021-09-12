@@ -13,9 +13,7 @@ export cophub_api, getSentinel_query2, login_CopHub, set_archive #Functions
 
 using DataFrames
 using Dates
-using Grep
 
-include("ValuableAdditions.jl")
 include("getSpatialDataDevInternal.jl")
 
 
@@ -51,7 +49,7 @@ end
 
 
 
-function login_CopHub(username, password = nothing) 
+function login_CopHub(username; password = nothing) 
   if isnothing(password)
     password = getPass()
   end
@@ -69,7 +67,7 @@ end
 
 
 
-function getSentinel_query2(time_range, platform, aoi=nothing, username=nothing, password=nothing, hub="auto", verbose=true, ingestiondate=false, extra=nothing)
+function getSentinel_query2(time_range, platform; aoi=nothing, username=nothing, password=nothing, hub="auto", verbose=true, ingestiondate=false, extra=nothing)
   if options[:gSD_cophub_set]
     if isnothing(username) 
       username = options[:gSD_cophub_user]
@@ -194,7 +192,7 @@ function getSentinel_query2(time_range, platform, aoi=nothing, username=nothing,
 
     return_names = unique(query_names)
     return_df = rename!( convert( DataFrame, return_names  ), zeros( Int64,  length(return_names) ) )
-    return_df = combine( DataFrame( map( (x, rn = return_names, rdf = return_df) -> rdf[1, findindexes( names(x), rn )] = map( y -> string(y), x ) ) ) )
+    return_df = combine( DataFrame( map( (x, rn = return_names, rdf = return_df) -> rdf[1, findall( in(names(x)), rn )] = map( y -> string(y), x ) ) ) )
   end
 
   if give_return

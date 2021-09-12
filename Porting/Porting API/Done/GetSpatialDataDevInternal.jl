@@ -6,7 +6,6 @@ export options, #Options dictionary
 
 
 using DataFrames
-include("ValuableAdditions.jl")
 
 
 
@@ -19,22 +18,22 @@ include("ValuableAdditions.jl")
 #'
 #' @keywords internal
 #' @noRd 
-#' 
-function out( input, type = 1, ll = nothing, msg = false, sign = "", verbose = options[:verbose] )
+#'
+function out( input; type = 1, ll = nothing, msg = false, sign = "", verbose = options[:gSD_verbose] )
   if isnothing(ll)
     ll = verbose ? 1 : 2
   end
   if type == 2 && ll <= 2
-    @warn rPaste(sign, input)
+    @warn sign.*input
   else
     if type == 3
       throw( DomainError( input ) )
     else
       if ll == 1
-        if msg == false
-          vcat( rPaste(sign, input), "\n" )
+        if !msg
+          println(join( sign.*input, "\n" ))
         else
-          @info rPaste(sign, input)
+          @info sign.*input
         end
       end
     end
@@ -110,7 +109,7 @@ end
 #' @importFrom httr GET stop_for_status warn_for_status message_for_status progress
 #' @keywords internal
 #' @noRd
-function gSD_get(url, username = nothing, password = nothing, dir_file = nothing, prog = false)
+function gSD_get(url; username = nothing, password = nothing, dir_file = nothing, prog = false)
 
   #x <- NULL # needed due to checks
   #get.str <-"x <- GET(url"
@@ -149,7 +148,7 @@ end
 #' @importFrom httr POST stop_for_status warn_for_status message_for_status progress
 #' @keywords internal
 #' @noRd
-function gSD_post( url, username = nothing, password = nothing, body = false )
+function gSD_post( url; username = nothing, password = nothing, body = false )
   
   #post.str <-"x <- POST(url"
   #if(!is.null(username)) post.str <- paste0(post.str, ", authenticate(username, password)")
@@ -180,9 +179,9 @@ end
 #' @importFrom tools md5sum
 #' @keywords internal
 #' @noRd
-function gSD_download( name, url_file, file, url_checksum = nothing )
+function gSD_download( name, url_file, file; url_checksum = nothing )
   out( join([ "Attempting to download '", name, "' to '", file, "'..." ]), msg = true )
-  file_tmp = tempfile( tmpdir = rPaste( split( file, "/" )[1:end-1], collapse = "/" ) ) #, fileext = ".tar.gz") 
+  file_tmp = tempfile( tmpdir = join( split( file, "/" )[1:end-1], "/" ) ) #, fileext = ".tar.gz") 
   gSD_get( url_file, dir_file = file_tmp, prog = true )
   if isnothing( url_checksum )
     md5 = split( content( gSD_get(url_checksum), as = "text", encoding = "UTF-8" ), " " )[1]
@@ -265,7 +264,7 @@ end
 #' @param wildcard wildcard
 #' @keywords internal
 #' @noRd
-function EE_ds(api_key, wildcard = nothing)
+function EE_ds(api_key; wildcard = nothing)
   q = join([ (options[:gSD_api])[:ee], "datasets?jsonRequest={\"apiKey\":\"", api_key, "\"}" ]) #, if(isnothing(wildcard)) "}" else  ",\"datasetName\":\"", wildcard, "\"}")
   if !isnothing(wildcard) 
     q = gsub("}", join([ ",\"datasetName\":\"", wildcard, "\"}" ]), q)
@@ -289,7 +288,7 @@ end
 #'
 #' @keywords internal
 #' @noRd
-function EE_query(aoi, time_range, name, api_key, meta_fields = nothing )
+function EE_query(aoi, time_range, name, api_key; meta_fields = nothing )
 
   spatialFilter = join([ "\"spatialFilter\":{\"filterType\":\"mbr\",\"lowerLeft\":{\"latitude\":", st_bbox(aoi)[:ymin], ",\"longitude\":", st_bbox(aoi)[:xmin], "},\"upperRight\":{\"latitude\":", st_bbox(aoi)[:ymax], ",\"longitude\":", st_bbox(aoi)[:xmin], "}}" ])
   temporalFilter = join([ "\"temporalFilter\":{\"startDate\":\"", time_range[1], "\",\"endDate\":\"", time_range[2], "\"}" ])
@@ -330,9 +329,9 @@ function EE_query(aoi, time_range, name, api_key, meta_fields = nothing )
                                                                    x_char = string.(x)
     
                                                                    # Make sf polygon filed from spatialFootprint
-                                                                   spf_sub = grep("spatialFoot", x.names)
+                                                                   spf_sub = findall(occursin.("spatialFoot", x.names))
                                                                    spf = x[spf_sub]
-                                                                   spf = tryparse( Int64, spf[grep("coordinates", names(spf))] )
+                                                                   spf = tryparse( Int64, spf[ findall(occursin.("coordinates", names(spf))) ] )
                                                                    spf_sf = make_aoi( hcat( spf[range(1, length(spf), by = 2)], spf[range(2, length(spf), by = 2)] ), type = "sf", quiet = true )
 
                                                                    df = DataFrame( x_char )
@@ -410,7 +409,7 @@ end
 #'
 #' @keywords internal
 #' @noRd
-function EE_preview(record, on_map = true, show_aoi = true, verbose = true)
+function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
 
   if verbose <: Bool
     options[:verbose] = verbose
@@ -483,7 +482,7 @@ function convMODIS_names(names)
          y = split( x, "_", keepempty = false )[1]
          y = y[2:end]
          if length(y) > 1
-           y = rPaste( y[1:end-1], collapse = "_" )
+           y = join( y[1:end-1], "_" )
          end
          return y 
        end, names )
@@ -501,7 +500,7 @@ end
 #' @keywords internal
 #' @importFrom httr content
 #' @noRd
-function ESPA_order( id, username, password, verbose, level = "sr", format = "gtiff" )
+function ESPA_order( id, username, password, verbose; level = "sr", format = "gtiff" )
   
   ## check query and abort, if not available
   out("Ordering requested items from ESPA...")
@@ -549,7 +548,7 @@ end
 #' @keywords internal
 #' @noRd
 ## check order(s)
-function ESPA_download(order_list, username, password, file_down, dir_out, delay = 10)
+function ESPA_download(order_list, username, password, file_down, dir_out; delay = 10)
   remain_active = true
   ini = true
   show_status = true
@@ -624,7 +623,7 @@ end
 #' @importFrom sp SpatialPolygons
 #' @importFrom sf st_sfc st_polygon st_crs st_as_sf st_coordinates st_transform st_crs<- as_Spatial
 #' @noRd
-function make_aoi(aoi, type = "matrix", quiet = false)
+function make_aoi(aoi; type = "matrix", quiet = false)
   ## if not sfc, convert to sfc
   if !inherits(aoi, ["Spatial", "sfc", "matrix"])
     out("Argument 'aoi' needs to be a 'SpatialPolygons' or 'sfc_POLYGON' or 'matrix' object.", type = 3)

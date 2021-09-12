@@ -12,7 +12,7 @@ Traduzioni: ( R ==> Julia )
 
 	Sys.Date()  ==>  (Dates.)today()
 
-	grep( "stringa", "array di stringhe" )  ==>  findall(occursin( "stringa", "array di stringhe"))
+	grep( "stringa", "array di stringhe" )  ==>  findall(occursin.( "stringa", "array di stringhe"))
 		grepl(...) ==> occursin.(...) (valore di ritorno logical vector )
 	
 
@@ -37,6 +37,8 @@ Traduzioni: ( R ==> Julia )
 	apply( set, x -> {...} )  ==>  map(set) do x
 						...
 					end
+
+	paste0(...)  ==>  Join() / * / .*
 
 
 

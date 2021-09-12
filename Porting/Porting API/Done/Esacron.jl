@@ -19,14 +19,14 @@ include("ValuableAdditions.jl")
 conn = LibPQ.Connection("postgresql://****:*********@localhost:27017/esa")
 conn2 = LibPQ.Connection("postgresql://****:*********@geolab.vs-ix.net:5432/esa")
 
-startdate = Dict( "Sentinel-1" => Date("2024-04-01"),
+platform_startdate = Dict( "Sentinel-1" => Date("2024-04-01"),
                   "Sentinel-2" => Date("2015-06-01")#=,
                   "Sentinel-3" => Date("2016-02-01") =#)
-tables = Dict( "Sentinel-1" => "s1",
+platform_tables = Dict( "Sentinel-1" => "s1",
                "Sentinel-2" => "s2",
                "Sentinel-3" => "s3" )
 
-platforms_lastdate = DataFrame(CVS.File("platforms.lastdate.csv"))
+platforms_lastdate = DataFrame(CVS.File("platforms_lastdate.csv"))
 
 #platforms.lastdate$`Sentinel-1`<-platforms.lastdate$`Sentinel-1`-2
 #platforms.lastdate$`Sentinel-2`<-platforms.lastdate$`Sentinel-2`-2
@@ -44,7 +44,7 @@ for platform in names(platforms_startdate)
     lns = readlines( platform*".log" )
     rename!(lns, replace.( lns, "problem" => "" ) ) 
     
-    ww = findall(occursin( "problem", lns ))
+    ww = findall(occursin.( "problem", lns ))
     
     for date in names(lns[ww])
       println(date)
@@ -127,9 +127,9 @@ for platform in names(platforms_startdate)
       dt_data_sp_df = SpatialPolygonsDataFrame( dt_data_sp, products )
       nPolys = map( x -> length(x.Polygons), dt_data_sp.polygons )
       dd = dt_data_sp_df[ findall( nPolys > 1 ), : ] 
-      outins = pgInsert( conn, partial_match = true, name = ( "eo_sathub", platforms_tables[platform] ), 
+      outins = pgInsert( conn, partial_match = true, name = ( "eo_sathub", platforms_tables[Symbol(platform)] ), 
                          data_obj = dt_data_sp_df, upsert_using = "uuid,identifier" )
-      outins = pgInsert( conn2, partial_match = true, name = ( "eo_sathub", platforms_tables[platform] ), 
+      outins = pgInsert( conn2, partial_match = true, name = ( "eo_sathub", platforms_tables[Symbol(platform)] ), 
                          data_obj = dt_data_sp_df, upsert_using = "uuid,identifier" )
       
       if outins
@@ -139,8 +139,7 @@ for platform in names(platforms_startdate)
     
       
       
-      log_con  =  open( platform*".log", "w" )
-      lns_out = write( log_con, join(lns) ) 
+      lns_out = write( platform*".log", join(lns) ) 
       close(log_con) 
     end
   end
@@ -160,13 +159,13 @@ for platform in names(platforms_startdate)
   #redo = dbGetQuery(conn, sql)
   #for(date in redo[:beginposition])
   #Dates.today() - 1 per evitare ingestion / beginposition differenza
-  while platforms_lastdate[platform] < Dates.today() 
+  while platforms_lastdate[Symbol(platform)] < Dates.today() 
     
     println(platform)
     
-    println(platforms_lastdate[platform])
+    println(platforms_lastdate[Symbol(platform)])
     
-    date = platforms_lastdate[platform]
+    date = platforms_lastdate[Symbol(platform)]
     
     time_range = [ string(date), string( date + timespan ) ]
     
@@ -181,7 +180,7 @@ for platform in names(platforms_startdate)
     
     #CSV.write( "products.jld2", products ) 
     products_tmp = products
-    platforms_lastdate[platform] += timespan 
+    platforms_lastdate[Symbol(platform)] += timespan 
     
     if isnothing(products) || nrow(products) < 1
 
@@ -189,9 +188,9 @@ for platform in names(platforms_startdate)
       
      # log_con = open( platform*".log", "r" )
       open( platform*".log", "w" ) do io
-        write( io, string( platforms_lastdate[platform] )[1]*" problem0" )
+        write( io, string( platforms_lastdate[Symbol(platform)] )[1]*" problem0" )
       end
-      println( platforms_lastdate[platform] )
+      println( platforms_lastdate[Symbol(platform)] )
     end
     
     products = products[ findall( !ismissing, products[:footprint] ), : ]
@@ -294,12 +293,12 @@ for platform in names(platforms_startdate)
     insert!( products, 1, :uuid => products[:uuid] )
     
     dt_data_sp_df =  SpatialPolygonsDataFrame( dt_data_sp, products )  
-    outins = pgInsert( conn, partial.match = true, name = ["eo_sathub",platforms_tables[platform]], data.obj = dt_data_sp_df, upsert.using = ["uuid","identifier"] )
+    outins = pgInsert( conn, partial.match = true, name = ["eo_sathub",platforms_tables[Symbol(platform)]], data.obj = dt_data_sp_df, upsert.using = ["uuid","identifier"] )
     if !outins  
       error = "ERRORE in upsert conn"  
       println(error)
     end
-    outins = pgInsert(conn2, partial.match = true, name = ["eo_sathub",platforms_tables[platform]], data.obj = dt_data_sp_df, upsert.using = ["uuid","beginposition"] )
+    outins = pgInsert(conn2, partial.match = true, name = ["eo_sathub",platforms_tables[Symbol(platform)]], data.obj = dt_data_sp_df, upsert.using = ["uuid","beginposition"] )
     if !outins   
       error = "ERRORE in upsert conn2"  
       println(error)
@@ -312,13 +311,13 @@ for platform in names(platforms_startdate)
       CSV.write( platforms_lastdate, "platforms_lastdate.csv" )
     end
     
-    #print(platforms_lastdate[platform])
-    write( log_con, string.(platforms_lastdate[platform])[1] )
+    #print(platforms_lastdate[Symbol(platform)])
+    write( log_con, string.(platforms_lastdate[Symbol(platform)])[1] )
     write( log_con, "\n" )
     close(log_con) 
     
     println("Finito data ===")
-    println(platforms_lastdate[platform])
+    println(platforms_lastdate[Symbol(platform)])
   end
   
   println("Finito =====")
