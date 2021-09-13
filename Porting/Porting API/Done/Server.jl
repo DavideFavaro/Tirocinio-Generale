@@ -205,11 +205,11 @@ function server(input, output, session)
     download_script_selected = []
     if length(s)
       
-      map( x -> push!( download_script_selected,  sprintf([ download_script,
-                                                            input[:user],
-                                                            input[:password],
-                                                            dt_data_sp_df[:data][x,"uuid"],
-                                                            dt_data_sp_df[:data][x,"uuid"] ]) ), s )
+      map( x -> push!( download_script_selected,  sprintf( download_script,
+                                                           input[:user],
+                                                           input[:password],
+                                                           dt_data_sp_df[:data][x,"uuid"],
+                                                           dt_data_sp_df[:data][x,"uuid"] ) ), s )
       println("These rows were selected:\n\n")
       bounds = "[  [ $(search_bounds[:west]), $(search_bounds[:east]) ], [ $(search_bounds[:south]), $(search_bounds[:north]) ]  ]"
       
