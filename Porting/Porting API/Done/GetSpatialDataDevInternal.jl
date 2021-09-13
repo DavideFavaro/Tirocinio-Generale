@@ -1,11 +1,10 @@
 module GetSpatialDataDevInternal
 
+using DataFrames
+
 export options, #Options dictionary
        checkCmd, convMODIS_names, copHub_select, EE_ds, EE_preview, EE_query, ERS_login, ERS_logout, ESPA_order, ESPA_download,
        gSD_get, gSD_download, gSD_post, isFalse, isTrue, make_aoi, out #Functions
-
-
-using DataFrames
 
 
 

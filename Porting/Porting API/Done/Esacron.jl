@@ -13,7 +13,6 @@ module Esacron
 using ArchGDAL, CategoricalArrays, CSV, DataFrames, Dates, LibPQ
 
 include("getSpatialDataDev.jl")
-include("ValuableAdditions.jl")
 
 #+ postgresql://"user":"Password"@"host":"port"/"database"
 conn = LibPQ.Connection("postgresql://****:*********@localhost:27017/esa")

@@ -1,12 +1,8 @@
 module  Server
 
-
-export server #function
-
-
-
 using CSV, DataFrames, Dates, LibPQ
 
+export server #function
 
 # Define server logic required to draw a histogram
 function server(input, output, session)

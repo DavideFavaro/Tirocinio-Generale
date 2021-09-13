@@ -1,9 +1,5 @@
 module GetSpatialDataDev
 
-
-export cophub_api, getSentinel_query2, login_CopHub, set_archive #Functions
-
-
 #Global variables
 #= imports
   library(httr)
@@ -16,7 +12,7 @@ using Dates
 
 include("getSpatialDataDevInternal.jl")
 
-
+export cophub_api, getSentinel_query2, login_CopHub, set_archive #Functions
 
 
 function cophub_api(x::AbstractString, p::AbstractString, user, pw) 

@@ -17,7 +17,6 @@ module Global
 
 using DataFrames
 using Dates
-using BenchmarkTools
 
 
 source("getSpatialData_dev.R")
