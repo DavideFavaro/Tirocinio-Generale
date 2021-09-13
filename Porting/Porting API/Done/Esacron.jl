@@ -305,7 +305,7 @@ for platform in names(platforms_startdate)
     
     log_con = open( platform*".log", open="a" )
     if !isnothing(error)
-      write( log_con, sprintf("last problem = %s" , error) )
+      write( log_con,"last problem = $error" )
     else 
       CSV.write( platforms_lastdate, "platforms_lastdate.csv" )
     end

@@ -614,14 +614,15 @@ function ESPA_download(order_list, username, password, file_down, dir_out; delay
 end
 
 
+"""
+make aoi
 
-#' make aoi
-#'
-#' @param aoi aoi
-#' @keywords internal
-#' @importFrom sp SpatialPolygons
-#' @importFrom sf st_sfc st_polygon st_crs st_as_sf st_coordinates st_transform st_crs<- as_Spatial
-#' @noRd
+@param aoi aoi
+@keywords internal
+@importFrom sp SpatialPolygons
+@importFrom sf st_sfc st_polygon st_crs st_as_sf st_coordinates st_transform st_crs<- as_Spatial
+@noRd
+"""
 function make_aoi(aoi; type = "matrix", quiet = false)
   ## if not sfc, convert to sfc
   if !inherits(aoi, ["Spatial", "sfc", "matrix"])
@@ -640,11 +641,14 @@ function make_aoi(aoi; type = "matrix", quiet = false)
     aoi <- st_as_sf(aoi)
   end
 
-  ## check projection
+
+"""
+  check projection
+"""
   if isnan( st_crs(aoi) )
     st_crs(aoi) <- 4326
     if isFALSE(quiet)
-      out(join([ "Argument 'aoi' has no projection, assuming '", st_crs(aoi)[:proj4string], "' projection." ]), type = 2)
+      out( "Argument 'aoi' has no projection, assuming '"*str(st_crs(aoi)[:proj4string])*"' projection.", type = 2)
     end
   end
   if length( grep("WGS84", grep("longlat", st_crs(aoi)[:proj4string], value = true), value = true) ) != 1

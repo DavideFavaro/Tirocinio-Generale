@@ -1,13 +1,13 @@
 module  Server
 
-using CSV, DataFrames, Dates, LibPQ
+using CSV, DataFrames, Dates, LibPQ, Printf
 
 export server #function
 
 # Define server logic required to draw a histogram
 function server(input, output, session)
   ##our very own getSentinel modified!
-  downloads[:script][:selected] = nothing
+  download_script_selected = nothing
  
   
   output[:mymap] = renderLeaflet({
@@ -41,7 +41,7 @@ function server(input, output, session)
     queryst = "SELECT count(*) as n, min(beginposition) as min , max(beginposition) as max from eo_sathub.$(platforms[:tables][ input[:platform] ])"
     
 
-    queryst2 = "SELECT count(*) as n from eo_sathub.$(platforms[:tables][ input[:platform] ])"
+    queryst2 = "SELECT count(*) as n from eo_sathub.$(platforms_tables[ input[:platform] ])"
 
     df_postgres = execute(con,  queryst)
     updateDateRangeInput(session, "daterange", start = df[:postgres][:min], nd = df[:postgres][:max] )
@@ -75,7 +75,7 @@ function server(input, output, session)
     dt = input[:mytable_row_last_clicked]
     # highlightLayer("%s");
     for i in dt
-      shinyjs.runjs( "highlightLayer('$(dt.data.sp.df[:data][ i, columns_lut[[ input[:platform] ]][ ["rownames"] ] ])')" )
+      shinyjs.runjs( "highlightLayer('$(dt_data_sp_df[:data][ i, columns_lut[[ input[:platform] ]][ ["rownames"] ] ])')" )
     end
   })
   
@@ -154,37 +154,37 @@ function server(input, output, session)
                       
                    println(queryst)
                    try 
-                      dt.data.sp.df = pgGetGeom( con, ["eo_sathub", platforms_tables[ input[:platform] ] ],
+                      dt_data_sp_df = pgGetGeom( con, ["eo_sathub", platforms_tables[ input[:platform] ] ],
                                                        other_cols = names( columns_lut[ input[:platform] ]["lut"]), 
                                                        clauses = queryst )
                     catch e
-                      dt.data.sp.df
+                      dt_data_sp_df
                     end
                    
                    close(con)
  
-                   if isnothing(dt.data.sp.df) || nrow(dt.data.sp.df[:data]) == 0
+                   if isnothing(dt_data_sp_df) || nrow(dt_data_sp_df[:data]) == 0
                      sendSweetAlert( session = session, "No product found for query", "No $(input[:platform]) product found!" )
                      return nothing
                    end
                     
-                   rename!( dt.data.sp.df[:data], columns_lut[ input[:platform] ]["lut"][:,1] )
+                   rename!( dt_data_sp_df[:data], columns_lut[ input[:platform] ]["lut"][:,1] )
                    
-                   insert!( dt.data.sp.df[:data], 1, :Rownames => dt.data.sp.df[:data][:, columns_lut[ input[:platform] ]["rownames"] ] )
+                   insert!( dt_data_sp_df[:data], 1, :Rownames => dt_data_sp_df[:data][:, columns_lut[ input[:platform] ]["rownames"] ] )
                    
                    map( function (x)
                           if !ismissing(x[2])
                             if x[2][1:3] == "as." 
-                              dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data][ x[1] ] )
+                              dt_data_sp_df[:data][ x[1] ] = get( x[2] )( dt_data_sp_df[:data][ x[1] ] )
                             else
-                              dt.data.sp.df[:data][ x[1] ] = get( x[2] )( dt.data.sp.df[:data] )
+                              dt_data_sp_df[:data][ x[1] ] = get( x[2] )( dt_data_sp_df[:data] )
                             end
                           end
                         end, columns_lut[ input[:platform] ]["lut"] )
                    updateTabsetPanel( session, "mytabset", selected = "tabletab" )
                    output[:mytable] = DT.renderDataTable({
                      DT.datatable(
-                       dt.data.sp.df[:data],
+                       dt_data_sp_df[:data],
                        filter = "top",
                        rownames = false,
                        class = "compact hover stripe",
@@ -202,34 +202,34 @@ function server(input, output, session)
   
   observeEvent( input[:mytable_rows_selected], { 
     s = input[:mytable_rows_selected]
-    download.script.selected = []
+    download_script_selected = []
     if length(s)
       
-      map( x -> push!( download.script.selected,  sprintf([ download.script,
+      map( x -> push!( download_script_selected,  sprintf([ download_script,
                                                             input[:user],
                                                             input[:password],
-                                                            dt.data.sp.df[:data][x,"uuid"],
-                                                            dt.data.sp.df[:data][x,"uuid"] ]) ), s )
+                                                            dt_data_sp_df[:data][x,"uuid"],
+                                                            dt_data_sp_df[:data][x,"uuid"] ]) ), s )
       println("These rows were selected:\n\n")
       bounds = "[  [ $(search_bounds[:west]), $(search_bounds[:east]) ], [ $(search_bounds[:south]), $(search_bounds[:north]) ]  ]"
       
       nm = "&nbsp;<i onclick=\"mapElement.bounds($bounds)\" class=\"fa fa-search\"></i>&nbsp;Search area"
       
  
-      leafletProxy("mymap", data = dt.data.sp.df[s,:]) |>
+      leafletProxy("mymap", data = dt_data_sp_df[s,:]) |>
         clearShapes()
         |>  
-        fitBounds( dt.data.sp.df[s,:][:bbox]["x","min"], dt.data.sp.df[s,:][:bbox]["y","min"],
-                   dt.data.sp.df[s,:][:bbox]["x","max"], dt.data.sp.df[s,:][:bbox]["y","max"] )
+        fitBounds( dt_data_sp_df[s,:][:bbox]["x","min"], dt_data_sp_df[s,:][:bbox]["y","min"],
+                   dt_data_sp_df[s,:][:bbox]["x","max"], dt_data_sp_df[s,:][:bbox]["y","max"] )
         |>
-        addPolygons( layerId = dt.data.spdf[s,:][:data][:,1], 
+        addPolygons( layerId = dt_data_sp_df[s,:][:data][:,1], 
                      weight = 1,
                      color = "red",
                      fillOpacity = 0.0,
                      opacity = 0.5,
                      highlightOptions = highlightOptions( color = "yellow", 
                                                           weight = 5,
-                                                          opacity=1.,
+                                                          opacity=1.0,
                                                           bringToFront = true ),
                      popup = "<img width=\"200\" src=\"https://scihub.copernicus.eu/dhus/odata/v1/Products('$uuid')/Products('Quicklook')/\"><br><a href=\"https://scihub.copernicus.eu/dhus/odata/v1/Products('$uuid')/\$value\" target=\"_blank\">Download</a><br>Size:$size",
                      group = "Footprints" )
@@ -251,7 +251,7 @@ function server(input, output, session)
 
   output[:downloadData] = downloadHandler(
     filename = () -> return "data-$(today()).sh",
-    content = file -> CSV.write( file, download[:script][:selected], writeheader = false, quotestrings = false )
+    content = file -> CSV.write( file, download_script_selected, writeheader = false, quotestrings = false )
   )
 
 end
