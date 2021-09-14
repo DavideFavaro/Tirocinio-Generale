@@ -4,6 +4,8 @@ using CSV, DataFrames, Dates, LibPQ, Printf
 
 export server #function
 
+
+
 # Define server logic required to draw a histogram
 function server(input, output, session)
   ##our very own getSentinel modified!

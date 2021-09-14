@@ -13,6 +13,7 @@ Traduzioni: ( R ==> Julia )
 	Sys.Date()  ==>  (Dates.)today()
 
 	grep( "stringa", "array di stringhe" )  ==>  findall(occursin.( "stringa", "array di stringhe"))
+		grep( "sringa", "array di stringhe", value = TRUE )  ==>  filter( x -> occursin( "stringa", x ), "array di stringhe" )
 		grepl(...) ==> occursin.(...) (valore di ritorno logical vector )
 	
 

@@ -8,16 +8,20 @@ export options, #Options dictionary
 
 
 
-#' Outputs errors, warnings and messages
-#'
-#' @param input character
-#' @param type numeric, 1 = message/cat, 2 = warning, 3 = error and stop
-#' @param msg logical. If \code{TRUE}, \code{message} is used instead of \code{cat}. Default is \code{FALSE}.
-#' @param sign character. Defines the prefix string.
-#'
-#' @keywords internal
-#' @noRd 
-#'
+"""
+    out( input; <keyword arguments> )
+
+Output errors, warnings and messages
+
+# Arguments
+- `input::AbstractString`: message to be printed
+- `type::Integer=1`: 1 = message/cat, 2 = warning, 3 = error and stop
+- `ll:Integer`
+- `msg::Bool=false`: If \\code{TRUE}, \\code{message} is used instead of \\code{cat}. Default is \\code{FALSE}.
+- `sign::AbstractString=""`: Defines the prefix string.
+- `verbose::Bool=options[:gSD_verbose]`
+@noRd 
+"""
 function out( input; type = 1, ll = nothing, msg = false, sign = "", verbose = options[:gSD_verbose] )
   if isnothing(ll)
     ll = verbose ? 1 : 2
@@ -40,14 +44,11 @@ function out( input; type = 1, ll = nothing, msg = false, sign = "", verbose = o
 end
 
 
+"""
+    isFalse(evaluate)
 
-#' Simplifies check of variables being FALSE
-#'
-#' @param evaluate variable or expression to be evaluated
-#'
-#' @keywords internal
-#' @noRd
-
+Simplify check of variables being FALSE
+"""
 function isFalse(evaluate)
   #if evaluate == false
   #  return true
@@ -58,13 +59,11 @@ function isFalse(evaluate)
 end
 
 
+"""
+    isTrue(evaluate)
 
-#' Simplifies check of variables being TRUE
-#'
-#' @param evaluate variable or expression to be evaluated
-#'
-#' @keywords internal
-#' @noRd
+Simplifies check of variables being TRUE
+"""
 function isTrue(evaluate)
   #if evaluate == true
   #  return true
@@ -75,12 +74,11 @@ function isTrue(evaluate)
 end
 
 
-#' Checks, if specific command is available
-#'
-#' @param cmd command
-#' @importFrom devtools system_check
-#' @keywords internal
-#' @noRd
+"""
+    checkCmd(cmd)
+
+Checks, if specific command is available
+"""
 function checkCmd(cmd)
   #sc = try 
   #       system_check(cmd, quiet = true) 
@@ -92,24 +90,26 @@ function checkCmd(cmd)
   #       end
   #     end
   try
-    system_check(cmd, quiet = true) 
+    run(cmd, wait = false) 
   catch exception
       return !isa(exception, SystemError)
   end
 end
 
 
-#' gSD.get
-#' @param url url
-#' @param username user
-#' @param password pass
-#' @param dir.file output file path
-#' @param prog show or not show progress console
-#' @importFrom httr GET stop_for_status warn_for_status message_for_status progress
-#' @keywords internal
-#' @noRd
-function gSD_get(url; username = nothing, password = nothing, dir_file = nothing, prog = false)
+"""
+    gSD_get( url; <keyword arguments> )
 
+#Arguments
+- `url::AbstractString`
+- `username::AbstractString=nothing`
+- `password::AbstractString=nothing`
+- `dir_file::AbstractString=nothing`: output file path
+- `prog::Bool=false`: show or not show progress console
+
+@importFrom httr GET stop_for_status warn_for_status message_for_status progress
+"""
+function gSD_get(url; username = nothing, password = nothing, dir_file = nothing, prog = false)
   #x <- NULL # needed due to checks
   #get.str <-"x <- GET(url"
   #if(!is.null(username)) get.str <- paste0(get.str, ", authenticate(username, password)")
@@ -117,8 +117,6 @@ function gSD_get(url; username = nothing, password = nothing, dir_file = nothing
   #if(is.TRUE(prog)) get.str <- paste0(get.str, ", progress()")
   #get.str <- paste0(get.str, ")")
   #eval(parse(text = get.str))
-
-  #getfield( """QUALUNQUE SIA IL MODULO DELLA FUNZIONE""", Symbol(get_str) )()
   
   x = nothing # needed due to checks
   if !isnothing(username)
@@ -138,15 +136,17 @@ function gSD_get(url; username = nothing, password = nothing, dir_file = nothing
 end
 
 
+"""
+    gSD_post( url; <keyword arguments> )
 
-#' gSD.post
-#' @param url url
-#' @param username user
-#' @param password pass
-#' @param body body
-#' @importFrom httr POST stop_for_status warn_for_status message_for_status progress
-#' @keywords internal
-#' @noRd
+#Arguments
+- `url::AbstractString`
+- `username::AbstractString=nothing`
+- `password::AbstractString=nothing`
+- `body::Bool=false`
+
+@importFrom httr POST stop_for_status warn_for_status message_for_status progress
+"""
 function gSD_post( url; username = nothing, password = nothing, body = false )
   
   #post.str <-"x <- POST(url"
@@ -170,16 +170,19 @@ function gSD_post( url; username = nothing, password = nothing, body = false )
 end
 
 
+"""
+    gSD_download( name, url_file, file; url_checksum = nothing )
 
-#' gSD.download
-#' @param name name
-#' @param url url
-#' @param file file
-#' @importFrom tools md5sum
-#' @keywords internal
-#' @noRd
+#Arguments
+- `name::AbstractString` name
+- `url_file` url
+- `file::AbstractString` file
+- `url_checksum=nothing`
+
+@importFrom tools md5sum
+"""
 function gSD_download( name, url_file, file; url_checksum = nothing )
-  out( join([ "Attempting to download '", name, "' to '", file, "'..." ]), msg = true )
+  out( "Attempting to download '$name' to '$file'...", msg = true )
   file_tmp = tempfile( tmpdir = join( split( file, "/" )[1:end-1], "/" ) ) #, fileext = ".tar.gz") 
   gSD_get( url_file, dir_file = file_tmp, prog = true )
   if isnothing( url_checksum )
@@ -198,15 +201,11 @@ function gSD_download( name, url_file, file; url_checksum = nothing )
 end
 
 
+"""
+    copHub_select(x, p, user, pw)
 
-#' get Copernicus Hub API url and credentials from user input
-#'
-#' @param x API keyword or URL
-#' @param p platform
-#' @param user user name
-#' @param pw password
-#' @keywords internal
-#' @noRd
+Get Copernicus Hub API url and credentials from user input using API keyword or URL x with platform p
+"""
 function copHub_select(x, p, user, pw) #cophub_api
   if x == "auto"
     if p == "Sentinel-1" || p == "Sentinel-2"
@@ -227,13 +226,11 @@ function copHub_select(x, p, user, pw) #cophub_api
 end
 
 
+"""
+    ERS_login(username, password)
 
-#' get ERS API key from user input
-#'
-#' @param username username
-#' @param password password
-#' @keywords internal
-#' @noRd
+Get ERS API key from user input
+"""
 function ERS_login(username, password)
   x = POST( join([ (options[:gSD_api])[:ee], "login?jsonRequest={\"username\":\"", username, "\",\"password\":\"", password, "\",\"authType\":\"EROS\",\"catalogId\":\"EE\"}" ]))
   stop_for_status(x, "connect to server.")
@@ -242,12 +239,11 @@ function ERS_login(username, password)
 end
 
 
+"""
+    ERS_logout(api_key)
 
-#' logout from ERS with API key
-#'
-#' @param api.key api.key
-#' @keywords internal
-#' @noRd
+Logout from ERS with API key
+"""
 function ERS_logout(api_key)
   x = gSD_get(join([ (options[:gSD_api])[:ee], "logout?jsonRequest={\"apiKey\":\"", api_key, "\"}" ]))
   stop_for_status(x, "connect to server.")
@@ -256,13 +252,11 @@ function ERS_logout(api_key)
 end
 
 
+"""
+    EE_ds(api_key; wildcard = nothing)
 
-#' get EE products
-#'
-#' @param api.key api.key
-#' @param wildcard wildcard
-#' @keywords internal
-#' @noRd
+Get EE products
+"""
 function EE_ds(api_key; wildcard = nothing)
   q = join([ (options[:gSD_api])[:ee], "datasets?jsonRequest={\"apiKey\":\"", api_key, "\"}" ]) #, if(isnothing(wildcard)) "}" else  ",\"datasetName\":\"", wildcard, "\"}")
   if !isnothing(wildcard) 
@@ -273,20 +267,14 @@ function EE_ds(api_key; wildcard = nothing)
 end
 
 
+"""
+    EE_query(aoi, time_range, name, api_key; meta_fields = nothing )
 
-#' query EE
-#'
-#' @param aoi aoi
-#' @param time_range time_range
-#' @param name name
-#' @param api.key api.key
-#' @param meta.fields meta.fields
-#'
-#' @importFrom sf st_bbox st_as_text
-#' @importFrom xml2 as_list
-#'
-#' @keywords internal
-#' @noRd
+query EE
+
+@importFrom sf st_bbox st_as_text
+@importFrom xml2 as_list
+"""
 function EE_query(aoi, time_range, name, api_key; meta_fields = nothing )
 
   spatialFilter = join([ "\"spatialFilter\":{\"filterType\":\"mbr\",\"lowerLeft\":{\"latitude\":", st_bbox(aoi)[:ymin], ",\"longitude\":", st_bbox(aoi)[:xmin], "},\"upperRight\":{\"latitude\":", st_bbox(aoi)[:ymax], ",\"longitude\":", st_bbox(aoi)[:xmin], "}}" ])
@@ -392,22 +380,23 @@ function EE_query(aoi, time_range, name, api_key; meta_fields = nothing )
 end
 
 
+"""
+    EE_preview(record; on_map = true, show_aoi = true, verbose = true)
 
-#' preview EE record
-#'
-#' @param record record
-#' @param on_map on_map
-#' @param show_aoi show_aoi
-#' @param verbose verbose
-#'
-#' @importFrom getPass getPass
-#' @importFrom httr GET write_disk authenticate
-#' @importFrom raster stack plotRGB crs crs<- extent extent<- NAvalue
-#' @importFrom sf st_as_sfc st_crs as_Spatial
-#' @importFrom mapview viewRGB addFeatures
-#'
-#' @keywords internal
-#' @noRd
+preview EE record
+
+#Arguments
+- `record` 
+- `on_map::Bool=true`
+- `show_aoi:Bool=true`
+- `verbose::Bool=true`
+
+@importFrom getPass getPass
+@importFrom httr GET write_disk authenticate
+@importFrom raster stack plotRGB crs crs<- extent extent<- NAvalue
+@importFrom sf st_as_sfc st_crs as_Spatial
+@importFrom mapview viewRGB addFeatures
+"""
 function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
 
   if verbose <: Bool
@@ -416,7 +405,7 @@ function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
   
   ## Intercept false inputs and get inputs
   url_icon = record[:browseUrl]
-  if isnan(url_icon)
+  if isnan(url_icon) || ismissing(url_icon) 
     out("Argument 'record' is invalid or no preview is available.", type = 3)
   end
   if length(url.icon) > 1
@@ -470,12 +459,11 @@ function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
 end
 
 
+"""
+    convMODIS_names(names)
 
-#' convert MODIS product names
-#'
-#' @param names names
-#' @keywords internal
-#' @noRd
+convert MODIS product names
+"""
 function convMODIS_names(names)
   map( function (x)
          y = split( x, "_", keepempty = false )[1]
@@ -488,17 +476,11 @@ function convMODIS_names(names)
 end
 
 
+"""
+    ESPA_order( id, username, password, verbose; level = "sr", format = "gtiff" )
 
-#' USGS ESPA ordering functon
-#'
-#' @param id id
-#' @param level level
-#' @param username username
-#' @param password password
-#' @param format format
-#' @keywords internal
-#' @importFrom httr content
-#' @noRd
+USGS ESPA ordering functon
+"""
 function ESPA_order( id, username, password, verbose; level = "sr", format = "gtiff" )
   
   ## check query and abort, if not available
@@ -533,20 +515,15 @@ function ESPA_order( id, username, password, verbose; level = "sr", format = "gt
 end
 
 
+"""
+    ESPA_download(order_list, username, password, file_down, dir_out; delay = 10)
 
-#' USGS ESPA downloading functon
-#'
-#' @param order.list order.list
-#' @param username username
-#' @param password password
-#' @param file.down file.down
-#' @param delay delay
-#'
-#' @importFrom utils head tail
-#'
-#' @keywords internal
-#' @noRd
-## check order(s)
+USGS ESPA downloading functon
+
+
+@importFrom utils head tail
+check order(s)
+"""
 function ESPA_download(order_list, username, password, file_down, dir_out; delay = 10)
   remain_active = true
   ini = true
@@ -615,13 +592,12 @@ end
 
 
 """
-make aoi
+    make_aoi(aoi; type = "matrix", quiet = false)
 
-@param aoi aoi
-@keywords internal
+Make aoi
+
 @importFrom sp SpatialPolygons
 @importFrom sf st_sfc st_polygon st_crs st_as_sf st_coordinates st_transform st_crs<- as_Spatial
-@noRd
 """
 function make_aoi(aoi; type = "matrix", quiet = false)
   ## if not sfc, convert to sfc
@@ -641,22 +617,22 @@ function make_aoi(aoi; type = "matrix", quiet = false)
     aoi <- st_as_sf(aoi)
   end
 
-
 """
   check projection
 """
-  if isnan( st_crs(aoi) )
+  if ismissing( st_crs(aoi) ) || isnan( st_crs(aoi) ) 
     st_crs(aoi) <- 4326
     if isFALSE(quiet)
       out( "Argument 'aoi' has no projection, assuming '"*str(st_crs(aoi)[:proj4string])*"' projection.", type = 2)
     end
   end
-  if length( grep("WGS84", grep("longlat", st_crs(aoi)[:proj4string], value = true), value = true) ) != 1
+  if length( filter( x -> occursin( "WGS84", x ), filter( x -> occursin("longlat", x), st_crs(aoi)[:proj4string] ) ) ) != 1
     aoi = st_transform(aoi, 4326)
   end
 
-    
-  ## get coordinates
+"""
+  get coordinates
+"""
   aoi_m = st_coordinates(aoi)[:,[1,2]]
   aoi_sf = st_sfc( st_polygon(aoi_m), crs = 4326 )
   aoi_sp = as_Spatial(aoi_sf)
