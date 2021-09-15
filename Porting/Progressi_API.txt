@@ -297,34 +297,19 @@ Problematiche codice:
 
 
 
+Links
+	Download tramite curl/wget utilizzando l'id del prodotto:
+		https://scihub.copernicus.eu/twiki/do/view/SciHubUserGuide/BatchScripting#Download_via_wget
 
+	Catalogo prodotti:
+		https://scihub.copernicus.eu/userguide/CatalogueViewInCSV
 
+	LicCURL API:
+		https://curl.se/libcurl/c/
 
-
-
-options = Dict(
-  gSD_api => Dict(
-    dhus => "https://scihub.copernicus.eu/dhus/",
-    s3 => "https://scihub.copernicus.eu/s3/",
-    espa => "https://espa.cr.usgs.gov/api/v0/",
-    ee => "https://earthexplorer.usgs.gov/inventory/json/v/1.4.0/",
-    aws_l8 => "https://landsat-pds.s3.amazonaws.com/c1/L8/",
-    aws_l8.sl => "https://landsat-pds.s3.amazonaws.com/c1/L8/scene_list.gz"
-  ),
-  gSD_verbose => false,
-  gSD_cophub_user => false,
-  gSD_cophub_pass => false,
-  gSD_cophub_set => false,
-  gSD_usgs_user => false,
-  gSD_usgs_pass => false,
-  gSD_usgs_set => false,
-  gSD_usgs_apikey => false,
-  gSD_archive => false,
-  gSD_archive_set => false,
-  gSD_aoi => false,
-  gSD_aoi_set => false
-)
-
+	Downloads.jl
+		https://github.com/JuliaLang/Downloads.jl
+		https://discourse.julialang.org/t/authentication-with-download/58790
 
 
 

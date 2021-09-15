@@ -414,7 +414,7 @@ function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
   char_args = Dict( url_icon => url_icon )
   for x in values(char_args) 
     if !all(isa.( x, AbstractString ))
-      out( join([ "Argument '", names(x), "' needs to be of type 'character'." ]), type = 3)
+      out( "Argument '$(names(x))' needs to be of type 'character'.", type = 3 )
     end
   end
 
@@ -422,7 +422,7 @@ function EE_preview(record; on_map = true, show_aoi = true, verbose = true)
     out("No preview available for this record or product.", msg = true)
   else
     ## Recieve preview
-    file_dir = join(tempname(),".jpg")
+    file_dir = tempname()*".jpg"
     gSD_get(url_icon, dir_file = file_dir)
     preview = stack(file_dir)
     #NAvalue(preview) <- 0
@@ -488,7 +488,7 @@ function ESPA_order( id, username, password, verbose; level = "sr", format = "gt
   checked = map( function (x, v = verbose)
                    r = gSD_get( join([ options[:gSD_api][:espa], "available-products/", x ]), options[:gSD_usgs_user], options[:gSD_usgs_pass] )
                    if names(content(r)) == "not_implemented"
-                     out( join([ "'", x, "': This ID is invalid, as it cannot be found in the ESPA database. Please remove it from input and reexecute." ]), type = 3)
+                     out( "'$x': This ID is invalid, as it cannot be found in the ESPA database. Please remove it from input and reexecute.", type = 3 )
                    end
                    vcat(x, r)
                  end, id )
@@ -497,7 +497,7 @@ function ESPA_order( id, username, password, verbose; level = "sr", format = "gt
   req_data = map( x -> vcat( names( content(x[2]) ), x[1] ), checked )
   coll = map( x -> x[1][1], req.data  )
   coll_uni = unique(coll)
-  out(join([ "Collecting from ", length(coll_uni), " collection(s) [", join(coll_uni, ", "), "], resulting in ", length(coll_uni), " order(s)..." ]))
+  out( "Collecting from $(length(coll_uni)) collection(s) [ $(join(coll_uni, ", ")) ], resulting in $(length(coll_uni)) order(s)..." )
   req_coll = map( (x, c = coll, rd = req_data) -> rd[findall( c .== x )], coll_uni )
 
   ## build request
@@ -509,8 +509,8 @@ function ESPA_order( id, username, password, verbose; level = "sr", format = "gt
   ## order
   order = map( (x, user = username, pass = password) -> gSD_post(url = join([ options[:gSD_api][:espa], "order/" ]), username = user, password = pass, body = x), req_body )
   order_list = map( x -> content(x)[1], order )
-  out(join([ "Products '", join( id, "', '" ), "' have been ordered successfully:" ]))
-  out(join([ "[level = '", level, "', format = '", format, "', order ID(s) '", join( order_list, "', '" ), "']." ]))
+  out( "Products '$(join( id, "', '" ))' have been ordered successfully:" )
+  out( "[level = '$level', format = '$format', order ID(s) '$(join( order_list, "', '" ))']."  )
   return order_list
 end
 
@@ -571,7 +571,7 @@ function ESPA_download(order_list, username, password, file_down, dir_out; delay
       if length(sub_download) > 0
         
         items_get = items_df[sub_download,:]
-        out( join([ "Starting download of product(s) '", join( items_get[:name], "', " ), "'." ]), msg = true )
+        out( "Starting download of product(s) '$( join( items_get[:name], "', " ) )'.", msg = true )
         items_df[Symbol(recieved[sub_download])] = map( function (x, d = dir_out)
                                                           y = DataFrame(x)
                                                           rename!( y, names(x) )
@@ -610,7 +610,7 @@ function make_aoi(aoi; type = "matrix", quiet = false)
     end
     aoi = st_sfc( st_polygon( Vector(aoi) ), crs = 4326 )
     if isFALSE(quiet)
-      out(join([ "Argument 'aoi' is a matrix, assuming '", st_crs(aoi)[:proj4string], "' projection." ]), type = 2)
+      out( "Argument 'aoi' is a matrix, assuming '$( st_crs(aoi)[:proj4string] )' projection.", type = 2)
     end
   end
   if inherits(aoi, "Spatial") 
