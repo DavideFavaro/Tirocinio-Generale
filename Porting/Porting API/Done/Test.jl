@@ -7,14 +7,13 @@ using CombinedParsers
 using CombinedParsers.Regexp
 
 
-
 # TEST ROW:
 #   test[1]
 #   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml"
 #   "<opensearch:totalResults>13265</opensearch:totalResults>"
 
 # TEST HEADER:
-#   test[2]
+#   test[2]"
 #   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Head_Test.xml"
 
 # TEST PRODUCT:
@@ -24,33 +23,42 @@ using CombinedParsers.Regexp
 # TEST DOCUMENT:
 #   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml"
 
-test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml",
-         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Head_Test.xml",
-         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Prod_Test.xml",
-         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml" ]
+source = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\",
+           "C:\\Users\\Lenovo\\Desktop\\XML\\" ]
 
-#Syntassi che identifica una riga di XML
-@syntax row = Either( Sequence( :opening_tag => re"<.+>",
-                                :content     => Either( Numeric(Int), re".+" ),
-                                :closing_tag => re"</.+>\n" ),
-                      re"<.+>\n" )
-
-@syntax header = Sequence( :opening_tag => re"<\?xml .+>\n",
-                           :content     => Repeat( 16, row ) )
-
-@syntax product = Sequence( :opening_tag => "<entry>\n",
-                            :content     => Repeat( row ),
-                            :closing_tag => "</entry>\n" )
-                
-@syntax document = Sequence( :header => header,
-                             :body => Repeat( 100, product ) )
+test = [ "Row_Test.xml",
+         "Head_Test.xml",
+         "Prod_Test.xml",
+         "1.xml" ]
 
 
 
-a = readline( test[1] )
-b = readlines( test[2] )
-c = readlines( test[3] )
-d = readlines( test[4] )
+# Credo che i Repeat() senza indicazione numerica causino loop infiniti
+# In 1.xml il minimo di attributi era 28 il massimo 48
+
+# Match su tutte le stringhe contenute tra due tag dal contenuto qualunque e tag singoli ma non su "<entry>" e "</entry>"
+@syntax row = Either( Sequence( re"<.+>",
+                                Either( Numeric(Int), re".+" ),
+                                re"</.+>\n" ),
+                      re"<(?!(/?entry)).*>\n" )
+
+# Match sull eprime 17 "row"
+#@syntax header = Repeat( 17, row )
+
+
+@syntax product = Sequence( "<entry>\n",
+                            Repeat(row),
+                            "<str name=\"gmlfootprint\">",
+                            re".+",
+                            "</str>",
+                            Repeat( row ),
+                            "</entry>\n" )
+
+
+a = readline( source[2]*test[1] )
+b = join( readlines( source[2]*test[2] ), '\n' ) * '\n'
+c = join( readlines( source[2]*test[3] ), '\n' ) * '\n'
+d = readlines( source[2]*test[4] )
 
 row(a)
 header( join(b) )
