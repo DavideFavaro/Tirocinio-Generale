@@ -4,6 +4,63 @@ using HTTP
 using Downloads
 
 using CombinedParsers
+using CombinedParsers.Regexp
+
+
+
+# TEST ROW:
+#   test[1]
+#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml"
+#   "<opensearch:totalResults>13265</opensearch:totalResults>"
+
+# TEST HEADER:
+#   test[2]
+#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Head_Test.xml"
+
+# TEST PRODUCT:
+#   test[3]
+#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Prod_Test.xml"
+
+# TEST DOCUMENT:
+#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml"
+
+test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml",
+         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Head_Test.xml",
+         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Prod_Test.xml",
+         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml" ]
+
+#Syntassi che identifica una riga di XML
+@syntax row = Sequence( :opening_tag => re"<.+>",
+                        :content     => Either( Numeric(Int), re".+" ),
+                        :closing_tag => re"</.+>" )
+
+@syntax header = Sequence( :opening_tag => re"<\?xml .+>",
+                           :content     => Repeat( 16, row ) )
+
+@syntax product = Sequence( :opening_tag => "<entry>",
+                            :content     => Repeat( row ),
+                            :closing_tag => "</entry>" )
+                
+@syntax document = Sequence( :header => header,
+                             :body => Repeat( 100, product ) )
+
+
+
+a = readline( test[1] )
+b = readlines( test[2] )
+c = readlines( test[3], keep=true )
+d = readlines( test[4], keep=true )
+
+row(a)
+header( join(b) )
+product( join(c) )
+document( joni(d) )
+
+
+
+
+
+
 
 
 """
@@ -22,6 +79,8 @@ out = [ "D:\\Vario\\Stage",
         "C:\\Users\\Lenovo\\Desktop\\XML",
         "C:\\Users\\DAVIDE-FAVARO\\Desktop",
         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML" ]
+
+
 
 
 
@@ -85,24 +144,25 @@ function getProducts( targetDirectory::AbstractString, authToken::AbstractString
     aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
     query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
     query = "search?start=0&rows=0&q=ingestiondate:$query2"
-    0file = targetDirectory*"\\0.xml"
+    file0 = targetDirectory*"\\0.xml"
 
 # Get number of total products
     #Download a short XML file
-    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", 0file, headers = [ "Authorization" => "Basic $authToken" ] )
-    lines = readlines( 0file )
+    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", file0, headers = [ "Authorization" => "Basic $authToken" ] )
+    lines = readlines( file0 )
     #Filter its contents to obtain the total number ofproducts
     count = tryparse( Int64, split( split( filter( line -> occursin( "totalResults", line ), lines )[1], ">" )[2], "<" )[1] )
     #After retrieving the total count, remove the XML file
-    rm( 0file )
+    #rm( file0 )
 
 
 # Get the XML files of the existing products
     #Check if maxNumber has an actual value, if so use it to limit the number of collected pages
         #One page holds the XML specifications of 100 products
     if !isnothing(maxNumber) && maxNumber > 0
+        maxNumber *= 100
         if maxNumber < count
-            count = maxNumber*100
+            count = maxNumber
         end
     end
     #Get the desired number of pages
@@ -113,7 +173,7 @@ function getProducts( targetDirectory::AbstractString, authToken::AbstractString
 end
 
 
-getProducts( out[2], authenticate("davidefavaro","Tirocinio"), 200 )
+getProducts( out[4], authenticate("davidefavaro","Tirocinio"), 1 )
                         
                         
 
