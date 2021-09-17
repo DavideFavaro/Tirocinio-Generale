@@ -30,16 +30,17 @@ test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml",
          "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml" ]
 
 #Syntassi che identifica una riga di XML
-@syntax row = Sequence( :opening_tag => re"<.+>",
-                        :content     => Either( Numeric(Int), re".+" ),
-                        :closing_tag => re"</.+>" )
+@syntax row = Either( Sequence( :opening_tag => re"<.+>",
+                                :content     => Either( Numeric(Int), re".+" ),
+                                :closing_tag => re"</.+>\n" ),
+                      re"<.+>\n" )
 
-@syntax header = Sequence( :opening_tag => re"<\?xml .+>",
+@syntax header = Sequence( :opening_tag => re"<\?xml .+>\n",
                            :content     => Repeat( 16, row ) )
 
-@syntax product = Sequence( :opening_tag => "<entry>",
+@syntax product = Sequence( :opening_tag => "<entry>\n",
                             :content     => Repeat( row ),
-                            :closing_tag => "</entry>" )
+                            :closing_tag => "</entry>\n" )
                 
 @syntax document = Sequence( :header => header,
                              :body => Repeat( 100, product ) )
@@ -48,8 +49,8 @@ test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml",
 
 a = readline( test[1] )
 b = readlines( test[2] )
-c = readlines( test[3], keep=true )
-d = readlines( test[4], keep=true )
+c = readlines( test[3] )
+d = readlines( test[4] )
 
 row(a)
 header( join(b) )
@@ -57,6 +58,9 @@ product( join(c) )
 document( joni(d) )
 
 
+for line in b
+    println( ( row(line) ) )
+end 
 
 
 
