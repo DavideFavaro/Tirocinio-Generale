@@ -6,69 +6,24 @@ using Downloads
 using CombinedParsers
 using CombinedParsers.Regexp
 
-
-# TEST ROW:
-#   test[1]
-#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Row_Test.xml"
-#   "<opensearch:totalResults>13265</opensearch:totalResults>"
-
-# TEST HEADER:
-#   test[2]"
-#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Head_Test.xml"
-
-# TEST PRODUCT:
-#   test[3]
-#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\Prod_Test.xml"
-
-# TEST DOCUMENT:
-#   "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml"
-
-source = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\",
-           "C:\\Users\\Lenovo\\Desktop\\XML\\" ]
-
-test = [ "Row_Test.xml",
-         "Head_Test.xml",
-         "Prod_Test.xml",
-         "1.xml" ]
+using DataFrames
 
 
 
-# Credo che i Repeat() senza indicazione numerica causino loop infiniti
-# In 1.xml il minimo di attributi era 28 il massimo 48
 
-# Match su tutte le stringhe contenute tra due tag dal contenuto qualunque e tag singoli ma non su "<entry>" e "</entry>"
-@syntax row = Either( Sequence( re"<.+>",
-                                Either( Numeric(Int), re".+" ),
-                                re"</.+>\n" ),
-                      re"<(?!(/?entry)).*>\n" )
-
-# Match sull eprime 17 "row"
-#@syntax header = Repeat( 17, row )
+test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
+         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\2.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\1.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\2.xml" ]
 
 
-@syntax product = Sequence( "<entry>\n",
-                            Repeat(row),
-                            "<str name=\"gmlfootprint\">",
-                            re".+",
-                            "</str>",
-                            Repeat( row ),
-                            "</entry>\n" )
 
 
-a = readline( source[2]*test[1] )
-b = join( readlines( source[2]*test[2] ), '\n' ) * '\n'
-c = join( readlines( source[2]*test[3] ), '\n' ) * '\n'
-d = readlines( source[2]*test[4] )
-
-row(a)
-header( join(b) )
-product( join(c) )
-document( joni(d) )
-
-
-for line in b
-    println( ( row(line) ) )
-end 
+@syntax product = Repeat( Either( Sequence( :opening => re"<[^< >]{3,6} name=\"[^<\">]+\">",
+                                            :content => re"[^<>]+",
+                                            :closing => re"</[^<>]{3,6}>" ),
+                                  Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
+                                  re"<[^<>]+>" ) )
 
 
 
@@ -89,6 +44,7 @@ end
 
 out = [ "D:\\Vario\\Stage",
         "C:\\Users\\Lenovo\\Desktop\\XML",
+        "C:\\Users\\Lenovo\\Desktop\\XML\\Test",
         "C:\\Users\\DAVIDE-FAVARO\\Desktop",
         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML" ]
 
@@ -151,7 +107,7 @@ Obtain "maxNumber" pages, eachone containing the XML description of 100 products
 - `authToken::AbstractString`: Authentication token, obtained through "authenticate()" function
 - `maxNumber::Integer`: maximum number of pages to download
 """
-function getProducts( targetDirectory::AbstractString, authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
+function getProductsPages( targetDirectory::AbstractString, authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
 # Definition of the components of The URL
     aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
     query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
@@ -165,7 +121,7 @@ function getProducts( targetDirectory::AbstractString, authToken::AbstractString
     #Filter its contents to obtain the total number ofproducts
     count = tryparse( Int64, split( split( filter( line -> occursin( "totalResults", line ), lines )[1], ">" )[2], "<" )[1] )
     #After retrieving the total count, remove the XML file
-    #rm( file0 )
+    rm( file0 )
 
 
 # Get the XML files of the existing products
@@ -185,7 +141,66 @@ function getProducts( targetDirectory::AbstractString, authToken::AbstractString
 end
 
 
-getProducts( out[4], authenticate("davidefavaro","Tirocinio"), 1 )
+
+"""
+    getPageProducts( path::AbstractString )
+
+Given the path to a file downloaded with "getProductsPages()", return an array of the dictionaries containing the informatiions on each of the products of the page 
+"""
+function getPageProducts( path::AbstractString )
+    # Get the downloaded page containing the XML representations of the products
+    original = readlines( path )
+    # Join all the rows in a single string
+    string = join( original[19:end-1] )
+    # Split the result in a vector of ready-to-be-parsed strings eliminating "<entry>" and "</entry>" tags in the process 
+    vector = split( string, r"<.?entry>", keepempty=false )
+    # Parse the strings
+    products = [ product(x)[8:end] for x in vector ]
+
+    # For each product print its details
+    #for i in 1:length(products)
+    #    println()
+    #    println("PRODOTTO $i:\n")
+    #    for p in products[i]
+    #        println( "$( join(p[:opening][10]) ) : $( join(p[:content]) )" )
+    #    end
+    #    println()
+    #end
+
+    # Generate a vector of dictionaries containing the details for each product of the original page
+    return [ Dict( Symbol(join(p[:opening][10])) => join(p[:content]) for p in products[i] ) for i in 1:length(products) ]
+end
+
+
+
+"""
+    getProductsDF( targetDirectory::AbstractString, authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
+
+Generate in "targetDirectory" the DataFrame containing the data of "maxNumber" undreds of products using "authToken"
+"""
+function getProductsDF( targetDirectory::AbstractString, authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
+    # Download "maxNumber" pages in "targetDirectory"
+    getProductsPages( targetDirectory, authToken, maxNumber )
+    
+    # Check how many pages have been downloaded
+    len = length( readdir( targetDirectory ) )
+
+    # For each of the pages obtain the dictionaries of its products and add them to "res"
+    res = []
+    for i in 1:len
+        target = targetDirectory*"\\$i.xml"
+        res = vcat( res, getPageProducts( target ) )
+        rm( target )
+    end
+
+    # MANCA DA IMPLEMENTARE LA CONVERSIONE IN DIZIONARI
+
+    return res
+end
+
+
+
+getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 3 )
                         
                         
 
