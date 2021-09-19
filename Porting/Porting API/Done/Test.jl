@@ -111,30 +111,35 @@ function getProductsPages( targetDirectory::AbstractString, authToken::AbstractS
 # Definition of the components of The URL
     aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
     query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
-    query = "search?start=0&rows=0&q=ingestiondate:$query2"
-    file0 = targetDirectory*"\\0.xml"
+    query = "search?start=0&rows=100&q=ingestiondate:$query2"
+    file1 = targetDirectory*"\\1.xml"
 
 # Get number of total products
-    #Download a short XML file
-    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", file0, headers = [ "Authorization" => "Basic $authToken" ] )
-    lines = readlines( file0 )
-    #Filter its contents to obtain the total number ofproducts
-    count = tryparse( Int64, split( split( filter( line -> occursin( "totalResults", line ), lines )[1], ">" )[2], "<" )[1] )
-    #After retrieving the total count, remove the XML file
-    rm( file0 )
+    #Download the firs page (This way we can get the number we are interested in and also the first page that we would download anyway)
+    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", file1, headers = [ "Authorization" => "Basic $authToken" ] )
+    line = readlines( file1 )[9]
 
+    #Filter its contents to obtain the total number ofproducts
+    #count = tryparse( Int64, split( split( filter( line -> occursin( "totalResults", line ), lines )[1], ">" )[2], "<" )[1] )
+    count = tryparse( Int64, split( split( line, ">" )[2], "<" )[1] )
 
 # Get the XML files of the existing products
     #Check if maxNumber has an actual value, if so use it to limit the number of collected pages
         #One page holds the XML specifications of 100 products
-    if !isnothing(maxNumber) && maxNumber > 0
-        maxNumber *= 100
-        if maxNumber < count
-            count = maxNumber
+    
+    if !isnothing(maxNumber)
+        if maxNumber > 1
+            maxNumber = (maxNumber - 1) * 100
+            if maxNumber < count
+                count = maxNumber
+            end
+        end
+        if maxNumber == 1
+            return
         end
     end
     #Get the desired number of pages
-    for i in range( 0, count, step=100 )
+    for i in range( 100, count, step=100 )
         query = "search?start=$i&rows=100&q=ingestiondate:$query2"
         Downloads.download( "https://scihub.copernicus.eu/dhus/$query", targetDirectory*"\\$((i ÷ 100) + 1).xml", headers = [ "Authorization" => "Basic $authToken" ] )
     end
@@ -148,16 +153,16 @@ end
 Given the path to a file downloaded with "getProductsPages()", return an array of the dictionaries containing the informatiions on each of the products of the page 
 """
 function getPageProducts( path::AbstractString )
-    # Get the downloaded page containing the XML representations of the products
+# Get the downloaded page containing the XML representations of the products
     original = readlines( path )
-    # Join all the rows in a single string
+# Join all the rows in a single string
     string = join( original[19:end-1] )
-    # Split the result in a vector of ready-to-be-parsed strings eliminating "<entry>" and "</entry>" tags in the process 
+# Split the result in a vector of ready-to-be-parsed strings eliminating "<entry>" and "</entry>" tags in the process 
     vector = split( string, r"<.?entry>", keepempty=false )
-    # Parse the strings
+# Parse the strings
     products = [ product(x)[8:end] for x in vector ]
 
-    # For each product print its details
+# For each product print its details
     #for i in 1:length(products)
     #    println()
     #    println("PRODOTTO $i:\n")
@@ -167,7 +172,7 @@ function getPageProducts( path::AbstractString )
     #    println()
     #end
 
-    # Generate a vector of dictionaries containing the details for each product of the original page
+# Generate a vector of dictionaries containing the details for each product of the original page
     return [ Dict( Symbol(join(p[:opening][10])) => join(p[:content]) for p in products[i] ) for i in 1:length(products) ]
 end
 
@@ -179,28 +184,38 @@ end
 Generate in "targetDirectory" the DataFrame containing the data of "maxNumber" undreds of products using "authToken"
 """
 function getProductsDF( targetDirectory::AbstractString, authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
-    # Download "maxNumber" pages in "targetDirectory"
+# Download "maxNumber" pages in "targetDirectory"
     getProductsPages( targetDirectory, authToken, maxNumber )
     
-    # Check how many pages have been downloaded
+# Check how many pages have been downloaded
     len = length( readdir( targetDirectory ) )
 
-    # For each of the pages obtain the dictionaries of its products and add them to "res"
-    res = []
+# For each of the pages obtain the dictionaries of its products and add them to "res"
+    dict_vect = []
     for i in 1:len
         target = targetDirectory*"\\$i.xml"
-        res = vcat( res, getPageProducts( target ) )
+        dict_vect = vcat( dict_vect, getPageProducts( target ) )
         rm( target )
     end
 
-    # MANCA DA IMPLEMENTARE LA CONVERSIONE IN DIZIONARI
+# Obtain the existing subsets of attributes of the products
+    keys_groups = unique( keys.(dict_vect) )
+# Divide the dictionaries in groups homogeneus on their attributes
+    grouped_vect = [ filter( x -> keys(x) == ks, dict_vect ) for ks in keys_groups ]
+# Turn each group in a DataFrame 
+    dfs_vect = DataFrame.(grouped_vect)
+# Merge all Dataframes using append to create a Dataframe with the union of all the possible columns and the right "missing" values 
+    data = dfs_vect[1]
+    for df in dfs_vect[2:end]
+        append!( data, df, cols=:union )
+    end
 
-    return res
+    return data
 end
 
 
 
-getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 3 )
+getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 2 )
                         
                         
 
