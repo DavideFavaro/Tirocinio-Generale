@@ -19,7 +19,7 @@ test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
 
 
 
-@syntax product = Repeat( Either( Sequence( :opening => re"<[^< >]{3,6} name=\"[^<\">]+\">",
+@syntax product = Repeat( Either( Sequence( :opening => re"<[^< >]+ name=\"[^<\">]+\">",
                                             :content => re"[^<>]+",
                                             :closing => re"</[^<>]{3,6}>" ),
                                   Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
@@ -28,7 +28,7 @@ test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
 
 
 
-
+÷
 
 """
     authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
@@ -77,13 +77,13 @@ Download the archive containing the data identified by "fileId", into the chosen
 function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
 
     Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')",
-                        targetDirectory*"\\data.zip", #Destinazione
+                        targetDirectory*"\\$fileId.zip", #Destinazione
                         headers = [ "Authorization" => "Basic $authToken" ], #info di autorizzazioone
-                        progress = ( total, now ) -> println("$(now/total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
+                        progress = ( total, now ) -> println("$(now÷total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
                         verbose = true ) #Più info
 end
 
-#getData( "68fc21ec-d9e1-44f1-be45-f487031423a1", out[3], authenticate("davidefavaro", "Tirocinio")  )
+# getData( "68fc21ec-d9e1-44f1-be45-f487031423a1", out[3], authenticate("davidefavaro", "Tirocinio")  )
 
 
 
@@ -111,39 +111,40 @@ function getProductsPages( targetDirectory::AbstractString, authToken::AbstractS
 # Definition of the components of The URL
     aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
     query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
-    query = "search?start=0&rows=100&q=ingestiondate:$query2"
-    file1 = targetDirectory*"\\1.xml"
+    query = "search?start=0&rows=0&q=ingestiondate:$query2"
+    file0 = targetDirectory*"\\0.xml"
 
 # Get number of total products
     #Download the firs page (This way we can get the number we are interested in and also the first page that we would download anyway)
-    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", file1, headers = [ "Authorization" => "Basic $authToken" ] )
-    line = readlines( file1 )[9]
+    Downloads.download( "https://scihub.copernicus.eu/dhus/$query", file0, headers = [ "Authorization" => "Basic $authToken" ] )
+    line = readlines( file0 )[9]
+    rm( file0 )
 
     #Filter its contents to obtain the total number ofproducts
     #count = tryparse( Int64, split( split( filter( line -> occursin( "totalResults", line ), lines )[1], ">" )[2], "<" )[1] )
-    count = tryparse( Int64, split( split( line, ">" )[2], "<" )[1] )
+    val = tryparse( Int64, split( split( line, ">" )[2], "<" )[1] )
+    count = [ val ÷ 100, val % 100 ]
 
-# Get the XML files of the existing products
-    #Check if maxNumber has an actual value, if so use it to limit the number of collected pages
-        #One page holds the XML specifications of 100 products
-    
-    if !isnothing(maxNumber)
-        if maxNumber > 1
-            maxNumber = (maxNumber - 1) * 100
-            if maxNumber < count
-                count = maxNumber
-            end
-        end
-        if maxNumber == 1
-            return
+
+    if !isnothing( maxNumber ) && maxNumber > 1 && maxNumber < val
+        count[1] = maxNumber ÷ 100
+        count[2] = maxNumber % 100
+    end
+
+    if count[1] > 0
+        for i in range( 0, count[1] - 1, step=1 )
+            query = "search?start=$(i*100)&rows=100&q=ingestiondate:$query2"
+            Downloads.download( "https://scihub.copernicus.eu/dhus/$query", targetDirectory*"\\$(i + 1).xml", headers = [ "Authorization" => "Basic $authToken" ] )
         end
     end
-    #Get the desired number of pages
-    for i in range( 100, count, step=100 )
-        query = "search?start=$i&rows=100&q=ingestiondate:$query2"
-        Downloads.download( "https://scihub.copernicus.eu/dhus/$query", targetDirectory*"\\$((i ÷ 100) + 1).xml", headers = [ "Authorization" => "Basic $authToken" ] )
+    if count[2] > 0
+        query = "search?start=$(count[1] * 100)&rows=$(count[2])&q=ingestiondate:$query2"
+        Downloads.download( "https://scihub.copernicus.eu/dhus/$query", targetDirectory*"\\$(count[1] + 1).xml", headers = [ "Authorization" => "Basic $authToken" ] )
     end
 end
+
+
+# getProductsPages( out[5], authenticate("davidefavaro","Tirocinio"), 300 )
 
 
 
@@ -176,6 +177,7 @@ function getPageProducts( path::AbstractString )
     return [ Dict( Symbol(join(p[:opening][10])) => join(p[:content]) for p in products[i] ) for i in 1:length(products) ]
 end
 
+# getPageProducts( out[5] )
 
 
 """
@@ -195,7 +197,7 @@ function getProductsDF( targetDirectory::AbstractString, authToken::AbstractStri
     for i in 1:len
         target = targetDirectory*"\\$i.xml"
         dict_vect = vcat( dict_vect, getPageProducts( target ) )
-        rm( target )
+        #rm( target )
     end
 
 # Obtain the existing subsets of attributes of the products
@@ -215,7 +217,7 @@ end
 
 
 
-getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 2 )
+getProductsDF( out[5], authenticate("davidefavaro","Tirocinio"), 10 )
                         
                         
 
