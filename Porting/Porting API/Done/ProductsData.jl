@@ -7,6 +7,7 @@ using CombinedParsers
 using CombinedParsers.Regexp
 
 using DataFrames
+using Dates
 
 
 
@@ -14,21 +15,50 @@ using DataFrames
 test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
          "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\2.xml",
          "C:\\Users\\Lenovo\\Desktop\\XML\\1.xml",
-         "C:\\Users\\Lenovo\\Desktop\\XML\\2.xml" ]
+         "C:\\Users\\Lenovo\\Desktop\\XML\\2.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\Prod_Test.xml" ]
 
 
 
 
-@syntax product = Repeat( Either( Sequence( :opening => re"<[^< >]+ name=\"[^<\">]+\">",
+@syntax product = Repeat( Either( Sequence( "<",
+                                            :type    => re"[^< >]+ ",
+                                            :opening => re"name=\"[^<\">]+\">",
                                             :content => re"[^<>]+",
-                                            :closing => re"</[^<>]{3,6}>" ),
+                                            :closing => re"</[^<>]+>" ),
                                   Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
                                   re"<[^<>]+>" ) )
 
+                                
+
+
+# 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 21 22 23
+# 2 0 2 1 - 0 9 - 1  7  T  0  4  :  3  6  :  3  4  .  0  0  0  Z
+
+# 2021-09-17T04:36:34Z       20     V
+# 2021-09-17T04:36:34.Z      21     X
+# 2021-09-17T04:36:34.0Z     22
+# 2021-09-17T04:36:34.00Z    23
+
+function parseConvert( xmlType::AbstractString, value::AbstractString )
+    if xmlType == "str"
+        return value
+    end
+    if xmlType == "int"
+        return tryparse( Int64, value )
+    end
+    if xmlType == "double"
+        return tryparse( Float64, value )
+    end
+    if xmlType == "date"
+        return DateTime( value[1:19], "y-m-dTH:M:S" )
+    end
+    throw( DomainError( (xmlType, value), "Undefined type of $value" )  )
+end
+                                
 
 
 
-÷
 
 """
     authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
@@ -69,25 +99,21 @@ out = [ "D:\\Vario\\Stage",
 # https://scihub.copernicus.eu/dhus/odata/v1/Products('2b17b57d-fff4-4645-b539-91f305c27c69')/$value
 # https://scihub.copernicus.eu/dhus/odata/v1/Products?filter=Name eq 'S3B_SL_2_LST____20210915T101845_20210915T102145_20210915T124701_0179_057_065_2160_LN2_O_NR_004'
 
-"""
-    getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
-
-Download the archive containing the data identified by "fileId", into the chosen directory using the user authentication token
-"""
-function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
-
-    Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')",
-                        targetDirectory*"\\$fileId.zip", #Destinazione
-                        headers = [ "Authorization" => "Basic $authToken" ], #info di autorizzazioone
-                        progress = ( total, now ) -> println("$(now÷total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
-                        verbose = true ) #Più info
-end
+#"""
+#    getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
+#
+#Download the archive containing the data identified by "fileId", into the chosen directory using the user authentication token
+#"""
+#function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
+#
+#    Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')",
+#                        targetDirectory*"\\$fileId.zip", #Destinazione
+#                        headers = [ "Authorization" => "Basic $authToken" ], #info di autorizzazioone
+#                        progress = ( total, now ) -> println("$(now÷total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
+#                        verbose = true ) #Più info
+#end
 
 # getData( "68fc21ec-d9e1-44f1-be45-f487031423a1", out[3], authenticate("davidefavaro", "Tirocinio")  )
-
-
-
-
 
 
 
@@ -174,7 +200,7 @@ function getPageProducts( path::AbstractString )
     #end
 
 # Generate a vector of dictionaries containing the details for each product of the original page
-    return [ Dict( Symbol(join(p[:opening][10])) => join(p[:content]) for p in products[i] ) for i in 1:length(products) ]
+    return [ Dict( Symbol(join(p[:opening][7])) => parseConvert( join(p[:type][1]), join(p[:content]) ) for p in products[i] ) for i in 1:length(products) ]
 end
 
 # getPageProducts( out[5] )
@@ -217,7 +243,7 @@ end
 
 
 
-getProductsDF( out[5], authenticate("davidefavaro","Tirocinio"), 10 )
+getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 10 )
                         
                         
 
