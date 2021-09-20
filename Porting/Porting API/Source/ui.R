@@ -7,7 +7,7 @@ fluidPage(
   # titlePanel("SENTINEL-1/2/3 DOWNLOADER"),
   tags$head(
     # tags$title(title),  
-    tags$script(src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBT9mLxQF-rHxItfcM06PEEs0VNAfUuPBY&libraries=places"), 
+    tags$script(src="https://maps.googleapis.com/maps/api/js?key=&libraries=places"), 
     tags$script(src="js/myfuncs.js"),  
     tags$script(src="global/js/autocomplete_street.js"), 
     tags$link(rel="stylesheet", type="text/css", href="css/extra.css?v=2")
