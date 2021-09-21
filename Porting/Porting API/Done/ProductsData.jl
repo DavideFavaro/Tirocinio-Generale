@@ -8,7 +8,9 @@ using CombinedParsers.Regexp
 
 using DataFrames
 using Dates
+using Unitful
 
+using CSV
 
 
 
@@ -29,20 +31,44 @@ test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
                                   Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
                                   re"<[^<>]+>" ) )
 
-                                
-
-
-# 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 21 22 23
-# 2 0 2 1 - 0 9 - 1  7  T  0  4  :  3  6  :  3  4  .  0  0  0  Z
-
-# 2021-09-17T04:36:34Z       20     V
-# 2021-09-17T04:36:34.Z      21     X
-# 2021-09-17T04:36:34.0Z     22
-# 2021-09-17T04:36:34.00Z    23
 
 function parseConvert( xmlType::AbstractString, value::AbstractString )
+#    if xmlType == "str"
+#        p1 = re"^[0-9]+"
+#        p2 = re"[.,][0-9]+"
+#        le = re"$"
+#
+#        # Check if the string can be split in a numeric value and its unit of measure
+#          # If so call the value "value" and the unit "unit" and pass value to the other checks
+#        if !isnothing( match( Sequence( p1, Optional(p2), le ) , value ) )
+#            value, unit = split( value, " ", keepempty=false ) 
+#        end
+#
+#        # If "value" is recognised as a sequence of numbers a dot and another sequence of numbers, then convert it to Float
+#        if !isnothing( match( Sequence( p1, p2, le ), value ) )
+#            val = tryparse( Float64, value )
+#        # If instead it is a simple sequence of numbers, convert it to Int
+#        elseif !isnothing( match( Sequence( p1, le ), value ) )
+#            val = tryparse( Int64, value )
+#        # Otherwise return it as a string
+#        else
+#            val = value
+#        end
+#
+#        if isnothing(unit)
+#            return value
+#        else
+#            #CONVERSIONE A TIPO CON UNITA' DI MISURA
+#        end
+#    end
     if xmlType == "str"
-        return value
+        if !isnothing( match( re"^[0-9]+[.,][0-9]+$", value ) )
+            return tryparse( Float64, value )
+        elseif !isnothing( match( re"^[0-9]+$", value ) )
+            return tryparse( Int64, value )
+        else
+            return value
+        end
     end
     if xmlType == "int"
         return tryparse( Int64, value )
@@ -51,11 +77,13 @@ function parseConvert( xmlType::AbstractString, value::AbstractString )
         return tryparse( Float64, value )
     end
     if xmlType == "date"
-        return DateTime( value[1:19], "y-m-dTH:M:S" )
+        return DateTime( value[1:end-1], "y-m-dTH:M:S.s" )
     end
     throw( DomainError( (xmlType, value), "Undefined type of $value" )  )
 end
                                 
+
+
 
 
 
@@ -223,7 +251,7 @@ function getProductsDF( targetDirectory::AbstractString, authToken::AbstractStri
     for i in 1:len
         target = targetDirectory*"\\$i.xml"
         dict_vect = vcat( dict_vect, getPageProducts( target ) )
-        #rm( target )
+        rm( target )
     end
 
 # Obtain the existing subsets of attributes of the products
@@ -238,98 +266,16 @@ function getProductsDF( targetDirectory::AbstractString, authToken::AbstractStri
         append!( data, df, cols=:union )
     end
 
+    CSV.save( targetDirectory*"\\data.csv", data )
+
     return data
 end
 
 
 
-getProductsDF( out[3], authenticate("davidefavaro","Tirocinio"), 10 )
-                        
+getProductsDF( out[5], authenticate("davidefavaro","Tirocinio"), 10 )
                         
 
-#= Colonne totali ottenute dal dataframe con tute le entry
-relpassnumber
-relpassdirection
-filename
-instrumentname
-timeliness
-footprint
-size
-productlevel
-relorbitdir
-ingestiondate
-ecmwf
-sensoroperationalmode
-beginposition
-procfacilityname
-orbitnumber
-mode
-platformname
-producttype
-orbitdirection
-format
-uuid
-passdirection
-procfacilityorg
-relativeorbitnumber
-pduduration
-platformidentifier
-gmlfootprint
-endposition
-creationdate
-onlinequalitycheck
-processingname
-identifier
-passnumber
-pdualongtrackcoord
-instrumentshortname
-processinglevel
-cloudcoverpercentage
-lrmpercentage
-openseapercentage
-landpercentage
-sarpercentage
-closedseapercentage
-continentalicepercentage
-nbfire
-lastpassdirection
-lastrelpassnumber
-lastrelorbitdirection
-lastorbitdirection
-lastrelativeorbitnumber
-lastpassnumber
-lastrelpassdirection
-lastorbitnumber
-pdutileid
-productclass
-polarisationmode
-status
-slicenumber
-missiondatatakeid
-swathidentifier
-acquisitiontype
-productconsolidation
-unclassifiedpercentage
-s2datatakeid
-granuleidentifier
-level1cpdiidentifier
-vegetationpercentage
-notvegetatedpercentage
-processingbaseline
-mediumprobacloudspercentage
-datastripidentifier
-generationdate
-illuminationzenithangle
-platformserialidentifier
-waterpercentage
-highprobacloudspercentage
-illuminationazimuthangle
-snowicepercentage
-hv_order_tileid
-tileid
-datatakesensingstart
-leapsecond
-leapSecondOccurrence
-=#
+
 
 end #module
