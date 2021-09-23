@@ -9,8 +9,9 @@ using CombinedParsers.Regexp
 using DataFrames
 using Dates
 #using Unitful
-
 using CSV
+using ZipFile
+using NCDatasets
 
 
 
@@ -125,6 +126,33 @@ getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefav
 
 
 =#
+
+
+"""
+    unzipIn( dir::AbstractString )
+
+Unzip a ".zip" file stored in "dir", creating a new directory within "dir" containing the file contents 
+"""
+function unzipIn( dir::AbstractString )
+    zipPath = "$dir\\$(readdir(dir)[1])"
+    println(zipPath)
+    zip = ZipFile.Reader(zipPath)
+    mkdir(zipPath[1:end-4])
+    newdir = zipPath[1:end-4]*"\\"
+    start = length(zip.files[1].name) + 1
+    for i in 2:length(zip.files)
+        write( newdir*zip.files[i].name[start:end], read(zip.files[i]) )
+    end
+end
+
+getZipValues(out[3])
+
+
+
+
+
+
+
 
 
 
@@ -249,7 +277,6 @@ Given the array of column names and the array of their respective units of measu
 function createUnitsDF( columns::AbstractVector{AbstractString}, units::AbstractVector{AbstractString} )
     return Dataframe( Dict( columns .=> units ) )
 end
-
 
 
 
