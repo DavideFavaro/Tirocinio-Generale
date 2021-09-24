@@ -82,9 +82,6 @@ end
 
 
 
-
-
-
 #||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 #                                                    DOWNLOAD DEL .ZIP CORRISPONDENTE AD UN DATO ID
 #||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -128,30 +125,70 @@ getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefav
 =#
 
 
+
+
+
+
+#dir = "C:\\Users\\Lenovo\\Desktop\\XML\\Test\\dirnc"
+#
+#nc = NetCDF.read( dir*"\\cartesian_fn.nc" )
+#nc1 = NetCDF.read( dir*"\\geometry_tn.nc")
+#
+#plot(nc)
+#plot!(nc1)
+
+
+
+using NCDatasets
+using ZipFile
+
+
+test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
+         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\2.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\1.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\2.xml",
+         "C:\\Users\\Lenovo\\Desktop\\XML\\Prod_Test.xml" ]
+
+out = [ "D:\\Vario\\Stage",
+        "C:\\Users\\Lenovo\\Desktop\\XML",
+        "C:\\Users\\Lenovo\\Desktop\\XML\\Test",
+        "C:\\Users\\DAVIDE-FAVARO\\Desktop",
+        "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML" ]
+
+
 """
     unzipIn( dir::AbstractString )
 
 Unzip a ".zip" file stored in "dir", creating a new directory within "dir" containing the file contents 
 """
-function unzipIn( dir::AbstractString )
+function unzip( dir::AbstractString )
     zipPath = "$dir\\$(readdir(dir)[1])"
     println(zipPath)
     zip = ZipFile.Reader(zipPath)
-    mkdir(zipPath[1:end-4])
+    new = mkdir(zipPath[1:end-4])
     newdir = zipPath[1:end-4]*"\\"
     start = length(zip.files[1].name) + 1
     for i in 2:length(zip.files)
         write( newdir*zip.files[i].name[start:end], read(zip.files[i]) )
     end
+    return new
 end
 
-getZipValues(out[3])
+
+# Per ora ottiene le informazioni sui file .nc contenuti nello zip scaricato
+function plotNC(  dir::AbstractString )
+    cur = pwd()
+    new = unzip(dir)
+    cd(new)
+    files = readdir(new)
+    info = [ NCDataset( file ) for file in files[1:end-1] ]
+    cd(cur)
+    return info
+end
 
 
 
-
-
-
+info = plotNC( out[3] )
 
 
 
