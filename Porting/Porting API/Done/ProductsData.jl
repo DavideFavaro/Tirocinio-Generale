@@ -141,6 +141,7 @@ getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefav
 
 using NCDatasets
 using ZipFile
+using Plots
 
 
 test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
@@ -178,18 +179,16 @@ end
 # Per ora ottiene le informazioni sui file .nc contenuti nello zip scaricato
 function plotNC(  dir::AbstractString )
     cur = pwd()
-    new = unzip(dir)
-    cd(new)
-    files = readdir(new)
+    cd(dir)
+    files = readdir()
     info = [ NCDataset( file ) for file in files[1:end-1] ]
     cd(cur)
     return info
 end
 
 
-
-info = plotNC( out[3] )
-
+dir = unzip( out[3] )
+info = plotNC( dir )
 
 
 
