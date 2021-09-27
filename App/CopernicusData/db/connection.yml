@@ -1,0 +1,28 @@
+env: ENV["GENIE_ENV"]
+
+dev:
+  adapter: SQLite
+  database: db/data.sqlite
+  host:
+  username:
+  password:
+  port:
+  config:
+
+prod:
+  adapter: SQLite
+  database: db/data.sqlite
+  host:
+  username:
+  password:
+  port:
+  config:
+
+test:
+  adapter: SQLite
+  database: db/data.sqlite
+  host:
+  username:
+  password:
+  port:
+  config:
