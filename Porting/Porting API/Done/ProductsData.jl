@@ -1,17 +1,17 @@
 module Test
 
+using Revise
+
 using HTTP
 using Downloads
 
 using CombinedParsers
 using CombinedParsers.Regexp
 
+using ArchGDAL
 using DataFrames
 using Dates
-#using Unitful
 using CSV
-using ZipFile
-using NCDatasets
 
 
 
@@ -37,6 +37,17 @@ out = [ "D:\\Vario\\Stage",
                                   Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
                                   re"<[^<>]+>" ) )
 
+
+"""
+    authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
+
+Create an authentication token of type "type" for the user
+"""
+function authenticate( username::AbstractString, password::AbstractString, type::AbstractString = "Base" )
+    if type == "Base"
+        return HTTP.Base64.base64encode("$username:$password") #Trasformazione dei dati nel formato valido per la verifica
+    end
+end
 
 
 """
@@ -65,130 +76,6 @@ function parseConvert( xmlType::AbstractString, value::AbstractString )
     end
     throw( DomainError( (xmlType, value), "Undefined type of $value" )  )
 end
-
-
-
-"""
-    authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
-
-Create an authentication token of type "type" for the user
-"""
-function authenticate( username::AbstractString, password::AbstractString, type::AbstractString = "Base" )
-    if type == "Base"
-        return HTTP.Base64.base64encode("$username:$password") #Trasformazione dei dati nel formato valido per la verifica
-    end
-end
-
-
-
-
-#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-#                                                    DOWNLOAD DEL .ZIP CORRISPONDENTE AD UN DATO ID
-#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
-
-# https://scihub.copernicus.eu/dhus/odata/v1
-# https://scihub.copernicus.eu/dhus/search?q=*&rows=25
-# https://scihub.copernicus.eu/dhus/odata/v1/Products('2b17b57d-fff4-4645-b539-91f305c27c69')/$value
-
-# S3B_SL_2_LST____20210915T101845_20210915T102145_20210915T124701_0179_057_065_2160_LN2_O_NR_004  Nome di un file, tentare di usarlo in Product(...) ritorna not found
-# 1def7d25-ecd6-49ef-8e3a-243f35857951 uuid file 240 Mb
-# b0526ddf-c3f3-4065-8dc5-1891ffc8e326 uuid file 165 Mb
-
-# https://scihub.copernicus.eu/dhus/odata/v1/Products('2b17b57d-fff4-4645-b539-91f305c27c69')/$value
-# https://scihub.copernicus.eu/dhus/odata/v1/Products?filter=Name eq 'S3B_SL_2_LST____20210915T101845_20210915T102145_20210915T124701_0179_057_065_2160_LN2_O_NR_004'
-
-
-#=
-
-
-"""
-    getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
-
-Download the archive containing the data identified by "fileId", into the chosen directory using the user authentication token
-"""
-function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
-    # Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')/\$value",
-    #                     targetDirectory*"\\$fileId.zip", #Destinazione
-    #                     headers = [ "Authorization" => "Basic $authToken" ], #info di autorizzazioone
-    #                     progress = ( total, now ) -> println("$(now/total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
-    #                     verbose = true ) #Più info
-
-    Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')/\$value",
-                        targetDirectory*"\\$fileId.zip", #Destinazione
-                        headers = [ "Authorization" => "Basic $authToken" ] ) #info di autorizzazioone
-end
-
-getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefavaro", "Tirocinio")  )
-
-
-=#
-
-
-
-
-
-
-#dir = "C:\\Users\\Lenovo\\Desktop\\XML\\Test\\dirnc"
-#
-#nc = NetCDF.read( dir*"\\cartesian_fn.nc" )
-#nc1 = NetCDF.read( dir*"\\geometry_tn.nc")
-#
-#plot(nc)
-#plot!(nc1)
-
-
-
-using NCDatasets
-using ZipFile
-using Plots
-
-
-test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
-         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\2.xml",
-         "C:\\Users\\Lenovo\\Desktop\\XML\\1.xml",
-         "C:\\Users\\Lenovo\\Desktop\\XML\\2.xml",
-         "C:\\Users\\Lenovo\\Desktop\\XML\\Prod_Test.xml" ]
-
-out = [ "D:\\Vario\\Stage",
-        "C:\\Users\\Lenovo\\Desktop\\XML",
-        "C:\\Users\\Lenovo\\Desktop\\XML\\Test",
-        "C:\\Users\\DAVIDE-FAVARO\\Desktop",
-        "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML" ]
-
-
-"""
-    unzipIn( dir::AbstractString )
-
-Unzip a ".zip" file stored in "dir", creating a new directory within "dir" containing the file contents 
-"""
-function unzip( dir::AbstractString )
-    zipPath = "$dir\\$(readdir(dir)[1])"
-    println(zipPath)
-    zip = ZipFile.Reader(zipPath)
-    new = mkdir(zipPath[1:end-4])
-    newdir = zipPath[1:end-4]*"\\"
-    start = length(zip.files[1].name) + 1
-    for i in 2:length(zip.files)
-        write( newdir*zip.files[i].name[start:end], read(zip.files[i]) )
-    end
-    return new
-end
-
-
-# Per ora ottiene le informazioni sui file .nc contenuti nello zip scaricato
-function plotNC(  dir::AbstractString )
-    cur = pwd()
-    cd(dir)
-    files = readdir()
-    info = [ NCDataset( file ) for file in files[1:end-1] ]
-    cd(cur)
-    return info
-end
-
-
-dir = unzip( out[3] )
-info = plotNC( dir )
 
 
 
@@ -288,8 +175,6 @@ function getProductsDF( authToken::AbstractString, maxNumber::Union{Integer, Not
     return data
 end
 
-df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 20 )                   
-
 
 
 """
@@ -300,8 +185,6 @@ Save "data" in "targetDirectory" if not already existing or if "overwrite" is tr
 function saveProductsDF( targetDirectory::AbstractString, data::DataFrame; overwrite::Bool=false )
     CSV.write( targetDirectory*"\\data.csv", data, append = !overwrite && in("data.csv", readdir(targetDirectory)) )
 end
-
-saveProductsDF( out[2], df )
 
 
 
@@ -318,10 +201,15 @@ end
 
 
 
+df = getProductsDF( authenticate("davidefavaro","Tirocinio") )
+saveProductsDF( out[2], df )
 
 
+df = CSV.read( split( @__DIR__, "Porting")[1] * "\\Dati di Prova\\data.csv", DataFrame )
 
+footprint = df[:, :footprint]
+gmlfootprint = df[:, :gmlfootprint]
 
-
+ArchGDAL.
 
 end #module
