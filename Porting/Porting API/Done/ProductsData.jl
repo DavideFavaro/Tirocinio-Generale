@@ -38,6 +38,16 @@ out = [ "D:\\Vario\\Stage",
                                   re"<[^<>]+>" ) )
 
 
+
+
+
+
+
+
+
+
+
+
 """
     authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
 
@@ -198,11 +208,12 @@ function createUnitsDF( columns::AbstractVector{AbstractString}, units::Abstract
 end
 
 
-
-
-
 df = getProductsDF( authenticate("davidefavaro","Tirocinio") )
 saveProductsDF( out[2], df )
+
+
+
+
 
 
 df = CSV.read( split( @__DIR__, "Porting")[1] * "\\Dati di Prova\\data.csv", DataFrame )
@@ -210,6 +221,11 @@ df = CSV.read( split( @__DIR__, "Porting")[1] * "\\Dati di Prova\\data.csv", Dat
 footprint = df[:, :footprint]
 gmlfootprint = df[:, :gmlfootprint]
 
-ArchGDAL.
+ArchGDAL.fromWKT(footprint[1])
+# Da errore perchè non riesce a fare la convervione
+#ArchGDAL.fromGML(gmlfootprint[2])
+ArchGDAL.forceto( gmlfootprint[1], #=Non so cosa si aspetta che gli passi come seondo parametro=# )
+
+
 
 end #module
