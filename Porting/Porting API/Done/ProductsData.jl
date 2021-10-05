@@ -1,7 +1,5 @@
 module Test
 
-using Revise
-
 using HTTP
 using Downloads
 
@@ -12,6 +10,8 @@ using ArchGDAL
 using DataFrames
 using Dates
 using CSV
+
+using Revise
 
 
 
@@ -28,14 +28,24 @@ out = [ "D:\\Vario\\Stage",
         "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML" ]
 
 
+# Syntax to parse the XMl reppresentation of a product
+@syntax product = Repeat(
+                    Either(
+                        Sequence( "<",
+                                  :type    => re"[^< >]+ ",
+                                  :opening => re"name=\"[^<\">]+\">",
+                                  :content => re"[^<>]+",
+                                  :closing => re"</[^<>]+>"
+                        ),
+                        Sequence(
+                            re"<[^<>]+>",
+                            re"[^<>]+",
+                            re"</[^<>]+>"
+                        ),
+                        re"<[^<>]+>"
+                    )
+                  )
 
-@syntax product = Repeat( Either( Sequence( "<",
-                                            :type    => re"[^< >]+ ",
-                                            :opening => re"name=\"[^<\">]+\">",
-                                            :content => re"[^<>]+",
-                                            :closing => re"</[^<>]+>" ),
-                                  Sequence( re"<[^<>]+>", re"[^<>]+", re"</[^<>]+>" ),
-                                  re"<[^<>]+>" ) )
 
 
 
@@ -182,6 +192,10 @@ function getProductsDF( authToken::AbstractString, maxNumber::Union{Integer, Not
     for df in dfs_vect[2:end]
         append!( data, df, cols=:union )
     end
+
+    data[!, :footprint] = ArchGDAL.fromWKT.( data[:, :footprint] )
+    data[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( data[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
+
     return data
 end
 
@@ -216,16 +230,75 @@ saveProductsDF( out[2], df )
 
 
 
+
+
+
 df = CSV.read( split( @__DIR__, "Porting")[1] * "\\Dati di Prova\\data.csv", DataFrame )
 
-footprint = df[:, :footprint]
-gmlfootprint = df[:, :gmlfootprint]
+df[!, :footprint] = ArchGDAL.fromWKT.( df[:, :footprint] )
+df[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( df[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
 
-ArchGDAL.fromWKT(footprint[1])
-# Da errore perchè non riesce a fare la convervione
-#ArchGDAL.fromGML(gmlfootprint[2])
-ArchGDAL.forceto( gmlfootprint[1], #=Non so cosa si aspetta che gli passi come seondo parametro=# )
+
 
 
 
 end #module
+
+
+
+#   #=
+#   gmls[i][:geometry][:content][:type]
+#       contiene il poligono (Polygon)
+#   
+#   gmls[i][:geometry][:content][:ref]
+#       contiene il riferimento (4362)
+#   
+#   gmls[i][:body][4]
+#       contiene le coordinate come vettore di caratteri
+#   =#
+#   gmls = gml.(gmlfootprint)
+#   
+#   
+#   joined = join( join.([ "&lt;gml:",
+#                          gmls[1][:geometry][:content][:type],      # Polygon
+#                          "&gt;",
+#                          gmls[1][:body][4],                        # 'coordinates'
+#                          "&lt;/gml:",
+#                          gmls[1][:geometry][:content][:type],      # Polygon
+#                          "&lt;"
+#                        ]))
+
+
+
+
+#   # Syntax to parse and decompose a GML format string
+#   @syntax gml = Sequence(
+#                       :geometry => Sequence(
+#                                       :ltgml => "&lt;gml:",
+#                                       :content => Sequence(
+#                                                       :type => re"[^ &;]+",
+#                                                       :name => re" [^ &;#]+#",
+#                                                       :ref => Numeric(Int),
+#                                                       :context => re"\" [^ &;]+"
+#                                                   ),
+#                                       :gt => "&gt;",
+#                                       :spacing => re" *"
+#                                   ),    
+#                       :body => Repeat(
+#                                   Either(
+#                                       Sequence(
+#                                           :ltgml => "&lt;gml:",
+#                                           :content => re"[^ &;]+",
+#                                           :gt => "&gt;",
+#                                           :spacing => re" *"
+#                                       ),
+#                                       re"[0-9 .,-]+",
+#                                       Sequence(
+#                                           :ltgml => "&lt;/gml:",
+#                                           :content => re"[^&;]+",
+#                                           :gt => "&gt;",
+#                                           :spacing => re" *"
+#                                       ),
+#                                   )
+#                               )
+#                     )
