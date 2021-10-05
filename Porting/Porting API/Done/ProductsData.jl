@@ -196,6 +196,8 @@ function getProductsDF( authToken::AbstractString, maxNumber::Union{Integer, Not
     data[!, :footprint] = ArchGDAL.fromWKT.( data[:, :footprint] )
     data[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( data[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
 
+    insertcols!( )
+
     return data
 end
 
@@ -222,7 +224,7 @@ function createUnitsDF( columns::AbstractVector{AbstractString}, units::Abstract
 end
 
 
-df = getProductsDF( authenticate("davidefavaro","Tirocinio") )
+df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 1000 )
 saveProductsDF( out[2], df )
 
 
