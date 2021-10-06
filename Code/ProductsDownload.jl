@@ -46,16 +46,15 @@ out = [ "D:\\Vario\\Stage",
 
 Download the archive containing the data identified by "fileId", into the chosen directory using the user authentication token
 """
-function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )
-    # Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')/\$value",
-    #                     targetDirectory*"\\$fileId.zip", #Destinazione
-    #                     headers = [ "Authorization" => "Basic $authToken" ], #info di autorizzazioone
-    #                     progress = ( total, now ) -> println("$(now/total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
-    #                     verbose = true ) #Più info
+function getData( fileId::AbstractString, targetDirectory::AbstractString, authToken::AbstractString )                 
 
     Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$fileId')/\$value",
                         targetDirectory*"\\$(fileId[1:10]).zip", #Destinazione
-                        headers = [ "Authorization" => "Basic $authToken" ] ) #info di autorizzazioone
+                        headers = [ "Authorization" => "Basic $authToken" ] #=,
+                        progress = ( total, now ) -> println("$(now/total*100)% ( $now / $total )"), #Funzione che permette di controllare lo stato del download
+                        verbose = true =# ) #Più info) #info di autorizzazioone
+
+    
 end
 
 #getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefavaro", "Tirocinio")  )
