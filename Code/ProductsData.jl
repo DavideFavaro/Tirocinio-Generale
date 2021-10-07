@@ -259,12 +259,29 @@ end
 Save "data" in "targetDirectory" if not already existing or if "overwrite" is true, otherwise append its content to "data.csv"
 """
 function saveProductsDF( targetDirectory::AbstractString, data::DataFrame; overwrite::Bool=false )
-    #if !overwrite
-    #    odata = CSV.read( targetDirectory*"\\data.csv", DataFrame )
-    #
-    #    #(!) PARTE MANCANTE (!)
-    #end
-    CSV.write( targetDirectory*"\\data.csv", data, append = !overwrite && in("data.csv", readdir(targetDirectory)) )
+    condition = !overwrite && in("data.csv", readdir(targetDirectory))
+    if condition
+        # Preexisting data
+        old_data = CSV.read( targetDirectory*"\\data.csv", DataFrame )
+        
+# DA TESTARE QUANDO CI SARANNO EFFETTIVAMENTE DATI NUOVI
+        # Index of the last element of the preexisting data
+            # It will be used to find the duplicated data in "data"
+        old_last_id = odata[end, :uuid]
+        #Index of the first element of the new data
+            # It will be used to find the now-unavailable products in "old_data"
+        new_first_id = data[1, :uuid]
+
+        # Index of the last duplicate in "data"
+        duplicated_index = findfirst( ==(old_last_id), data[:, :uuid] )
+        # Index of the last available product in "old_data"
+        unavailable_index = findfirst( ==(new_first_id), old_data )
+
+        #filter!( prod -> rownumber(prod) > duplicated_index, data )
+        data = data[1:duplicated_index, :]
+        old_data[ 1:unavailable_index, :available ] = false
+    end
+    CSV.write( targetDirectory*"\\data.csv", data, append = condition )
 end
 
 
