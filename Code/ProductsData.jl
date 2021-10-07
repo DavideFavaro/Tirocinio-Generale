@@ -113,11 +113,11 @@ end
 
 
 """
-    getProducts( authToken::AbstractString[, maxNumber::Union{Integer, Nothing} ] )
+    getProductsBuffer( authToken::AbstractString[, maxNumber::Union{Integer, Nothing} ] )
 
 Obtain "maxNumber" XML description of products, through "authToken", returning the IOBuffer that contains them all
 """
-function getProductsPages( authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
+function getProductsBuffer( authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
 # Definition of the components of The URL
     aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
     query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
@@ -152,7 +152,7 @@ function getProductsPages( authToken::AbstractString, maxNumber::Union{Integer, 
     return iob
 end
 
-# io = getProductsPages( authenticate("davidefavaro","Tirocinio"), 300 )
+# io = getProductsBuffer( authenticate("davidefavaro","Tirocinio"), 300 )
 
 
 
@@ -168,36 +168,11 @@ end
 
 
 """
-    getPageProducts( fileIO::IO )
+    getProductsDicts( fileIO::IO )
 
-Given the IOBuffer obtained through "getProductsPages()", return an array of the dictionaries containing the informations on each of the products of the page 
+Given the IOBuffer obtained through "getProductsBuffer()", return an array of the dictionaries containing the informations on each of the products of the page 
 """
-#   function getPageProducts( fileIO::IO )
-#   # Get the downloaded XML representations of the products
-#       original = replace( String( take!(fileIO) ), "\n" => "" )
-#   # Split the downloaded files into pages
-#       pages = split( original, r"<\?xml [^<>]+><[^<>]+>", keepempty=false )
-#   # Split the result in a vector of ready-to-be-parsed strings representing single products
-#       vector = reduce( vcat, [ split( page, r"</?entry>", keepempty=false )[2:end-1] for page in pages ] )
-#   # Parse the strings
-#       products = [ product(x)[8:end] for x in vector ]
-#   # Generate a vector of dictionaries containing the details for each product of the original page adding to each of them an additional value to account for the
-#       # original order of the data
-#       return [setindex!(
-#                   Dict( Symbol( join( prod[:opening][7] ) ) => parseConvert( join( prod[:type][1] ), join( prod[:content] ) ) for prod in products[i] ),
-#                   i,
-#                   :orderNumber
-#               )
-#               for i in 1:length(products)]
-#   end
-
-#   dict = getPageProducts(io)
-
-
-
-# NUOVA IMPLEMENAZIONE DELLA FUNZIONE
-    #CREA UN DIZIONARIO DI COLONNE(ARRAY) INVECE DI UN ARRAY DI DIZIONARI RAPPRESENTANTI I SINGOLI PRODOTTI
-function getPageProducts( fileIO::IO )
+function getProductsDicts( fileIO::IO )
 # Get the downloaded XML representations of the products
     original = replace( String( take!(fileIO) ), "\n" => "" )
 # Split the downloaded files into pages
@@ -206,43 +181,21 @@ function getPageProducts( fileIO::IO )
     vector = reduce( vcat, [ split( page, r"</?entry>", keepempty=false )[2:end-1] for page in pages ] )
 # Parse the strings
     products = [ product(x)[8:end] for x in vector ]
-
-# Obtain a dictionary of the columns from the vector of products
-    # Find the product with the maximum number of attributes (columns)
-    prodnum = maxLenIndex(products)
-    dict = Dict()
-    # For each attribute in the aforementioned product create a key-value pair in the dictionary
-        # associating the attribute name and the vector of all the corresponding values of the
-        # products
-    for column in 1:length( products[prodnum] )
-        key = Symbol( join( products[prodnum][column] ) )
-        value = []
-        for prod in products
-            # If a product dosn't have the attribute corresponding to the array (thus returning a BoundsError)
-                # insert a missing in the array
-            try
-                push!( value, parseConvert( join( prod[:type][1] ), join( prod[column][:content] ) ) )
-            catch e::BoundsError
-                push!( value, missing )
-            end
-        end
-        setindex!( dict, value, key )    
-    end
-
-    return dict
+# Generate a vector of dictionaries containing the details for each product of the original page adding to each of them an additional value to account for the
+    # original order of the data
+    return [setindex!(
+                Dict( Symbol( join( prod[:opening][7] ) ) => parseConvert( join( prod[:type][1] ), join( prod[:content] ) ) for prod in products[i] ),
+                i,
+                :orderNumber
+            )
+            for i in 1:length(products)]
 end
 
+#   dict = getProductsDicts(io)
 
-io = getProductsPages( authenticate("davidefavaro","Tirocinio"), 300 )
-res = getPageProducts(io)
+#io = getProductsBuffer( authenticate("davidefavaro","Tirocinio"), 300 )
+#res = getProductsDicts(io)
 
-
-
-
-
-
-
-Symbol( join( products[1][j][:opening][7] ) ) => [ join( prod[j][:content] ) for prod in products ] for column in 1:82
 
 
 
@@ -254,9 +207,9 @@ Generate the DataFrame containing the data of "maxNumber" products using "authTo
 """
 function getProductsDF( authToken::AbstractString, maxNumber::Union{Integer, Nothing} = nothing )
 # Download "maxNumber" pages and return the buffer containing them
-    io = getProductsPages(  authToken, maxNumber )
+    io = getProductsBuffer(  authToken, maxNumber )
 # Create a vector of dictionaries of the products
-    dict_vect = getPageProducts( io )
+    dict_vect = getProductsDicts( io )
 # Obtain the existing subsets of attributes of the products
     keys_groups = unique( keys.(dict_vect) )
 # Divide the dictionaries in groups homogeneus on their attributes
@@ -269,11 +222,15 @@ function getProductsDF( authToken::AbstractString, maxNumber::Union{Integer, Not
         append!( data, df, cols=:union )
     end
 
+# Convert `footprint` e `gmlfootprint` columns in geometries
     data[!, :footprint] = ArchGDAL.fromWKT.( data[:, :footprint] )
     data[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( data[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
 
+# Order the rows based on `orderNumber`, then remove said column
+    sort!(data, [:orderNumber] )
+    select!( data, Not(:orderNumber) )
 
-    # Create the column indicating wether a product has been downloaded 
+# Create the column indicating wether a product has been downloaded 
     insertcols!( data, ( :available => fill( true, nrow(data) ) ) ),( :downloaded => fill( false, nrow(data) ) )
 
 
@@ -302,14 +259,11 @@ end
 Save "data" in "targetDirectory" if not already existing or if "overwrite" is true, otherwise append its content to "data.csv"
 """
 function saveProductsDF( targetDirectory::AbstractString, data::DataFrame; overwrite::Bool=false )
-    if !overwrite
-        odata = CSV.read( targetDirectory*"\\data.csv", DataFrame )
-    
-        #(!) PARTE MANCANTE (!)
-    end
-
-
-
+    #if !overwrite
+    #    odata = CSV.read( targetDirectory*"\\data.csv", DataFrame )
+    #
+    #    #(!) PARTE MANCANTE (!)
+    #end
     CSV.write( targetDirectory*"\\data.csv", data, append = !overwrite && in("data.csv", readdir(targetDirectory)) )
 end
 
@@ -350,21 +304,15 @@ end
 
 
 
-df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 1000 )
-saveProductsDF( out[2], df )
+#df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 1000 )
+#saveProductsDF( out[2], df )
 
 
 
+"C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova"
 
-
-
-
-df = CSV.read( split( @__DIR__, "Porting")[1] * "\\Dati di Prova\\data.csv", DataFrame, limit=3000 )
-
-insertcols!( df, ( :available => fill( true, nrow(df) ) ), ( :downloaded => fill( false, nrow(df) ) )  )
-
-df[!, :footprint] = ArchGDAL.fromWKT.( df[:, :footprint] )
-df[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( df[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
+df = getProductsDF( authenticate("davidefavaro","Tirocinio") )
+saveProductsDF( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova", df )
 
 
 
