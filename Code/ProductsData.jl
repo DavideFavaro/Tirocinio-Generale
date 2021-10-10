@@ -326,16 +326,26 @@ end
 
 
 function checkAvailabile()
-    # Get the last available product
+    # Get the last available product as a DataFrame row
     data = getProductsDF( authenticate("davidefavaro","Tirocinio"), max=1, last=true  )
 
+    # Load the preexisting data
     old_data = CSV.read( *( @__DIR__, "\\Dati di prova\\data.csv"), DataFrame )
 
+    # Obtain the `uuid` of the last available product
     last_available_id = data[end, :uuid]
 
-    # Index of the last available product in "old_data"
-    first_unav_idx = findfirst( ==(last_available_id), old_data[:, :uuid] )
-    map!( x -> !x, old_data[first_unav_idx:end, :available ] ) 
+    # Obtain the index of the last available product of "old_data"
+    last_available_idx = findfirst( ==(last_available_id), old_data[:, :uuid] )
+
+    # Set all the products not of level 0, from the last available to the end, as unavailable 
+    for i in last_available_idx:size(old_data)[1]
+        if ismissing(old_data[i, :productlevel]) || old_data[i, :productlevel] != "L0"
+            old_data[i, :available] = false
+        end
+    end
+
+    CSV.write( *( @__DIR__, "\\Dati di prova\\data.csv" ), old_data )
 end
 
 
@@ -346,38 +356,21 @@ end
 
 
 df = getProductsDF( authenticate("davidefavaro","Tirocinio"), max=1, last=true )
-odf = CSV.read( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+#odf = CSV.read( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 
 
 
 
 
 
-old_last_id = odf[end, :uuid]
-new_first_id = ndf[1, :uuid]
-
-duplicated_index = findfirst( prod_id ->  prod_id == old_last_id, df[:, :uuid] )
-unavailable_index = findfirst( prod_id -> prod_id == new_first_id, odf[:, :uuid] )
-
-#filter!( prod -> rownumber(prod) > duplicated_index, data )
-data = data[1:duplicated_index, :]
-old_data[ 1:unavailable_index, :available ] = false
+saveProductsDF( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova", df )
+#saveProductsDF( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova", df )
 
 
-
-
-old_first_id = odf[1, :uuid]
-new_last_id = df[end, :uuid]
-
-duplicated_begin_index = findfirst( ==(old_first_id), df[:, :uuid] )
-unavailable_index = findfirst( ==(new_last_id), odf[:, :uuid] )
-
-
-
-#saveProductsDF( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova", df )
-saveProductsDF( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova", df )
-
-
+odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+checkAvailabile()
+ndf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 
 
 end #module
