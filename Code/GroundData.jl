@@ -68,9 +68,13 @@ function getStationsInfo()
     info = informations(arr[1])
     stats = stations.(arr[2:end])
 
-    dict = [ Dict( Symbol(String(attribute[1][2])) => attribute[2] for attribute in station ) for station in stats ]
-
-    
+    dict = [ Dict( Symbol( lowercase( String( attribute[1][2] ) ) )
+             =>
+             isa(attribute[2], Number) ?
+                attribute[2] :
+                isa(attribute[2], Array) ?
+                    lowercase( String( attribute[2] ) ) :
+                    titlecase( String( attribute[2][2] ) ) for attribute in station ) for station in stats ]
 
     df = DataFrame(dict)
 
