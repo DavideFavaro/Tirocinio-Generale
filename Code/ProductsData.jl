@@ -1,4 +1,8 @@
-module Test
+module ProductsData
+
+"""
+Module for the Download and processing of descriptors of satellitar data from the Copernicus project databases
+"""
 
 using HTTP
 using Downloads
@@ -194,10 +198,9 @@ function getProductsDicts( fileIO::IO )
 
     # Generate a vector of dictionaries containing the details for each product of the original page adding to each of them an additional value to account for the
         # original order of the data
-    return [setindex!(
+    return [push!(
                 Dict( Symbol( join( prod[:opening][7] ) ) => parseConvert( join( prod[:type][1] ), join( prod[:content] ) ) for prod in products[i] ),
-                i,
-                :orderNumber
+                :orderNumber => i, 
             )
             for i in 1:length(products)]
 end

@@ -1,5 +1,9 @@
 module ProductsDownload
 
+"""
+Module for the download of satellitar data of the Copernicus project
+"""
+
 using HTTP
 using Downloads
 

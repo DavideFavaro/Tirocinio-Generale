@@ -1,6 +1,12 @@
 module GroundDataLombardia
 
+"""
+Module for the download and processing of atmospheric data gathered by measuring stations located in Lombardia, Italy
+"""
+
+using CSV
 using Downloads
+using HTTP
 
 #=
 Si possono ottenere dati dal link (ALL CSV):
@@ -27,15 +33,20 @@ Dati sensori meteo sembra fare al caso nostro ma ha un campo che indica cosa rap
 
 
 """
-    getData( targetDirectory::AbstractString[; type::Data_Type, source::Data_Source ] )
+    getDataL(; type::Data_Type, source::Data_Source )
 
-Download the data specified by `type` and `source`, in the form of a CSV file, in targetDirectory
+Download the data specified by `type` and `source`, returning a CSV file
 """
-function getDataL( targetDirectory::AbstractString; type::Data_Type=meteo, source::Data_Source=stations )
-    str = type == meteo ? ( source == stations ? "nf78-nj6b" : "647i-nhxk" ) : ( source == stations ? "ib47-atvt" : "nicp-bhqi" )
+function getDataL(; type::Data_Type=meteo, source::Data_Source=stations )
 
-    Downloads.download( "https://www.dati.lombardia.it/resource/$str.csv", targetDirectory )
+    str = type == meteo ? ( source == stations ? "nf78-nj6b" : "647i-nhxk" ) : ( source == stations ? "ib47-atvt" : "nicp-bhqi" )
+    data = HTTP.get( "https://www.dati.lombardia.it/resource/$str.csv" )
+    data_csv = CSV.File( data.body )
+
+    return data_csv
 end
 
+
+data = getDataL()
 
 end # module

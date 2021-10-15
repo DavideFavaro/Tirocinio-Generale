@@ -8,11 +8,15 @@ Link ai dati:
 Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il download 
 =#
 
+"""
+Module for the download and processing of atmospheric data gathered by measuring stations located in Emilia Romagna, Italy
+"""
+
 
 @enum Data_Type meteo=1 airquality=2 
 @enum Data_Source stations=1 sensors=2
 
-function getDataER( targetDirectory::AbstractString; type::Data_Type=meteo, source::Data_Source=stations )
+function getDataER(; type::Data_Type=meteo, source::Data_Source=stations )
     println("Non ancora implementato")
     return nothing
 end

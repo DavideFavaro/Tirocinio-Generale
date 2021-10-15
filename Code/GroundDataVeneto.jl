@@ -1,5 +1,8 @@
 module GroundData
 
+"""
+Module for the download and processing of atmospheric data gathered by measuring stations located in Veneto, Italy
+"""
 
 using HTTP
 
@@ -24,19 +27,19 @@ using Revise
                                        ),
                             :begin => Sequence(
                                           Sequence( "<", "INIZIO", ">" ),
-                                          Numeric(Int),
+                                          Numeric(Int64),
                                           "</INIZIO>"
                                       ),
                             :end => Sequence(
                                 Sequence( "<", "FINE", ">" ),
-                                Numeric(Int),
+                                Numeric(Int64),
                                 "</FINE>"
                                 ),
                             :proj => Sequence(
                                 Sequence( "<", "PROJECTION", ">" ),
                                 re"[^<:>]+",
                                 ":",
-                                Numeric(Int),
+                                Numeric(Int64),
                                 "</PROJECTION>"
                                 )
                        )
@@ -46,7 +49,7 @@ using Revise
                         Sequence(
                             re"<[^<>]+>",
                             Either(
-                                Numeric(Int),
+                                Numeric(Int64),
                                 Numeric(Float64),
                                 Sequence( "<![CDATA[", re"[^\[\]]+", "]]>" ),
                                 re"[^<>]+"
@@ -60,7 +63,7 @@ using Revise
                     Repeat(
                         re"<(?!D)[^>]+>",
                         Either(
-                            Numeric(Int),
+                            Numeric(Int64),
                             Sequence( "<![CDATA[", re"[^\[\]]+", "]]>" ),
                             re"[^>]+"
                         ),
@@ -144,17 +147,16 @@ function getSensorsInfo( stats::AbstractVector{Int64} )
     data_dict_vect = []
     for (id, station) in zip(stats, vect)
         for sensor in station
-            sensor_dict = setindex!(
-                Dict(
-                    Symbol( lowercase( String( attribute[3] ) ) )
-                    =>
-                    isa( attribute[5], Number ) ? attribute[5] :
-                        isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
-                    for attribute in sensor[1]
-                ),
-                id,
-                :station_id
-            )
+            sensor_dict = push!(
+                              Dict(
+                                  Symbol( lowercase( String( attribute[3] ) ) )
+                                  =>
+                                  isa( attribute[5], Number ) ? attribute[5] :
+                                      isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
+                                  for attribute in sensor[1]
+                              ),
+                              :station_id => id
+                          )
             
             for entry in sensor[2]
                 data_dict = Dict(
