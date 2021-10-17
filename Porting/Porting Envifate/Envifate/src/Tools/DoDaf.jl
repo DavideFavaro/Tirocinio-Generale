@@ -1,3 +1,5 @@
+#=
+
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -1023,3 +1025,4 @@ function leach(ef::Dialog)
 
         ef.label_status.setText("In attesa di dati")
         ef.label_status.setStyleSheet('color : green; font-weight:bold')
+=#

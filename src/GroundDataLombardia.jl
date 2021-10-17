@@ -1,8 +1,8 @@
 module GroundDataLombardia
-
 """
 Module for the download and processing of atmospheric data gathered by measuring stations located in Lombardia, Italy
 """
+
 
 using CSV
 using Downloads
@@ -28,8 +28,8 @@ Dati sensori meteo sembra fare al caso nostro ma ha un campo che indica cosa rap
 =#
 
 
-@enum Data_Type meteo=1 airquality=2 
-@enum Data_Source stations=1 sensors=2
+@enum Data_Type METEO=1 AIRQUALITY=2 
+@enum Data_Source STATIONS=1 SENSORS=2
 
 
 """

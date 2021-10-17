@@ -1,4 +1,7 @@
 module GroundDataEmiliaRomagna
+"""
+Module for the download and processing of atmospheric data gathered by measuring stations located in Emilia Romagna, Italy
+"""
 
 #=
 Link ai dati:
@@ -8,9 +11,7 @@ Link ai dati:
 Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il download 
 =#
 
-"""
-Module for the download and processing of atmospheric data gathered by measuring stations located in Emilia Romagna, Italy
-"""
+
 
 
 @enum Data_Type meteo=1 airquality=2 

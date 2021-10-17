@@ -1,6 +1,8 @@
 
 module DoLake
 
+#=
+
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -596,5 +598,5 @@ function run_lake(dialog::Dialog)
     dialog.label_status.setText("In attesa di dati")
     dialog.label_status.setStyleSheet('color : green; font-weight:bold')
 end
-
+=#
 end # module
