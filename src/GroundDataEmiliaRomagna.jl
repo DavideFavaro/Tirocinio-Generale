@@ -7,6 +7,9 @@ Module for the download and processing of atmospheric data gathered by measuring
 Link ai dati:
     Stazioni qualità aria - Link ottenuto dal bottone per il download (CSV):
         https://docs.google.com/spreadsheets/d/1UFdHVhzULdE-F4o1CFZ7JJ4hC7xJB1IBt_LUCB4K1Uk/export?format=csv
+    Dati AQ:
+        https://sdati-test.datamb.it/arex/
+
 
 Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il download 
 =#

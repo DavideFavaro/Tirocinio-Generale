@@ -3,11 +3,6 @@ module GroundDataLombardia
 Module for the download and processing of atmospheric data gathered by measuring stations located in Lombardia, Italy
 """
 
-
-using CSV
-using Downloads
-using HTTP
-
 #=
 Si possono ottenere dati dal link (ALL CSV):
     Stazioni:
@@ -28,8 +23,16 @@ Dati sensori meteo sembra fare al caso nostro ma ha un campo che indica cosa rap
 =#
 
 
+using CSV
+using HTTP
+
+
+export getDataL
+
+
 @enum Data_Type METEO=1 AIRQUALITY=2 
 @enum Data_Source STATIONS=1 SENSORS=2
+
 
 
 """
@@ -46,7 +49,6 @@ function getDataL(; type::Data_Type=meteo, source::Data_Source=stations )
     return data_csv
 end
 
-
-data = getDataL()
+#data = getDataL()
 
 end # module

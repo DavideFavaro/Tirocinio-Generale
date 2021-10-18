@@ -41,12 +41,15 @@ using CSV
 using DataFrames
 using JSONTables
 
-using Downloads
 using HTTP
+
+
+export getDataAA, getDataT
 
 
 @enum Data_Type METEO=1 AIRQUALITY=2 
 @enum Data_Source STATIONS=1 SENSORS=2
+@enum Data_Region T=1 AA=2
 
 
 @syntax station = Repeat(
@@ -54,7 +57,6 @@ using HTTP
     Either( Numeric(Int64), Numeric(Float64), re"[^>]+" ),
     Sequence( "</", re"[^>]+", ">" )
 )
-
 
 @syntax data = Repeat(
     "<", re"[^>]+", ">",
@@ -75,6 +77,10 @@ using HTTP
 )
 
 
+
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+#                                                               DATI DELL'ALTO ADIGE
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 """
     getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
@@ -110,20 +116,9 @@ end
 
 
 
-"""
-    getAQData()
-    
-Return a `CSV.File` containing the data on air quality collected from measuring stations in Trentino Alto Adige
-"""
-function getAQDataT()
-    data = HTTP.get( "https://bollettino.appa.tn.it/aria/opendata/csv/last/" )
-
-    return CSV.File( data.body )
-end
-
-#   c = getAQData()
-
-
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+#                                                                   DATI DEL TRENTINO
+#||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 """
     getMeteoStationsData()
@@ -216,6 +211,50 @@ end
 
 # sdf = getMeteoStationsData()
 # data = getMeteoData( sdf[1:3,:codice] )
+
+
+
+"""
+    getAQData()
+    
+Return a `CSV.File` containing the data on air quality collected from measuring stations in Trentino Alto Adige
+"""
+function getAQDataT()
+    data = HTTP.get( "https://bollettino.appa.tn.it/aria/opendata/csv/last/" )
+
+    return CSV.File( data.body )
+end
+
+#   c = getAQData()
+
+
+
+
+
+
+
+
+"""
+    getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+
+Obtain informations on the `type` stations or their sensor's data
+"""
+function getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+    if type == METEO
+        stations = getMeteoStationsDataT()
+        if source == STATIONS
+            return stations
+        else
+            return getMeteoDataT( stations[:, :codice] )
+        end
+    else
+        return  DataFrame( getAQDataT() )
+    end
+end
+
+
+
+
 
 
 

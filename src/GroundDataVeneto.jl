@@ -16,6 +16,8 @@ using CSV
 using Revise
 
 
+export a
+
 
 @syntax informations = Sequence(
                             :info => Sequence(
@@ -44,7 +46,6 @@ using Revise
                                 )
                        )
 
-
 @syntax stations = Repeat( 
                         Sequence(
                             re"<[^<>]+>",
@@ -57,7 +58,6 @@ using Revise
                             re"</[^<>]+>"
                         )
                     )
-
 
 @syntax sensor = Sequence(
                     Repeat(
