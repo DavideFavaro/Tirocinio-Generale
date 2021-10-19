@@ -127,7 +127,7 @@ end
 
 Obtain the dataframe containing the data of all the stations described by the elements of `stats`
 """
-function getMeteoSensorsData( stats::AbstractVector{Int64} )
+function getMeteoData( stats::AbstractVector{Int64} )
     pages_vect = [ String( HTTP.get("https://www.arpa.veneto.it/bollettini/meteo/h24/img07/$(lpad(stat, 4, "0")).xml").body ) for stat in stats ]
 
     # For each of the station remove the first part of the string and the closing tags
@@ -142,36 +142,6 @@ function getMeteoSensorsData( stats::AbstractVector{Int64} )
     # vect[i][j][2][l] j-th sensor'data, l-th measurement (Vector)
     # vect[i][j][2][l][4] l-th measurement's values (Vector 1 => mean, 2 => min, 3 => max)
     vect = [ sensor.(sensor_group) for sensor_group in sensor_vect ]
-
-    #   sensor_dict_vect = []
-    #   data_dict_vect = []
-    #   for (id, station) in zip(stats, vect)
-    #       for sensor in station
-    #           sensor_dict = push!(
-    #                             Dict(
-    #                                 Symbol( lowercase( String( attribute[3] ) ) )
-    #                                 =>
-    #                                 isa( attribute[5], Number ) ? attribute[5] :
-    #                                     isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
-    #                                 for attribute in sensor[1]
-    #                             ),
-    #                             :station_id => id
-    #                         )
-    #           
-    #           for entry in sensor[2]
-    #               data_dict = Dict(
-    #                   :station_id => id,
-    #                   :sensor_id => sensor_dict[:id],
-    #                   :instant => entry[2],
-    #                   :value => entry[5]
-    #               )
-    #               push!( data_dict_vect, data_dict )
-    #           end
-    #
-    #           push!( sensor_dict_vect, sensor_dict )   
-    #       end
-    #   end
-
 
     data_dict_vect = [
                         push!(
@@ -191,11 +161,9 @@ function getMeteoSensorsData( stats::AbstractVector{Int64} )
                         for entry in sensor[2]
                      ]
 
+    df = DataFrame( data_dict_vect )
 
-    #   dfs = ( DataFrame( sensor_dict_vect ), DataFrame( data_dict_vect ) )
-    dfs = DataFrame( data_dict_vect )
-
-    return dfs
+    return df
 end
 
 #   df = getMeteoStationsData()
@@ -203,39 +171,84 @@ end
 
 
 
+"""
+    getAqStationsData()
 
-
-
-
-# Pagina con i collegamenti alle risorse xml
-#   https://www.arpa.veneto.it/dati-ambientali/open-data/dati-arpav-in-formato-xml
-
+Obtain a dataframe containing informations on the measuring stations in the area
+"""
 function getAqStationsData()
-    page = String( HTTP.GET("http://213.217.132.81/aria-json/exported/aria/stats.json").body )
+    obj = source == STATIONS ? "stats" : "data"
+    page = String( HTTP.get("http://213.217.132.81/aria-json/exported/aria/$obj.json").body )
+    jst = jsontable( page[14:end] )
+    return DataFrame( jst )
+end
+
+#   res = getAqStationsData()
+
+
+
+"""
+    getAqData()
+
+Obtain the data gathered by the stations in the area
+"""
+function getAqData()
+    page = String( HTTP.get("http://213.217.132.81/aria-json/exported/aria/data.json").body )
+
+    # js["stazioni"][i]                                            i-th station
+    # js["stazioni"][i]["codseqst"]                                i-th station's id
+    # js["stazioni"][i]["misurazioni"][j]                          i-th station's j-th measurement
+    # js["stazioni"][i]["misurazioni"][j]["pm10"/"ozono"][l]       j-th measurement's l-th entry 
+    js = JSON.parse( page )["stazioni"]
+
+    arr = []
+    for station in js
+        if !isempty( station["misurazioni"] )
+            for measurement in station["misurazioni"]
+                for key in collect( keys( measurement ) )
+                    for entry in measurement[key]
+                        dict = Dict(
+                            :station_id => station["codseqst"],
+                            :param => key,
+                            :date => entry["data"],
+                            :value => entry["mis"]
+                        )
+                        push!( arr, dict )
+                    end
+                end
+            end
+        else
+            push!( arr, Dict( :station_id => station["codseqst"], :param => missing, :date => missing, :value => missing ) )
+        end
+    end
+
+    return DataFrame(arr)
+end
+
+#   jst = getAqSensorsData()
+
+
+
+"""
+
+Obtain `type` data from `source`
+"""
+function getDataV(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+    if type == METEO
+        stations = getMeteoStationsData()
+        if source == STATIONS
+            return stations
+        else
+            return getMeteoData( stations[:, ], )
+        end
+    else
+        if source == STATIONS
+            return getAqStationsData()
+        else
+            return getAqData()
+        end
 end
 
 
-function getAqSensorsData()
-    page = String( HTTP.GET("http://213.217.132.81/aria-json/exported/aria/data.json").body )
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#   write( "./src/colonne.txt", join( names(df), "; " ) )
-#   write("./colonne.txt", join( eachrow(df[1][1:5, :]), "\n" ) )
 
 end # moduled

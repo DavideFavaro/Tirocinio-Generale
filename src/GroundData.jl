@@ -4,7 +4,6 @@ module GroundData
 
 using CSV
 
-include("./Global.jl")
 include("./GroundDataV.jl")
 include("./GroundDataL.jl")
 include("./GroundDataER.jl")
