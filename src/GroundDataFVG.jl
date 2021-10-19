@@ -28,7 +28,6 @@ Link:
 =#
 
 
-
 using CombinedParsers
 using CombinedParsers.Regexp
 
@@ -37,6 +36,9 @@ using DataFrames
 using JSONTables
 
 using HTTP
+
+
+export getDataFVG
 
 
 @enum Data_Type METEO=1 AIRQUALITY=2 
@@ -55,17 +57,17 @@ using HTTP
 
 
 
-#   function getAQData()
-#       codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
-#       params = [ "PM10", "PM2.5", "Ozono", "Monossido di carbonio", "Biossido di zolfo", "Biossido di Azoto" ]
-#       data = [ DataFrame( CSV.File( HTTP.get( "https://www.dati.friuliveneziagiulia.it/resource/$code.csv" ).body ) ) for code in codes ]
-#       for (df, param) in zip(data, params)
-#           !in( "parametro", names(df) ) && insertcols!( df, "parametro" => param )
-#   
-#       end
-#       dataframe = reduce( (x, y) -> vcat( x, y, cols=:intersect ), data )
-#       return dataframe
-#   end
+function getAQData()
+    codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
+    params = [ "PM10", "PM2.5", "Ozono", "Monossido di carbonio", "Biossido di zolfo", "Biossido di Azoto" ]
+    data = [ DataFrame( CSV.File( HTTP.get( "https://www.dati.friuliveneziagiulia.it/resource/$code.csv" ).body ) ) for code in codes ]
+    for (df, param) in zip(data, params)
+        !in( "parametro", names(df) ) && insertcols!( df, "parametro" => param )
+
+    end
+    dataframe = reduce( (x, y) -> vcat( x, y, cols=:intersect ), data )
+    return dataframe
+end
 
 
 function getMeteoData()

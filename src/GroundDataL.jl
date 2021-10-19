@@ -1,4 +1,4 @@
-module GroundDataLombardia
+module GroundDataL
 """
 Module for the download and processing of atmospheric data gathered by measuring stations located in Lombardia, Italy
 """
@@ -24,6 +24,7 @@ Dati sensori meteo sembra fare al caso nostro ma ha un campo che indica cosa rap
 
 
 using CSV
+using DataFrames
 using HTTP
 
 
@@ -34,21 +35,22 @@ export getDataL
 @enum Data_Source STATIONS=1 SENSORS=2
 
 
-
 """
     getDataL(; type::Data_Type, source::Data_Source )
 
 Download the data specified by `type` and `source`, returning a CSV file
 """
-function getDataL(; type::Data_Type=meteo, source::Data_Source=stations )
+function getDataL(; type::Data_Type=METEO, source::Data_Source=STATIONS )
 
-    str = type == meteo ? ( source == stations ? "nf78-nj6b" : "647i-nhxk" ) : ( source == stations ? "ib47-atvt" : "nicp-bhqi" )
+    str = type == METEO ? ( source == STATIONS ? "nf78-nj6b" : "647i-nhxk" ) : ( source == STATIONS ? "ib47-atvt" : "nicp-bhqi" )
     data = HTTP.get( "https://www.dati.lombardia.it/resource/$str.csv" )
     data_csv = CSV.File( data.body )
 
-    return data_csv
+    return DataFrame(data_csv)
 end
 
 #data = getDataL()
+
+
 
 end # module

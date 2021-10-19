@@ -1,4 +1,4 @@
-module GroundData
+module GroundDataV
 """
 Module for the download and processing of atmospheric data gathered by measuring stations located in Veneto, Italy
 """
@@ -12,11 +12,16 @@ using CombinedParsers.Regexp
 using DataFrames
 using Dates
 using CSV
+using JSONTables
 
 using Revise
 
 
-export a
+export getDataV
+
+
+@enum Data_Type METEO=1 AIRQUALITY=2 
+@enum Data_Source STATIONS=1 SENSORS=2
 
 
 @syntax informations = Sequence(
@@ -77,12 +82,13 @@ export a
                   )
 
 
+
 """
     getStationsInfo()::DataFrames.DataFrame
 
 Obtain the dataframe containing informations on all available ARPAV stations 
 """
-function getStationsInfo()
+function getMeteoStationsData()
 
 #Get the information on the available stations
     # Get the page containing informations on all the available stations
@@ -116,16 +122,12 @@ end
 
 
 
-
-
-
 """
     getStationsData( stats::AbstractVector{String} )
 
 Obtain the dataframe containing the data of all the stations described by the elements of `stats`
 """
-# INCOMPLETO
-function getSensorsInfo( stats::AbstractVector{Int64} )
+function getMeteoSensorsData( stats::AbstractVector{Int64} )
     pages_vect = [ String( HTTP.get("https://www.arpa.veneto.it/bollettini/meteo/h24/img07/$(lpad(stat, 4, "0")).xml").body ) for stat in stats ]
 
     # For each of the station remove the first part of the string and the closing tags
@@ -134,8 +136,6 @@ function getSensorsInfo( stats::AbstractVector{Int64} )
     # From each station generate the corresponding array of sensors
     sensor_vect = split.( stat_strings_vect, r"</?SENSORE>", keepempty=false )
 
-
-
     # vect[i][j] i-th station, j-th sensor
     # vect[i][j][1] j-th sensor's info (Vector)
     # vect[i][j][2] j-th sensor's data (Vector)
@@ -143,49 +143,99 @@ function getSensorsInfo( stats::AbstractVector{Int64} )
     # vect[i][j][2][l][4] l-th measurement's values (Vector 1 => mean, 2 => min, 3 => max)
     vect = [ sensor.(sensor_group) for sensor_group in sensor_vect ]
 
-    sensor_dict_vect = []
-    data_dict_vect = []
-    for (id, station) in zip(stats, vect)
-        for sensor in station
-            sensor_dict = push!(
-                              Dict(
-                                  Symbol( lowercase( String( attribute[3] ) ) )
-                                  =>
-                                  isa( attribute[5], Number ) ? attribute[5] :
-                                      isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
-                                  for attribute in sensor[1]
-                              ),
-                              :station_id => id
-                          )
-            
-            for entry in sensor[2]
-                data_dict = Dict(
-                    :station_id => id,
-                    :sensor_id => sensor_dict[:id],
-                    :instant => entry[2],
-                    :value => entry[5]
-                )
-                push!( data_dict_vect, data_dict )
-            end
+    #   sensor_dict_vect = []
+    #   data_dict_vect = []
+    #   for (id, station) in zip(stats, vect)
+    #       for sensor in station
+    #           sensor_dict = push!(
+    #                             Dict(
+    #                                 Symbol( lowercase( String( attribute[3] ) ) )
+    #                                 =>
+    #                                 isa( attribute[5], Number ) ? attribute[5] :
+    #                                     isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
+    #                                 for attribute in sensor[1]
+    #                             ),
+    #                             :station_id => id
+    #                         )
+    #           
+    #           for entry in sensor[2]
+    #               data_dict = Dict(
+    #                   :station_id => id,
+    #                   :sensor_id => sensor_dict[:id],
+    #                   :instant => entry[2],
+    #                   :value => entry[5]
+    #               )
+    #               push!( data_dict_vect, data_dict )
+    #           end
+    #
+    #           push!( sensor_dict_vect, sensor_dict )   
+    #       end
+    #   end
 
-            push!( sensor_dict_vect, sensor_dict )   
-        end
-    end
 
-    dfs = ( DataFrame( sensor_dict_vect ), DataFrame( data_dict_vect ) )
+    data_dict_vect = [
+                        push!(
+                            Dict(
+                                Symbol( lowercase( String( attribute[3] ) ) )
+                                =>
+                                isa( attribute[5], Number ) ? attribute[5] :
+                                    isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
+                              for attribute in sensor[1]
+                            ),
+                            :station_id => id,
+                            :instant => entry[2],
+                            :value => entry[5]
+                        )
+                        for (id, station) in zip(stats, vect)
+                        for sensor in station   
+                        for entry in sensor[2]
+                     ]
+
+
+    #   dfs = ( DataFrame( sensor_dict_vect ), DataFrame( data_dict_vect ) )
+    dfs = DataFrame( data_dict_vect )
 
     return dfs
+end
+
+#   df = getMeteoStationsData()
+#   data = getMeteoSensorsInfo( df[1:3, :idstaz] )
+
+
+
+
+
+
+
+# Pagina con i collegamenti alle risorse xml
+#   https://www.arpa.veneto.it/dati-ambientali/open-data/dati-arpav-in-formato-xml
+
+function getAqStationsData()
+    page = String( HTTP.GET("http://213.217.132.81/aria-json/exported/aria/stats.json").body )
+end
+
+
+function getAqSensorsData()
+    page = String( HTTP.GET("http://213.217.132.81/aria-json/exported/aria/data.json").body )
 end
 
 
 
 
-df = getStationsInfo()
-sen_dict, data_dict = getSensorsInfo( df[1:3, :idstaz] )
 
 
 
 
 
+
+
+
+
+
+
+
+
+#   write( "./src/colonne.txt", join( names(df), "; " ) )
+#   write("./colonne.txt", join( eachrow(df[1][1:5, :]), "\n" ) )
 
 end # moduled

@@ -33,7 +33,6 @@ Alto Adige:
 =#
 
 
-
 using CombinedParsers
 using CombinedParsers.Regexp
 
@@ -49,7 +48,6 @@ export getDataAA, getDataT
 
 @enum Data_Type METEO=1 AIRQUALITY=2 
 @enum Data_Source STATIONS=1 SENSORS=2
-@enum Data_Region T=1 AA=2
 
 
 @syntax station = Repeat(
@@ -113,7 +111,6 @@ function getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
 
     return DataFrame(data)
 end
-
 
 
 #||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -229,11 +226,6 @@ end
 
 
 
-
-
-
-
-
 """
     getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
 
@@ -252,10 +244,9 @@ function getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     end
 end
 
-
-
-
-
-
+# [V]  df = getDataT( type=METEO, source=STATIONS )
+# [X]  df = getDataT( type=METEO, source=SENSORS )
+# [V]  df = getDataT( type=AIRQUALITY, source=STATIONS )
+# [V]  df = getDataT( type=AIRQUALITY, source=SENSORS )
 
 end # module

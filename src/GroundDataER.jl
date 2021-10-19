@@ -1,4 +1,4 @@
-module GroundDataEmiliaRomagna
+module GroundDataER
 """
 Module for the download and processing of atmospheric data gathered by measuring stations located in Emilia Romagna, Italy
 """
@@ -17,8 +17,12 @@ Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il
 
 
 
-@enum Data_Type meteo=1 airquality=2 
-@enum Data_Source stations=1 sensors=2
+export getDataER
+
+
+@enum Data_Type METEO=1 AIRQUALITY=2 
+@enum Data_Source STATIONS=1 SENSORS=2
+
 
 function getDataER(; type::Data_Type=meteo, source::Data_Source=stations )
     println("Non ancora implementato")
