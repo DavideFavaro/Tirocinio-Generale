@@ -1,3 +1,19 @@
+farei così, dimme se credi che manchi qualcosa
+
+colonna	descrizione
+uiid	identificatore univoco delle stazioni di qualunque genere di misura
+parameter	tipo di parametro misurato
+unit	unita di misura (possibilmente SI)
+value	valore misurato
+date	anno mese giorno ora (UTM)
+longitude	longitudine della stazione
+latitude	latitudine della stazione
+quote	quota stazione || quota stazione più quota misura per il vento
+validation	bool (già segnalato dalla stazione)
+note	errori e outlayers? altro?
+
+
+
 Alto Adige
 
 	Info stazioni meteo
