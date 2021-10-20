@@ -127,7 +127,7 @@ end
 
 Obtain the dataframe containing the data of all the stations described by the elements of `stats`
 """
-function getMeteoData( stats::AbstractVector{Int64} )
+function getMeteoData( ids::AbstractVector{Int64} )
     pages_vect = [ String( HTTP.get("https://www.arpa.veneto.it/bollettini/meteo/h24/img07/$(lpad(stat, 4, "0")).xml").body ) for stat in stats ]
 
     # For each of the station remove the first part of the string and the closing tags
@@ -177,8 +177,7 @@ end
 Obtain a dataframe containing informations on the measuring stations in the area
 """
 function getAqStationsData()
-    obj = source == STATIONS ? "stats" : "data"
-    page = String( HTTP.get("http://213.217.132.81/aria-json/exported/aria/$obj.json").body )
+    page = String( HTTP.get("http://213.217.132.81/aria-json/exported/aria/stats.json").body )
     jst = jsontable( page[14:end] )
     return DataFrame( jst )
 end
@@ -225,7 +224,7 @@ function getAqData()
     return DataFrame(arr)
 end
 
-#   jst = getAqSensorsData()
+#   df = getAqSensorsData()
 
 
 
@@ -239,7 +238,7 @@ function getDataV(; type::Data_Type=METEO, source::Data_Source=STATIONS )
         if source == STATIONS
             return stations
         else
-            return getMeteoData( stations[:, ], )
+            return getMeteoData( stations[:, :idstaz], )
         end
     else
         if source == STATIONS
@@ -247,8 +246,12 @@ function getDataV(; type::Data_Type=METEO, source::Data_Source=STATIONS )
         else
             return getAqData()
         end
+    end
 end
 
-
+#   data = getDataV()
+#   data = getDataV( source=SENSORS )
+#   data = getDataV( type=AIRQUALITY, source=STATIONS )
+#   data = getDataV( type=AIRQUALITY, source=SENSORS )
 
 end # moduled
