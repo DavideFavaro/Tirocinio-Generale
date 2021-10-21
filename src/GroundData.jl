@@ -32,11 +32,12 @@ note	     |   errori e outlayers? altro?
 
 using CSV
 
-include("./GroundDataV.jl")
-include("./GroundDataL.jl")
+include("./GroundDataAA.jl")
 include("./GroundDataER.jl")
 include("./GroundDataFVG.jl")
-include("./GroundDataTAA.jl")
+include("./GroundDataL.jl")
+include("./GroundDataT.jl")
+include("./GroundDataV.jl")
 
 
 export getGroundData

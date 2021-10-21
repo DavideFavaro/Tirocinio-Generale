@@ -12,6 +12,7 @@ using CombinedParsers.Regexp
 using DataFrames
 using Dates
 using CSV
+using JSON
 using JSONTables
 
 using Revise

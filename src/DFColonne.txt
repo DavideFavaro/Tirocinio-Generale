@@ -20,117 +20,148 @@ Alto Adige
 		SCODE; NAME_D; NAME_I; NAME_L; NAME_E; ALT; LONG; LAT;
 
 		DataFrameRow
-		 Row │ SCODE    NAME_D            NAME_I           NAME_L            NAME_E            ALT     LONG     LAT
-		     │ String   String            String           String            String            Union…  Float64  Float64
-		─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────
-		   1 │ 89940PG  ETSCH BEI SALURN  ADIGE A SALORNO  ETSCH BEI SALURN  ETSCH BEI SALURN     210  11.2026  46.2433
-		DataFrameRow
-		 Row │ SCODE    NAME_D          NAME_I        NAME_L          NAME_E          ALT     LONG     LAT
-		     │ String   String          String        String          String          Union…  Float64  Float64
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────────
-		   2 │ 08155PG  ETSCH BEI EYRS  ADIGE A ORIS  ETSCH BEI EYRS  ETSCH BEI EYRS  873.99  10.6496  46.6219
-		DataFrameRow
-		 Row │ SCODE    NAME_D          NAME_I              NAME_L          NAME_E          ALT     LONG     LAT
-		     │ String   String          String              String          String          Union…  Float64  Float64
-		─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────
-		   3 │ 45200SF  Gsies Pfinnalm  Casies Malga Pfinn  Gsies Pfinnalm  Gsies Pfinnalm    2152  12.2096  46.8417
-		DataFrameRow
-		 Row │ SCODE    NAME_D       NAME_I           NAME_L       NAME_E       ALT     LONG     LAT
-		     │ String   String       String           String       String       Union…  Float64  Float64
-		─────┼───────────────────────────────────────────────────────────────────────────────────────────
-		   4 │ 82500WS  Rittnerhorn  Corno del Renon  Rittnerhorn  Rittnerhorn    2260  11.4604  46.6156
-		DataFrameRow
-		 Row │ SCODE    NAME_D             NAME_I              NAME_L             NAME_E             ALT     LONG     LAT
-		     │ String   String             String              String             String             Union…  Float64  Float64
-		─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-		   5 │ 45100WS  Gsies Regelspitze  Casies Cima Regola  Gsies Regelspitze  Gsies Regelspitze    2747  12.2005  46.8561
+		    Row │ SCODE    NAME_D            NAME_I           NAME_L            NAME_E            ALT     LONG     LAT
+		        │ String   String            String           String            String            Union…  Float64  Float64
+		   ─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────
+		      1 │ 89940PG  ETSCH BEI SALURN  ADIGE A SALORNO  ETSCH BEI SALURN  ETSCH BEI SALURN     210  11.2026  46.2433
+		   DataFrameRow
+		    Row │ SCODE    NAME_D          NAME_I        NAME_L          NAME_E          ALT     LONG     LAT
+		        │ String   String          String        String          String          Union…  Float64  Float64
+		   ─────┼─────────────────────────────────────────────────────────────────────────────────────────────────
+		      2 │ 08155PG  ETSCH BEI EYRS  ADIGE A ORIS  ETSCH BEI EYRS  ETSCH BEI EYRS  873.99  10.6496  46.6219
+		   DataFrameRow
+		    Row │ SCODE    NAME_D          NAME_I              NAME_L          NAME_E          ALT     LONG     LAT
+		        │ String   String          String              String          String          Union…  Float64  Float64
+		   ─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────
+		      3 │ 45200SF  Gsies Pfinnalm  Casies Malga Pfinn  Gsies Pfinnalm  Gsies Pfinnalm    2152  12.2096  46.8417
+		   DataFrameRow
+		    Row │ SCODE    NAME_D       NAME_I           NAME_L       NAME_E       ALT     LONG     LAT
+		        │ String   String       String           String       String       Union…  Float64  Float64
+		   ─────┼───────────────────────────────────────────────────────────────────────────────────────────
+		      4 │ 82500WS  Rittnerhorn  Corno del Renon  Rittnerhorn  Rittnerhorn    2260  11.4604  46.6156
+		   DataFrameRow
+		    Row │ SCODE    NAME_D             NAME_I              NAME_L             NAME_E             ALT     LONG     LAT
+		        │ String   String             String              String             String             Union…  Float64  Float64
+		   ─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+		      5 │ 45100WS  Gsies Regelspitze  Casies Cima Regola  Gsies Regelspitze  Gsies Regelspitze    2747  12.2005  46.8561
 
 	Dati sensori meteo
 		SCODE; TYPE; DESC_D; DESC_I; DESC_L; UNIT; DATE; VALUE;
 
 		DataFrameRow
-		 Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
-		     │ String   String  String      String   String       String  String?                  Union…?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────
-		   1 │ 19850PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     28.8
-		DataFrameRow
-		 Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
-		     │ String   String  String      String   String       String  String?                  Union…?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────
-		   2 │ 29850PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     60.7
-		DataFrameRow
-		 Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
-		     │ String   String  String      String   String       String  String?                  Union…?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────
-		   3 │ 36750PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     4.83
-		DataFrameRow
-		 Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
-		     │ String   String  String      String   String       String  String?                  Union…?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────
-		   4 │ 59450PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     12.6
-		DataFrameRow
-		 Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
-		     │ String   String  String      String   String       String  String?                  Union…?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────
-		   5 │ 64550PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     5.35
+		   Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
+		       │ String   String  String      String   String       String  String?                  Union…?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────
+		     1 │ 19850PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     28.8
+		  DataFrameRow
+		   Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
+		       │ String   String  String      String   String       String  String?                  Union…?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────
+		     2 │ 29850PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     60.7
+		  DataFrameRow
+		   Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
+		       │ String   String  String      String   String       String  String?                  Union…?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────
+		     3 │ 36750PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     4.83
+		  DataFrameRow
+		   Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
+		       │ String   String  String      String   String       String  String?                  Union…?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────
+		     4 │ 59450PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     12.6
+		  DataFrameRow
+		   Row │ SCODE    TYPE    DESC_D      DESC_I   DESC_L       UNIT    DATE                     VALUE
+		       │ String   String  String      String   String       String  String?                  Union…?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────
+		     5 │ 64550PG  Q       Durchfluss  Portata  Ega passeda  m³/s    2021-10-19T12:10:00CEST     5.35
+
+
+
+uiid			=>		st.SCODE + se.SCODE ?
+parameter		=>		se.DESC_I
+unit			=>		se.UNIT
+value			=>		se.VALUE
+date			=>		se.DATE
+longitude		=>		st.LONG
+latitude		=>		st.LAT
+quote			=>		st.ALT
+validation		=>		???
+note			=>		???
+
+
 
 	Info stazioni aria
 		SCODE; NAME_D; NAME_I; NAME_L; FLAGS; LONG; LAT;
 
 		DataFrameRow
-		 Row │ SCODE   NAME_D                      NAME_I                     NAME_L   FLAGS    LONG      LAT
-		     │ String  String                      String                     Missing  Missing  Float64?  Float64?
-		─────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
-		   1 │ BZ4     Bozen 4 - C.Augusta Straße  Bolzano 4 - Via C.Augusta  missing  missing   11.3418   46.4823
-		DataFrameRow
-		 Row │ SCODE   NAME_D                   NAME_I                 NAME_L   FLAGS    LONG      LAT
-		     │ String  String                   String                 Missing  Missing  Float64?  Float64?
-		─────┼──────────────────────────────────────────────────────────────────────────────────────────────
-		   2 │ ME1     Meran - Trogmann Straße  Merano - Via Trogmann  missing  missing   11.1616    46.662
-		DataFrameRow
-		 Row │ SCODE   NAME_D                             NAME_I                             NAME_L   FLAGS    LONG      LAT
-		     │ String  String                             String                             Missing  Missing  Float64?  Float64?
-		─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-		   3 │ BX1     Brixen - Villa Adele - Regensbur…  Bressanone - Villa Adele - Viale…  missing  missing   11.6541   46.7149
-		DataFrameRow
-		 Row │ SCODE   NAME_D                     NAME_I                       NAME_L   FLAGS    LONG      LAT
-		     │ String  String                     String                       Missing  Missing  Float64?  Float64?
-		─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
-		   4 │ BR1     Bruneck - Goetheparkplatz  Brunico - Parcheggio Goethe  missing  missing    11.944   46.7973
-		DataFrameRow
-		 Row │ SCODE   NAME_D                             NAME_I                             NAME_L   FLAGS    LONG      LAT
-		     │ String  String                             String                             Missing  Missing  Float64?  Float64?
-		─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-		   5 │ RE1     Ritten - Rittner Horn / Tannstra…  Renon - Corno di Renon / Via Tan…  missing  missing   11.4332   46.5897		
+		   Row │ SCODE   NAME_D                      NAME_I                     NAME_L   FLAGS    LONG      LAT
+		       │ String  String                      String                     Missing  Missing  Float64?  Float64?
+		  ─────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+		     1 │ BZ4     Bozen 4 - C.Augusta Straße  Bolzano 4 - Via C.Augusta  missing  missing   11.3418   46.4823
+		  DataFrameRow
+		   Row │ SCODE   NAME_D                   NAME_I                 NAME_L   FLAGS    LONG      LAT
+		       │ String  String                   String                 Missing  Missing  Float64?  Float64?
+		  ─────┼──────────────────────────────────────────────────────────────────────────────────────────────
+		     2 │ ME1     Meran - Trogmann Straße  Merano - Via Trogmann  missing  missing   11.1616    46.662
+		  DataFrameRow
+		   Row │ SCODE   NAME_D                             NAME_I                             NAME_L   FLAGS    LONG      LAT
+		       │ String  String                             String                             Missing  Missing  Float64?  Float64?
+		  ─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+		     3 │ BX1     Brixen - Villa Adele - Regensbur…  Bressanone - Villa Adele - Viale…  missing  missing   11.6541   46.7149
+		  DataFrameRow
+		   Row │ SCODE   NAME_D                     NAME_I                       NAME_L   FLAGS    LONG      LAT
+		       │ String  String                     String                       Missing  Missing  Float64?  Float64?
+		  ─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
+		     4 │ BR1     Bruneck - Goetheparkplatz  Brunico - Parcheggio Goethe  missing  missing    11.944   46.7973
+		  DataFrameRow
+		   Row │ SCODE   NAME_D                             NAME_I                             NAME_L   FLAGS    LONG      LAT
+		       │ String  String                             String                             Missing  Missing  Float64?  Float64?
+		  ─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+		     5 │ RE1     Ritten - Rittner Horn / Tannstra…  Renon - Corno di Renon / Via Tan…  missing  missing   11.4332   46.5897		
 
 	Dati sensori aria
 		DATE; SCODE; MCODE; TYPE; VALUE;
 
 		DataFrameRow
-		 Row │ DATE                 SCODE   MCODE   TYPE    VALUE
-		     │ String               String  String  String  Union…
-		─────┼─────────────────────────────────────────────────────
-		   1 │ 2021-10-18T11:00:00  AB1     CO      1           -1
-		DataFrameRow
-		 Row │ DATE                 SCODE   MCODE   TYPE    VALUE
-		     │ String               String  String  String  Union…
-		─────┼─────────────────────────────────────────────────────
-		   2 │ 2021-10-18T11:00:00  AB1     NO2     1           -1
-		DataFrameRow
-		 Row │ DATE                 SCODE   MCODE   TYPE    VALUE
-		     │ String               String  String  String  Union…
-		─────┼─────────────────────────────────────────────────────
-		   3 │ 2021-10-18T11:00:00  AB1     O3      1           -1
-		DataFrameRow
-		 Row │ DATE                 SCODE   MCODE   TYPE    VALUE
-		     │ String               String  String  String  Union…
-		─────┼─────────────────────────────────────────────────────
-		   4 │ 2021-10-18T11:00:00  AB1     PM10    1           -1
-		DataFrameRow
-		 Row │ DATE                 SCODE   MCODE   TYPE    VALUE
-		     │ String               String  String  String  Union…
-		─────┼─────────────────────────────────────────────────────
-		   5 │ 2021-10-18T11:00:00  AB1     PM2.5   1           -1
+		   Row │ DATE                 SCODE   MCODE   TYPE    VALUE
+		       │ String               String  String  String  Union…
+		  ─────┼─────────────────────────────────────────────────────
+		     1 │ 2021-10-18T11:00:00  AB1     CO      1           -1
+		  DataFrameRow
+		   Row │ DATE                 SCODE   MCODE   TYPE    VALUE
+		       │ String               String  String  String  Union…
+		  ─────┼─────────────────────────────────────────────────────
+		     2 │ 2021-10-18T11:00:00  AB1     NO2     1           -1
+		  DataFrameRow
+		   Row │ DATE                 SCODE   MCODE   TYPE    VALUE
+		       │ String               String  String  String  Union…
+		  ─────┼─────────────────────────────────────────────────────
+		     3 │ 2021-10-18T11:00:00  AB1     O3      1           -1
+		  DataFrameRow
+		   Row │ DATE                 SCODE   MCODE   TYPE    VALUE
+		       │ String               String  String  String  Union…
+		  ─────┼─────────────────────────────────────────────────────
+		     4 │ 2021-10-18T11:00:00  AB1     PM10    1           -1
+		  DataFrameRow
+		   Row │ DATE                 SCODE   MCODE   TYPE    VALUE
+		       │ String               String  String  String  Union…
+		  ─────┼─────────────────────────────────────────────────────
+		     5 │ 2021-10-18T11:00:00  AB1     PM2.5   1           -1
+
+
+
+uiid			=>		st.SCODE + se.SCODE ?
+parameter		=>		se.MCODE
+unit			=>		se.UNIT
+value			=>		se.VALUE
+date			=>		se.DATE
+longitude		=>		st.LONG
+latitude		=>		st.LAT
+quote			=>		???
+validation		=>		st.FLAGS ? se.TYPE ? se.VALUE ?
+note			=>		???
+
+
+
 
 
 Emilia Romagna
@@ -141,11 +172,42 @@ Emilia Romagna
 	Dati sensori meteo
 		*WIP
 
+
+
+uiid			=>		-
+parameter		=>		-
+unit			=>		-
+value			=>		-
+date			=>		-
+longitude		=>		-
+latitude		=>		-
+quote			=>		-
+validation		=>		-
+note			=>		-
+
+
+
 	Info stazioni aria
 		*WIP
 
 	Dati sensori aria
 		*WIP
+
+
+
+uiid			=>		-
+parameter		=>		-
+unit			=>		-
+value			=>		-
+date			=>		-
+longitude		=>		-
+latitude		=>		-
+quote			=>		-
+validation		=>		-
+note			=>		-
+
+
+
 
 
 Friuli Venezia Giulia
@@ -159,9 +221,40 @@ Friuli Venezia Giulia
 		temperatura a -10cm (°C); direzione vento max a 10m (°N); temperatura mare (°C);
 		altezza idrometrica (m);
 
+
+
+uiid			=>		station_id + 
+parameter		=>		*nomi delle colonne
+unit			=>		*nomi delle colonne / *modifica della creazione del df per creare una colonna a parte
+value			=>		*colonne
+date			=>		observation_date + ..._time + ..._hour
+longitude		=>		???
+latitude		=>		???
+quote			=>		station_altitude + nomi colonne
+validation		=>		???
+note			=>		???
+
+
+
 	Info stazioni aria + dati sensori aria
 		data_misura; dati_insuff; pres_superam; attivo_dal; attivo_fino_al; unita_misura;
 		ubicazione; longitudine; latitudine; rete; parametro;
+
+
+
+uiid			=>		???
+parameter		=>		parametro
+unit			=>		unita_misura
+value			=>		parametro
+date			=>		data_misura
+longitude		=>		longitudine
+latitude		=>		latitudine
+quote			=>		???
+validation		=>		dati_insuff
+note			=>		???
+
+
+
 
 
 Lombardia
@@ -173,6 +266,21 @@ Lombardia
 	Dati sensori meteo
 		idsensore; data; valore; idoperatore; stato;
 
+
+
+uiid			=>		st.idsensore + st.idstazione
+parameter		=>		st.tipologia / se.idoperatore
+unit			=>		st.unit_dimisura
+value			=>		se.valore
+date			=>		se.data
+longitude		=>		st.lng
+latitude		=>		st.lat
+quote			=>		st.quota
+validation		=>		se.stato ?
+note			=>		???
+
+
+
 	Info stazioni+sensori aria
 		idsensore; nometiposensore; unitamisura; idstazione; nomestazione; quota; provincia;
 		comune; storico; datastart; datastop; utm_nord; utm_est; lat; lng; location;
@@ -181,16 +289,65 @@ Lombardia
 		idsensore; data; valore; stato; idoperatore;
 
 
+
+uiid			=>		st.idsensore + st.idstazione
+parameter		=>		st.nometiposensore
+unit			=>		st.unitamisura
+value			=>		se.valore
+date			=>		se.data
+longitude		=>		st.lng
+latitude		=>		st.lat
+quote			=>		st.quota
+validation		=>		se.stato ?
+note			=>		???
+
+
+
+
+
 Trentino
 
 	Info stazioni meteo
 		north; inizio; codice; nome; fine; est; longitudine; quota; latitudine; nomebreve;
 
 	Dati sensori meteo
-		*Problemi al codice
+		station_id; value; unit; attribute; date; info;
+
+
+
+uiid			=>		st.codice + ???
+parameter		=>		se.attribute / se.info
+unit			=>		se.unit
+value			=>		se.value
+date			=>		se.date
+longitude		=>		st.longitude
+latitude		=>		st.latitudine
+quote			=>		st.quota
+validation		=>		???
+note			=>		???
+
+
+
+
 
 	Info stazioni + dati sensori aria
 		Stazione; Inquinante; Data; Ora; Valore; Unità di misura;
+
+
+
+uiid			=>		Stazione ?
+parameter		=>		Inquinante
+unit			=>		Unita di misura
+value			=>		Valore
+date			=>		Data + Ora
+longitude		=>		???
+latitude		=>		???
+quote			=>		???
+validation		=>		???
+note			=>		???
+
+
+
 
 
 Veneto
@@ -199,10 +356,38 @@ Veneto
 		comune; idstaz; y; nome; tipostaz; provincia; linkstaz; quota; x;
 
 	Dati sensori meteo
-		station_id; instant; note; value; id; type; unitnm; unitcode; freq; paramnm;
+		station_id; instant; note; value; id; type; unit; unitcode; freq; param;
+
+
+
+uiid			=>		se.station_id + se.id 
+parameter		=>		se.param
+unit			=>		se.unit
+value			=>		se.value
+date			=>		se.instant
+longitude		=>		st.x
+latitude		=>		st.y
+quote			=>		st.quota
+validation		=>		se.note ?
+note			=>		se.note ?
+
+
 
 	Info stazioni aria
-        *Link non funzionante
+        nome; localita; comune; provincia; tipozona; lat; lon; codseqst;
 
     Dati sensori aria
-        *Link non funzionante
+        station_id; value; param; date;
+
+
+
+uiid			=>		se.station_id + ???
+parameter		=>		se.param
+unit			=>		???
+value			=>		se.value
+date			=>		se.date
+longitude		=>		st.lon
+latitude		=>		st.lat
+quote			=>		???
+validation		=>		???
+note			=>		st.tipozona ? + 
