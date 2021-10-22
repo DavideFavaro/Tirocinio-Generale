@@ -56,25 +56,50 @@ export getDataFVG
                      ) 
 
 
+columns_map = Dict(
+    :METEO => Dict(
+       :parameter		=> :param,
+       :unit			=> :unit,
+       :value			=> :value,
+       :date			=> :observation_time,
+       :longitude		=> missing,
+       :latitude		=> missing,
+       :quote			=> :station_altitude,
+       :rel_measure_height => :rel_measure_height,
+       :validation		=> missing,
+       :note			=> missing
+    ),
+    :AIRQUALITY => Dict(
+        :parameter => :parametro,
+        :unit => :unita_misura,
+        :value => :parametro,
+        :date => :data_misura,
+        :longitude => :longitudine,
+        :latitude => :latitudine,
+        :quote => missing,
+        :validation => :dati_insuff,
+        :note => missing
+    )
+)
 
-function getAQData()
-    codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
-    params = [ "PM10", "PM2.5", "Ozono", "Monossido di carbonio", "Biossido di zolfo", "Biossido di Azoto" ]
-    data = [ DataFrame( CSV.File( HTTP.get( "https://www.dati.friuliveneziagiulia.it/resource/$code.csv" ).body ) ) for code in codes ]
-    for (df, param) in zip(data, params)
-        !in( "parametro", names(df) ) && insertcols!( df, "parametro" => param )
-
-    end
-    dataframe = reduce( (x, y) -> vcat( x, y, cols=:intersect ), data )
-    return dataframe
-end
 
 
+
+
+#   prec_type
+#       0:nulla; 1:pioggia; 2:pioggia e neve; 3:neve
+#   cloudiness
+#       0:n.d.; 1:sereno; 2:poco nuvoloso; 3:variabile; 4:nuvoloso; 5:coperto
+"""
+"""
 function getMeteoData()
     resources = [ "ARI", "BAR", "BGG", "BIC", "BOA", "BOR", "BRU", "CAP", "CDP", "CER", "CHI", "CIV", "CMT", "COD", "COR",
                   "ENE", "FAG", "FOS", "FSP", "GEM", "GRA", "GRG", "GRM", "LAU", "LIG", "LSR", "MAT", "MGG", "MNF", "MUS",
                   "PAL", "PDA", "PIA", "213200", "POR", "PRD", "RIV", "SAN", "SGO", "SPN", "TAL", "TAR", "TOL", "TRI",
                   "UDI", "VIV", "ZON" ]
+    #   prec_type = [ "nulla", "pioggia", "pioggia e neve", "neve" ]
+    #   cloudiness = [ "n.d.", "sereno", "poco nuvoloso", "variabile", "nuvoloso", "coperto" ]
+    
     data_str = []
     for res in resources
         try
@@ -89,36 +114,103 @@ function getMeteoData()
     
     data_split = @. replace( replace( getindex( split( data_str, r"</?meteo_data>" ), 2 ), r"\n *" => "" ), r"<!--[^-]+-->" => "" )
     data_parse = meteo_data.(data_split)
-    vect = [
-               Dict(
-                    (
-                        !ismissing( attribute[4] ) ?
-                            !ismissing( attribute[3] ) ?
-                                Symbol( String( attribute[4][5] ) * " ($( String( attribute[3][5] ) ))" ) :
-                                Symbol( String( attribute[4][5] ) ) :
-                            Symbol( String( attribute[2] ) )
-                    ) =>
-                    attribute[6] isa Number ?
-                        attribute[6] :
-                        String( attribute[6] )
-                    for attribute in data
-               )
-               for data in data_parse
-           ]
 
-    keys_groups = unique( keys.(vect) )
-    grouped_vect = [ filter( x -> keys(x) == ks, vect ) for ks in keys_groups ]
-    dfs_vect = DataFrame.(grouped_vect)
-    data = dfs_vect[1]
-    for df in dfs_vect[2:end]
-        append!( data, df, cols=:union )
+    vect = []
+    for data in data_parse
+        # Attributes of a single station, they are shared between all the parameters measured by the station
+        others = [
+                     Symbol( String( attribute[2] ) ) => attribute[6] isa Number ? attribute[6] : String( attribute[6] )
+                     for attribute in data[1:6]
+                 ]
+        for attribute in data[7:end]
+            # Parameters measured by a single station
+            dict = push!(
+                       Dict(
+                          :param => !ismissing( attribute[4] ) ? String( attribute[4][5] ) : String( attribute[2] ),
+                          :value => attribute[6] isa Number ? attribute[6] : String( attribute[6] ),
+                          :unit => !ismissing(attribute[3]) ? String( attribute[3][5] ) : missing
+                       ),
+                       others...
+                   )
+            push!( vect, dict )
+        end
     end
 
-    return data
+    df = select!( DataFrame(vect), Not(2, 7) )
+
+    rel_heights = [ length( split( param, " a " ) ) == 2 ? split( param, " a " )[2] : "0m" for param in df[:, :param] ]
+
+    insertcols!( df, :rel_measure_height => rel_heights )
+
+    return df
 end
+
+# df = getMeteoData()
+
+
+
+#   function getMeteoData()
+ #       resources = [ "ARI", "BAR", "BGG", "BIC", "BOA", "BOR", "BRU", "CAP", "CDP", "CER", "CHI", "CIV", "CMT", "COD", "COR",
+ #                     "ENE", "FAG", "FOS", "FSP", "GEM", "GRA", "GRG", "GRM", "LAU", "LIG", "LSR", "MAT", "MGG", "MNF", "MUS",
+ #                     "PAL", "PDA", "PIA", "213200", "POR", "PRD", "RIV", "SAN", "SGO", "SPN", "TAL", "TAR", "TOL", "TRI",
+ #                     "UDI", "VIV", "ZON" ]
+ #       data_str = []
+ #       for res in resources
+ #           try
+ #               page = HTTP.get("https://dev.meteo.fvg.it/xml/stazioni/$res.xml")
+ #               push!( data_str, String(page.body) )
+ #           catch e
+ #               if !isa( e, HTTP.ExceptionRequest.StatusError )
+ #                   throw(e)
+ #               end
+ #           end
+ #       end
+ #       
+ #       data_split = @. replace( replace( getindex( split( data_str, r"</?meteo_data>" ), 2 ), r"\n *" => "" ), r"<!--[^-]+-->" => "" )
+ #       data_parse = meteo_data.(data_split)
+ #       vect = [
+ #                  Dict(
+ #                       (
+ #                           !ismissing( attribute[4] ) ?
+ #                               !ismissing( attribute[3] ) ?
+ #                                   Symbol( String( attribute[4][5] ) * " ($( String( attribute[3][5] ) ))" ) :
+ #                                   Symbol( String( attribute[4][5] ) ) :
+ #                               Symbol( String( attribute[2] ) )
+ #                       ) =>
+ #                       attribute[6] isa Number ?
+ #                           attribute[6] :
+ #                           String( attribute[6] )
+ #                       for attribute in data
+ #                  )
+ #                  for data in data_parse
+ #              ]
+ #   
+ #       keys_groups = unique( keys.(vect) )
+ #       grouped_vect = [ filter( x -> keys(x) == ks, vect ) for ks in keys_groups ]
+ #       dfs_vect = DataFrame.(grouped_vect)
+ #       data = dfs_vect[1]
+ #       for df in dfs_vect[2:end]
+ #           append!( data, df, cols=:union )
+ #       end
+ #   
+ #       return data
+#   end
 
 #   res = getMeteoData()
 
+
+
+function getAQData()
+    codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
+    params = [ "PM10", "PM2.5", "Ozono", "Monossido di carbonio", "Biossido di zolfo", "Biossido di Azoto" ]
+    data = [ DataFrame( CSV.File( HTTP.get( "https://www.dati.friuliveneziagiulia.it/resource/$code.csv" ).body ) ) for code in codes ]
+    for (df, param) in zip(data, params)
+        !in( "parametro", names(df) ) && insertcols!( df, "parametro" => param )
+
+    end
+    dataframe = reduce( (x, y) -> vcat( x, y, cols=:intersect ), data )
+    return dataframe
+end
 
 
 

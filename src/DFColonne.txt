@@ -195,16 +195,17 @@ note			=>		-
 
 
 
-uiid			=>		-
-parameter		=>		-
-unit			=>		-
-value			=>		-
-date			=>		-
-longitude		=>		-
-latitude		=>		-
-quote			=>		-
-validation		=>		-
-note			=>		-
+uiid					=>		-
+parameter				=>		-
+unit					=>		-
+value					=>		-
+date					=>		-
+longitude				=>		-
+latitude				=>		-
+quote					=>		-
+rel_measurement_height 	=>		-
+validation				=>		-
+note					=>		-
 
 
 
@@ -213,24 +214,18 @@ note			=>		-
 Friuli Venezia Giulia
 
 	Info stazioni + dati sensori meteo
-		observation_hour; cloudiness; prec_type; umidità media a 2m (%); station_name;
-		observation_time; temperatura a 2m (°C); station_altitude; observation_date;
-		precipitazione (mm); bagnatura fogliare (min); station_id; vento medio a 10m (km/h);
-		radiazione (KJ/m^2); vento massimo a 10m (km/h); direzione vento a 10m (°N);
-		vento vettoriale a 10m (km/h); pressione (hPa); temperatura a 50cm (°C);
-		temperatura a -10cm (°C); direzione vento max a 10m (°N); temperatura mare (°C);
-		altezza idrometrica (m);
+		station_id; observation_date; value; unit; param; observation_time; observation_hour; station_altitude; station_name;
 
 
 
-uiid			=>		station_id + 
-parameter		=>		*nomi delle colonne
-unit			=>		*nomi delle colonne / *modifica della creazione del df per creare una colonna a parte
-value			=>		*colonne
-date			=>		observation_date + ..._time + ..._hour
+uiid			=>		station_id + ???
+parameter		=>		param
+unit			=>		unit
+value			=>		value
+date			=>		observation_time
 longitude		=>		???
 latitude		=>		???
-quote			=>		station_altitude + nomi colonne
+quote			=>		station_altitude + ultimi caratteri di parametro
 validation		=>		???
 note			=>		???
 

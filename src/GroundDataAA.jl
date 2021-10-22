@@ -32,6 +32,7 @@ export getDataAA, getDataT
 @enum Data_Source STATIONS=1 SENSORS=2
 
 
+column_map = Dict()
 
 
 """
