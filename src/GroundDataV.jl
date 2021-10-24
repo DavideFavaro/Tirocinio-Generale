@@ -153,7 +153,7 @@ function getMeteoData( ids::AbstractVector{Int64} )
                                     isa( attribute[5], Array ) ? String( attribute[5] ) : titlecase( String( attribute[5][2] ) )
                               for attribute in sensor[1]
                             ),
-                            :station_id => id,
+                            :idstaz => id,
                             :instant => entry[2],
                             :value => entry[5]
                         )
@@ -208,7 +208,7 @@ function getAqData()
                 for key in collect( keys( measurement ) )
                     for entry in measurement[key]
                         dict = Dict(
-                            :station_id => station["codseqst"],
+                            :codseqst => station["codseqst"],
                             :param => key,
                             :date => entry["data"],
                             :value => entry["mis"]

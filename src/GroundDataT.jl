@@ -161,9 +161,9 @@ function getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     end
 end
 
-#   df = getDataT( type=METEO, source=STATIONS )
-#   df = getDataT( type=METEO, source=SENSORS )
-#   df = getDataT( type=AIRQUALITY, source=STATIONS )
+#   resT = getDataT( type=METEO, source=STATIONS )
+#   resT = getDataT( type=METEO, source=SENSORS )
+#   resT = getDataT( type=AIRQUALITY, source=STATIONS )
 
 
 

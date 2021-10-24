@@ -35,33 +35,6 @@ export getDataL
 @enum Data_Source STATIONS=1 SENSORS=2
 
 
-columns_map = Dict(
-    :METEO => Dict(
-        :parameter => :tipologia,
-        :unit => :unit_dimisura,
-        :value => :valore,
-        :date => :data,
-        :longitude => :lng,
-        :latitude => :lat,
-        :height => :quota,
-        :rel_measure_height => missing,
-        :validation => missing,
-        :note => missing
-    ),
-    :AIRQUALITY => Dict(
-        :parameter => :nometiposensore,
-        :unit => :unitamisura,
-        :value => :valore,
-        :date => :data,
-        :longitude => :lng,
-        :latitude => :lat,
-        :height => :quota,
-        :validation	=> :stato, # ?
-        :note => missing
-    )
-)
-
-
 
 """
     getDataL(; type::Data_Type, source::Data_Source )
@@ -77,7 +50,10 @@ function getDataL(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     return DataFrame(data_csv)
 end
 
-#data = getDataL()
+#   resLst = getDataL( type=METEO, source=STATIONS )
+#   resLse = getDataL( type=METEO, source=SENSORS )
+#   resL = getDataL( type=AIRQUALITY, source=STATIONS )
+#   resL = getDataL( type=AIRQUALITY, source=SENSORS )
 
 
 

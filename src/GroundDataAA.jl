@@ -25,7 +25,7 @@ using DataFrames
 using JSONTables
 
 
-export getDataAA, getDataT
+export getDataAA
 
 
 @enum Data_Type METEO=1 AIRQUALITY=2 
@@ -67,6 +67,10 @@ function getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     return DataFrame(data)
 end
 
+#   resAA = getDataAA( type=METEO, source=STATIONS )
+#   resAA = getDataAA( type=METEO, source=SENSORS )
+#   resAA = getDataAA( type=AIRQUALITY, source=STATIONS )
+#   resAA = getDataAA( type=AIRQUALITY, source=SENSORS )
 
 
 end # module

@@ -56,35 +56,6 @@ export getDataFVG
                      ) 
 
 
-columns_map = Dict(
-    :METEO => Dict(
-       :parameter		=> :param,
-       :unit			=> :unit,
-       :value			=> :value,
-       :date			=> :observation_time,
-       :longitude		=> missing,
-       :latitude		=> missing,
-       :quote			=> :station_altitude,
-       :rel_measure_height => :rel_measure_height,
-       :validation		=> missing,
-       :note			=> missing
-    ),
-    :AIRQUALITY => Dict(
-        :parameter => :parametro,
-        :unit => :unita_misura,
-        :value => :parametro,
-        :date => :data_misura,
-        :longitude => :longitudine,
-        :latitude => :latitudine,
-        :quote => missing,
-        :validation => :dati_insuff,
-        :note => missing
-    )
-)
-
-
-
-
 
 #   prec_type
 #       0:nulla; 1:pioggia; 2:pioggia e neve; 3:neve
@@ -145,67 +116,19 @@ function getMeteoData()
     return df
 end
 
-# df = getMeteoData()
 
 
-
-#   function getMeteoData()
- #       resources = [ "ARI", "BAR", "BGG", "BIC", "BOA", "BOR", "BRU", "CAP", "CDP", "CER", "CHI", "CIV", "CMT", "COD", "COR",
- #                     "ENE", "FAG", "FOS", "FSP", "GEM", "GRA", "GRG", "GRM", "LAU", "LIG", "LSR", "MAT", "MGG", "MNF", "MUS",
- #                     "PAL", "PDA", "PIA", "213200", "POR", "PRD", "RIV", "SAN", "SGO", "SPN", "TAL", "TAR", "TOL", "TRI",
- #                     "UDI", "VIV", "ZON" ]
- #       data_str = []
- #       for res in resources
- #           try
- #               page = HTTP.get("https://dev.meteo.fvg.it/xml/stazioni/$res.xml")
- #               push!( data_str, String(page.body) )
- #           catch e
- #               if !isa( e, HTTP.ExceptionRequest.StatusError )
- #                   throw(e)
- #               end
- #           end
- #       end
- #       
- #       data_split = @. replace( replace( getindex( split( data_str, r"</?meteo_data>" ), 2 ), r"\n *" => "" ), r"<!--[^-]+-->" => "" )
- #       data_parse = meteo_data.(data_split)
- #       vect = [
- #                  Dict(
- #                       (
- #                           !ismissing( attribute[4] ) ?
- #                               !ismissing( attribute[3] ) ?
- #                                   Symbol( String( attribute[4][5] ) * " ($( String( attribute[3][5] ) ))" ) :
- #                                   Symbol( String( attribute[4][5] ) ) :
- #                               Symbol( String( attribute[2] ) )
- #                       ) =>
- #                       attribute[6] isa Number ?
- #                           attribute[6] :
- #                           String( attribute[6] )
- #                       for attribute in data
- #                  )
- #                  for data in data_parse
- #              ]
- #   
- #       keys_groups = unique( keys.(vect) )
- #       grouped_vect = [ filter( x -> keys(x) == ks, vect ) for ks in keys_groups ]
- #       dfs_vect = DataFrame.(grouped_vect)
- #       data = dfs_vect[1]
- #       for df in dfs_vect[2:end]
- #           append!( data, df, cols=:union )
- #       end
- #   
- #       return data
-#   end
-
-#   res = getMeteoData()
-
-
-
+"""
+media_giornaliera, media_giornaliera, media_oraria_max, media_mobile_8h_max, media_giornaliera, media_oraria_max
+"""
 function getAQData()
     codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
     params = [ "PM10", "PM2.5", "Ozono", "Monossido di carbonio", "Biossido di zolfo", "Biossido di Azoto" ]
     data = [ DataFrame( CSV.File( HTTP.get( "https://www.dati.friuliveneziagiulia.it/resource/$code.csv" ).body ) ) for code in codes ]
     for (df, param) in zip(data, params)
         !in( "parametro", names(df) ) && insertcols!( df, "parametro" => param )
+        
+        
 
     end
     dataframe = reduce( (x, y) -> vcat( x, y, cols=:intersect ), data )
@@ -214,13 +137,19 @@ end
 
 
 
-function getDataFVG(; type::Data_Type=METEO )
+"""
+"""
+function getDataFVG(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     if type == METEO
         return getMeteoData()
     else
         return getAQData()
     end
 end
+
+#   resFVG = getDataFVG( type=METEO )
+#   resFVG = getDataFVG( type=AIRQUALITY )
+
 
 
 end # module
