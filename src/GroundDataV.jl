@@ -4,25 +4,22 @@ Module for the download and processing of atmospheric data gathered by measuring
 """
 
 
-using HTTP
 
 using CombinedParsers
 using CombinedParsers.Regexp
-
+using CSV
 using DataFrames
 using Dates
-using CSV
+using HTTP
 using JSON
 using JSONTables
-
 using Revise
 
 
+include("./src/Global.jl")
+
+
 export getDataV
-
-
-@enum Data_Type METEO=1 AIRQUALITY=2 
-@enum Data_Source STATIONS=1 SENSORS=2
 
 
 @syntax informations = Sequence(
@@ -93,10 +90,9 @@ function getMeteoStationsData()
 
 #Get the information on the available stations
     # Get the page containing informations on all the available stations
-    page = HTTP.get( "https://www.arpa.veneto.it/bollettini/meteo/h24/img07/stazioni.xml" )
-    str_page = String(page.body)
+    page = String( HTTP.get( "https://www.arpa.veneto.it/bollettini/meteo/h24/img07/stazioni.xml" ).body )
     # Keep only the useful portion of the page
-    useful = split( str_page, "</PERIODO>" )[2][1:end-15]
+    useful = split( page, "</PERIODO>" )[2][1:end-15]
 
     # Split the downloaded string in substrings one for each station
     arr = split( useful, r"</?STAZIONE>", keepempty=false )
@@ -121,6 +117,8 @@ function getMeteoStationsData()
     return df
 end
 
+# res = getMeteoStationData()
+
 
 
 """
@@ -129,7 +127,7 @@ end
 Obtain the dataframe containing the data of all the stations described by the elements of `stats`
 """
 function getMeteoData( ids::AbstractVector{Int64} )
-    pages_vect = [ String( HTTP.get("https://www.arpa.veneto.it/bollettini/meteo/h24/img07/$(lpad(stat, 4, "0")).xml").body ) for stat in stats ]
+    pages_vect = [ String( HTTP.get("https://www.arpa.veneto.it/bollettini/meteo/h24/img07/$(lpad(id, 4, "0")).xml").body ) for id in ids ]
 
     # For each of the station remove the first part of the string and the closing tags
     stat_strings_vect = [ split(page, "</ATTIVAZIONE>")[2][1:end-26] for page in pages_vect ]
@@ -157,12 +155,13 @@ function getMeteoData( ids::AbstractVector{Int64} )
                             :instant => entry[2],
                             :value => entry[5]
                         )
-                        for (id, station) in zip(stats, vect)
+                        for (id, station) in zip(ids, vect)
                         for sensor in station   
                         for entry in sensor[2]
                      ]
 
     df = DataFrame( data_dict_vect )
+    transform!( df, [:unitnm] => ByRow( x -> x = replace( replace( x, "\xb0" => "°" ), "2" => "²" ) ) => :unitnm )
 
     return df
 end
@@ -218,7 +217,7 @@ function getAqData()
                 end
             end
         else
-            push!( arr, Dict( :station_id => station["codseqst"], :param => missing, :date => missing, :value => missing ) )
+            push!( arr, Dict( :codseqst => station["codseqst"], :param => missing, :date => missing, :value => missing ) )
         end
     end
 
@@ -239,7 +238,7 @@ function getDataV(; type::Data_Type=METEO, source::Data_Source=STATIONS )
         if source == STATIONS
             return stations
         else
-            return getMeteoData( stations[:, :idstaz], )
+            return getMeteoData( stations[:, :idstaz] )
         end
     else
         if source == STATIONS
@@ -254,5 +253,7 @@ end
 #   data = getDataV( source=SENSORS )
 #   data = getDataV( type=AIRQUALITY, source=STATIONS )
 #   data = getDataV( type=AIRQUALITY, source=SENSORS )
+
+
 
 end # moduled

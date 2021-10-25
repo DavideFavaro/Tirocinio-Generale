@@ -28,11 +28,10 @@ using DataFrames
 using HTTP
 
 
+include("./src/Global.jl")
+
+
 export getDataL
-
-
-@enum Data_Type METEO=1 AIRQUALITY=2 
-@enum Data_Source STATIONS=1 SENSORS=2
 
 
 

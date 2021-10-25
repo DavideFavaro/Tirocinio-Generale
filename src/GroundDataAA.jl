@@ -18,21 +18,17 @@ Alto Adige:
 
 
 
-using HTTP
-
 using CSV
 using DataFrames
+using HTTP
 using JSONTables
+
+
+include("./src/Global.jl")
 
 
 export getDataAA
 
-
-@enum Data_Type METEO=1 AIRQUALITY=2 
-@enum Data_Source STATIONS=1 SENSORS=2
-
-
-column_map = Dict()
 
 
 """

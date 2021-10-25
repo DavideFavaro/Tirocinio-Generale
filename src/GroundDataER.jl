@@ -16,11 +16,10 @@ Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il
 
 
 
+include("./src/Global.jl")
+
+
 export getDataER
-
-
-@enum Data_Type METEO=1 AIRQUALITY=2 
-@enum Data_Source STATIONS=1 SENSORS=2
 
 
 

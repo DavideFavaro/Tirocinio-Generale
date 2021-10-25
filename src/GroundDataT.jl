@@ -23,24 +23,20 @@ Trentino:
 
 
 
-using HTTP
-
 using CombinedParsers
 using CombinedParsers.Regexp
-
 using CSV
 using DataFrames
 using Dates
-
 using EzXML
-
+using HTTP
 using Revise
 
+
+include("./src/Global.jl")
+
+
 export getDataT
-
-
-@enum Data_Type METEO=1 AIRQUALITY=2 
-@enum Data_Source STATIONS=1 SENSORS=2
 
 
 @syntax station = Repeat(
@@ -108,8 +104,8 @@ function getMeteoData( ids::AbstractVector{String} )
                 msrmt = collect( eachelement(measurement) )
                 for entry in msrmt[2:end]
                     dict = Dict(
-                        :value => entry.content,
-                        :station_id => id,
+                        :value => parse( Float64, entry.content ),
+                        :codice => id,
                         :attribute => attribute.name,
                         :info => entry.name,
                         :unit => units[ entry.name ],
@@ -135,8 +131,13 @@ Return a `CSV.File` containing the data on air quality collected from measuring 
 """
 function getAQData()
     data = HTTP.get( "https://bollettino.appa.tn.it/aria/opendata/csv/last/" )
+    df = DataFrame( CSV.File( data.body ) )
+    transform!( df, [:Data, :Ora] => ByRow( (date, time) -> date + Time( time == 24 ? 0 : time ) ) => :Data )
+    select!( df, Not(4) )
+    rename!( df, Symbol("Unit\xe0 di misura") => :Unita_di_misura )
+    transform!( df, [:Unita_di_misura] => ByRow( x -> x = replace( replace( x, "\xb5" => "μ" ), "c" => "³" ) ) => :Unita_di_misura )
 
-    return CSV.File( data.body )
+    return df
 end
 
 #   c = getAQData()
@@ -161,8 +162,8 @@ function getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     end
 end
 
-#   resT = getDataT( type=METEO, source=STATIONS )
-#   resT = getDataT( type=METEO, source=SENSORS )
+#   resTsta = getDataT( type=METEO, source=STATIONS )
+#   resTsen = getDataT( type=METEO, source=SENSORS )
 #   resT = getDataT( type=AIRQUALITY, source=STATIONS )
 
 
