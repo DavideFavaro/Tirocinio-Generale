@@ -15,16 +15,27 @@ Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il
 =#
 
 
-str = occursin( "GroundDataER.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
-
 
 export getDataER
 
 
+const attributes = Dict(
+                      :METEO      => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing#=, nothing, nothing=#],
+                      :AIRQUALITY => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing#=, nothing, nothing=#]
+                   )
 
-function getDataER(; type::Data_Type=meteo, source::Data_Source=stations )
+const ids = Dict(
+                :METEO      => nothing,
+                :AIRQUALITY => nothing
+            )
+
+
+
+function getDataER(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     println("Non ancora implementato")
     return nothing
 end
+
+
+
 end # module

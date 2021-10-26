@@ -37,10 +37,6 @@ using HTTP
 using JSONTables
 
 
-str = occursin( "GroundDataFVG.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
-
-
 export getDataFVG
 
 
@@ -55,11 +51,23 @@ export getDataFVG
                      ) 
 
 
+const attributes = Dict(
+                      :METEO      => [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rel_measure_height#=, nothing, nothing=#],
+                      :AIRQUALITY => [ :parametro, :unita_misura, :value, nothing, :data_misura, :longitudine, :latitudine, nothing, :dati_insuff, nothing ]
+                   )
 
+const ids = Dict(
+                :METEO      => :nome,
+                :AIRQUALITY => nothing
+            )
+
+
+
+"""
+"""
 function getMeteoStationsData()
     return CSV.read( ".\\Dati stazioni\\stazioni_meteoclimatiche-FVG.csv", DataFrame )
 end
-
 
 
 
@@ -117,6 +125,8 @@ function getMeteoData()
 
     rel_heights = [ length( split( param, " a " ) ) == 2 ? split( param, " a " )[2] : "0m" for param in df[:, :param] ]
 
+    transform!( df, [:station_name] => ByRow( x -> x = uppercase(x) ) => :nome )
+
     insertcols!( df, :rel_measure_height => rel_heights )
 
     return df
@@ -145,9 +155,9 @@ end
 
 """
 """
-function getData(; type::Symbol=types[1], source::Symbol=sources[1] )
-    if type == types[1]
-        if source == sources[1]
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
+    if type == :METEO
+        if source == :STATIONS
             return getMeteoStationsData()
         else
             return getMeteoData()
@@ -157,9 +167,9 @@ function getData(; type::Symbol=types[1], source::Symbol=sources[1] )
     end
 end
 
-#   resFVG = getData( type=Global.types[1], source=Global.sources[1] )
-#   resFVG = getData( type=types[1], source=sources[2] )
-#   resFVG = getData( type=types[2] )
+#   resFVG = getData( type=:METEO, source=:STATIONS )
+#   resFVG = getData( type=:METEO, source=:SENSORS )
+#   resFVG = getData( type=:AIRQUALITY )
 
 
 

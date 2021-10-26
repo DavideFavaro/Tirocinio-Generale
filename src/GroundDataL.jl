@@ -35,6 +35,17 @@ include("$(@__DIR__)\\$(str)Global.jl")
 export getDataL
 
 
+const attributes = Dict(
+                      :METEO      => [ :tipologia, :unit_dimisura, :valore, nothing, :data, :lng, :lat, :quota, :quota#=, :stato, :note=#],
+                      :AIRQUALITY => [ :nometiposensore, :unitamisura, :valore, nothing, :data, :lng, :lat, :quota#=, :stato, nothing=#]
+                   )
+
+const ids = Dict(
+                :METEO      => :idsensore,
+                :AIRQUALITY => :idsensore
+            )
+
+
 
 """
     getDataL(; type::Symbol, source::Symbol )

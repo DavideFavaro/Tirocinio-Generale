@@ -33,10 +33,6 @@ using HTTP
 using Revise
 
 
-str = occursin( "GroundDataT.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
-
-
 export getDataT
 
 
@@ -45,6 +41,17 @@ export getDataT
                       Either( Numeric(Int64), Numeric(Float64), re"[^>]+" ),
                       Sequence( "</", re"[^>]+", ">" )
                   )
+
+
+const attributes = Dict(
+                      :METEO      => [ :info, :unit, :value, nothing, :date, :longitudine, :latitudine, :quota, :quota, nothing, nothing ],
+                      :AIRQUALITY => [ :Inquinante, :Unita_di_misura, :Valore, nothing, :Data_Ora, nothing, nothing, nothing, nothing, nothing ]
+                   )
+
+const ids = Dict(
+                :METEO      => :codice,
+                :AIRQUALITY => :NOME_STA
+            )
 
 
 
@@ -126,18 +133,36 @@ end
 
 
 """
+"""
+#=
+Nel CSV si ha:
+    - TRENTO PSC al posto di PARCO S. CHIARA
+    - TRENTO VBZ al posto di VIA BOLZANO
+    - ROVERETO LGP al poso di ROVERETO
+    - RIVA GAR al psoto di RIVA DEL GARDA
+    - BORGO VALSUGANA al posto di BORGO VAL
+manca:
+    - stazione A22 (AVIO)
+=#
+function getAQStationsData()
+    return CSV.read( ".\\Dati stazioni\\rete_qual_air_TN.csv", DataFrame )
+end
+
+
+
+"""
     getAQData()
     
 Return a `CSV.File` containing the data on air quality collected from measuring stations in Trentino Alto Adige
 """
 function getAQData()
     data = HTTP.get( "https://bollettino.appa.tn.it/aria/opendata/csv/last/" )
-    df = DataFrame( CSV.File( data.body ) )
+    df = CSV.read( data.body, DataFrame )
     transform!( df, [:Data, :Ora] => ByRow( (date, time) -> date + Time( time == 24 ? 0 : time ) ) => :Data )
     select!( df, Not(4) )
     rename!( df, Symbol("Unit\xe0 di misura") => :Unita_di_misura )
     transform!( df, [:Unita_di_misura] => ByRow( x -> x = replace( replace( x, "\xb5" => "μ" ), "c" => "³" ) ) => :Unita_di_misura )
-
+    transform!( df, [:Stazione] => ByRow( x -> x = uppercase(x) ) => :NOME_STA )
     return df
 end
 
@@ -150,22 +175,27 @@ end
 
 Obtain informations on the `type` stations or their sensor's data
 """
-function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
-    if type == METEO
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
+    if type == :METEO
         stations = getMeteoStationsData()
-        if source == STATIONS
+        if source == :STATIONS
             return stations
         else
             return getMeteoData( stations[:, :codice] )
         end
     else
-        return  DataFrame( getAQData() )
+        if source == :STATIONS
+            return getAQStationsData()
+        else
+            return getAQData()
+        end
     end
 end
 
-#   resTsta = getDataT( type=METEO, source=STATIONS )
-#   resTsen = getDataT( type=METEO, source=SENSORS )
-#   resT = getDataT( type=AIRQUALITY, source=STATIONS )
+#   resTsta = getData( type=:METEO, source=:STATIONS )
+#   resTsen = getData( type=:METEO, source=:SENSORS )
+#   resTsta = getData( type=:AIRQUALITY, source=:STATIONS )
+#   resTsen = getData( type=:AIRQUALITY, source=:SENSORS )
 
 
 

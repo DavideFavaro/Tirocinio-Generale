@@ -16,10 +16,6 @@ using JSONTables
 using Revise
 
 
-str = occursin( "GroundDataV.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
-
-
 export getDataV
 
 
@@ -79,6 +75,17 @@ export getDataV
                         "</DATI>"
                     ) 
                   )
+
+
+const attributes = Dict(
+                      :METEO      => [ :param, :unit, :value, nothing, :instant, :x, :y, :quota, :quota, nothing, nothing ],
+                      :AIRQUALITY => [ :param, nothing, :value, nothing, :date, :lon, :lat, nothing, nothing, :tipozona ]
+                   )
+
+const ids = Dict(
+                :METEO      => :idstaz,
+                :AIRQUALITY => :codseqst
+            )
 
 
 

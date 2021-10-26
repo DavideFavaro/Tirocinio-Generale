@@ -24,27 +24,35 @@ using HTTP
 using JSONTables
 
 
-str = occursin( "GroundDataAA.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
+export getData,
+       attributes, ids
 
 
-export getData
+const attributes = Dict(
+                      :METEO      => [ :DESC_I, :UNIT, :VALUE, nothing, :DATE, :LONG, :LAT, :ALT, :ALT#=, nothing, nothing=#],
+                      :AIRQUALITY => [ :MCODE, nothing, :VALUE, nothing, :DATE, :LONG, :LAT, nothing#=, :FLAGS, nothing=#]
+                   )
+
+const ids = Dict(
+                :METEO      => :SCODE,
+                :AIRQUALITY => :SCODE
+            )
 
 
 
 """
-    getDataAA(; type::Symbol=:METEO, source::Symbol=STATIONS )
+    getDataAA(; type::Symbol=:METEO, source::Symbol=:STATIONS )
 
 Obtain the data of the specified `type` regarding the stations themselves or the sensor's measureents
 """
-function getData(; type::Data_Type=METEO, source::Data_Source=STATIONS )
-    opt1 = type == METEO ? "meteo/v1" : "airquality"
-    opt2 = source == STATIONS ? "stations" : type == METEO ? "sensors" : "timeseries"
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
+    opt1 = type == :METEO ? "meteo/v1" : "airquality"
+    opt2 = source == :STATIONS ? "stations" : type == :METEO ? "sensors" : "timeseries"
 
     page = String( HTTP.get( "http://dati.retecivica.bz.it/services/$opt1/$opt2" ).body )
 
-    if source == STATIONS
-        if type == METEO
+    if source == :STATIONS
+        if type == :METEO
             chars = " : "
             div = "\r\n\t\t},\r\n\t\t"
             lim = 11
@@ -64,10 +72,10 @@ function getData(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     return DataFrame(data)
 end
 
-#   resAA = getDataAA( type=METEO, source=STATIONS )
-#   resAA = getDataAA( type=type[1], source=source[2])
-#   resAA = getDataAA( type=type[2], source=source[1] )
-#   resAA = getDataAA( type=type[2], source=source[2])
+#   resAA = getDataAA( type=:METEO, source=:STATIONS )
+#   resAA = getDataAA( type=:METEO, source=:SENSROS )
+#   resAA = getDataAA( type=:AIRQUALITY, source=:STATIONS )
+#   resAA = getDataAA( type=:AIRQUALITY, source=:SENSROS )
 
 
 end # module

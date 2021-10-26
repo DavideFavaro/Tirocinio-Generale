@@ -218,13 +218,13 @@ Friuli Venezia Giulia
 
 
 
-uiid			=>		station_id + ???
-parameter		=>		param
-unit			=>		unit
-value			=>		value
-date			=>		observation_time
-longitude		=>		???
-latitude		=>		???
+uiid			=>		se.station_id + ???
+parameter		=>		se.param
+unit			=>		se.unit
+value			=>		se.value
+date			=>		se.observation_time
+longitude		=>		st.longitude
+latitude		=>		st.latitude
 quote			=>		station_altitude + ultimi caratteri di parametro
 validation		=>		???
 note			=>		???
