@@ -33,7 +33,8 @@ using HTTP
 using Revise
 
 
-include("./src/Global.jl")
+str = occursin( "GroundDataT.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
 export getDataT
@@ -145,11 +146,11 @@ end
 
 
 """
-    getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+    getDataT(; type::Symbol=METEO, source::Symbol=STATIONS )
 
 Obtain informations on the `type` stations or their sensor's data
 """
-function getDataT(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
     if type == METEO
         stations = getMeteoStationsData()
         if source == STATIONS

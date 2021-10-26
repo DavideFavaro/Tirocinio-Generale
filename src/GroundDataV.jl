@@ -16,7 +16,8 @@ using JSONTables
 using Revise
 
 
-include("./src/Global.jl")
+str = occursin( "GroundDataV.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
 export getDataV
@@ -232,7 +233,7 @@ end
 
 Obtain `type` data from `source`
 """
-function getDataV(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
     if type == METEO
         stations = getMeteoStationsData()
         if source == STATIONS

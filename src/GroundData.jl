@@ -34,14 +34,14 @@ using CSV
 using DataFrames
 
 
-include("./src/Global.jl")
-include("./GroundDataAA.jl")
-include("./GroundDataER.jl")
-include("./GroundDataFVG.jl")
-include("./GroundDataL.jl")
-include("./GroundDataT.jl")
-include("./GroundDataV.jl")
-
+str = occursin( "GroundData.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
+include("$(@__DIR__)\\$(str)GroundDataAA.jl")
+# include("$(@__DIR__)\\$(str)GroundDataER.jl")
+include("$(@__DIR__)\\$(str)GroundDataFVG.jl")
+include("$(@__DIR__)\\$(str)GroundDataL.jl")
+include("$(@__DIR__)\\$(str)GroundDataT.jl")
+include("$(@__DIR__)\\$(str)GroundDataV.jl")
 
 export getGroundData
 
@@ -49,13 +49,17 @@ export getGroundData
 @enum Region AA=1 ER=2 FVG=3 L=4 T=5 V=6
 
 
-const functions = [
-                      GroundDataAA.getDataAA,
-                      GroundDataER.getDataER,
-                      GroundDataFVG.getDataFVG,
-                      GroundDataL.getDataL,
-                      GroundDataT.getDataT,
-                      GroundDataV.getDataV
+types = Global.types
+sources = Global.sources
+
+
+const region_modules = [
+                      GroundDataAA,
+                      # GroundDataER,
+                      GroundDataFVG,
+                      GroundDataL,
+                      GroundDataT,
+                      GroundDataV
                   ]
 
 #= POSSIBILE VARIANTE PER EFFETUARE IL JOIN DEI DF   
@@ -139,28 +143,30 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                     [ # METEO
                         # E' in italiano, non sembra esserci in inglese
                         :DESC_I => :parameter,
-                        :UNIT => :unit,
-                        :VALUE => :value,
-                        :DATE => :date,
-                        :LONG => :longitude,
-                        :LAT => :latitude,
-                        :ALT => :height,
-                        :ALT => :rel_measurement_height#=,
+                        :UNIT   => :unit,
+                        :VALUE  => :value,
+                        nothing => :frequency,
+                        :DATE   => :date,
+                        :LONG   => :longitude,
+                        :LAT    => :latitude,
+                        :ALT    => :height,
+                        :ALT    => :rel_measurement_height#=,
                         nothing => :validation ),
                         nothing => :note	),=#
                     ],
                     [ # AIRQUALITY
-                        :MCODE => :parameter,
+                        :MCODE  => :parameter,
                         nothing => :unit,
-                        :VALUE => :value,
-                        :DATE => :date,
-                        :LONG => :longitude,
-                        :LAT => :latitude,
+                        :VALUE  => :value,
+                        nothing => :frequency,
+                        :DATE   => :date,
+                        :LONG   => :longitude,
+                        :LAT    => :latitude,
                         nothing => :heigth#=,
                         # Sono tutti missing quindi non so cosa rappresenti
-                        :FLAGS => :validation,
+                        :FLAGS  => :validation,
                         # :VALUE è -1 quando mancante
-                        nothing  => :note=#
+                        nothing => :note=#
                     ]
                 ),
                 ( # Emilia Romagna
@@ -168,6 +174,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         nothing => :parameter,
                         nothing => :unit,
                         nothing => :value,
+                        nothing => :frequency,
                         nothing => :date,
                         nothing => :longitude,
                         nothing => :latitude,
@@ -177,15 +184,16 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         nothing => :note=#
                     ],
                     [ # AIRQUALITY
-                        ( nothing => :parameter ),
-                        ( nothing => :unit ),
-                        ( nothing => :value ),
-                        ( nothing => :date ),
-                        ( nothing => :longitude ),
-                        ( nothing => :latitude ),
-                        ( nothing => :heigth )#=,
-                        ( nothing => :validation ),
-                        ( nothing => :note )=#
+                        nothing => :parameter,
+                        nothing => :unit,
+                        nothing => :value,
+                        nothing => :frequency,
+                        nothing => :date,
+                        nothing => :longitude,
+                        nothing => :latitude,
+                        nothing => :heigth#=,
+                        nothing => :validation ),
+                        nothing => :note )=#
                     ]
                 ),
                 ( # Friuli Venezia Giulia
@@ -193,6 +201,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :param => :parameter,
                         :unit => :unit,
                         :value => :value,
+                        nothing => :frequency,
                         :observation_time, :date,
                         nothing => :longitude,
                         nothing => :latitude,
@@ -206,6 +215,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :unita_misura => :unit,
                         # Ogni dataframe ha valori diversi ( alcuni hanno media giornaliera altri oraria altri altro )
                         :value => :value,
+                        nothing => :frequency,
                         :data_misura => :date,
                         :longitudine => :longitude,
                         :latitudine => :latitude,
@@ -219,6 +229,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :tipologia => :parameter,
                         :unit_dimisura, :unit,
                         :valore => :value,
+                        nothing => :frequency,
                         :data => :date,
                         :lng => :longitude,
                         :lat => :latitude,
@@ -232,6 +243,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :nometiposensore => :parameter,
                         :unitamisura => :unit,
                         :valore => :value,
+                        nothing => :frequency,
                         :data => :date,
                         :lng => :longitude,
                         :lat => :latitude,
@@ -247,6 +259,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :info => :parameter,
                         :unit => :unit,
                         :value => :value,
+                        nothing => :frequency,
                         :date => :date,
                         :longitudine => :longitude,
                         :latitudine => :latitude,
@@ -259,6 +272,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :Inquinante => :parameter,
                         :Unita_di_misura => :unit,
                         :Valore => :value,
+                        nothing => :frequency,
                         :Data_Ora => :date,
                         nothing => :longitude,
                         nothing => :latitude,
@@ -272,6 +286,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :param => :parameter,
                         :unit => :unit,
                         :value => :value,
+                        nothing => :frequency,
                         :instant => :date,
                         :x => :longitude,
                         :y => :latitude,
@@ -284,6 +299,7 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
                         :param => :parameter,
                         nothing => :unit,
                         :value => :value,
+                        nothing => :frequency,
                         :date => :date,
                         :lon => :longitude,
                         :lat => :latitude,
@@ -295,18 +311,18 @@ const maps = [ # Array of couples of arrays containing for each region the mappi
              ]
 
 
-const columns = [ 
-                  :uiid,                      # identificatore univoco delle stazioni di qualunque genere di misura
+const columns = [
                   :parameter,                 # tipo di parametro misurato
                   :unit,                      # unita di misura (possibilmente SI)
                   :value,                     # valore misurato
+                  :freqency,                  # frequency of measurements
                   :date,                      # anno mese giorno ora (UTM)
                   :longitude,                 # longitudine della stazione
                   :latitude,                  # latitudine della stazione
-                  :quote,                     # quota stazione || quota stazione più quota misura per il vento
-                  :rel_measurement_height,    # quota relativa della misurazioni
+                  :height,                     # quota stazione || quota stazione più quota misura per il vento
+                  :rel_measurement_height#=,    # quota relativa della misurazioni
                   :validation,                # bool (già segnalato dalla stazione)
-                  :note                       # errori e outlayers? altro?
+                  :note=#                       # errori e outlayers? altro?
                 ]
 
 
@@ -346,18 +362,18 @@ end
 
 
 """
-    getGroundData( filePath::AbstractString="."; regions::Region..., type::Data_Type=METEO, source::Data_Source=STATIONS )
+    getGroundData( filePath::AbstractString="."; regions::Region..., type::Symbol=METEO, source::Symbol=STATIONS )
 
 Obtain `type` data of `regions` from `source` and save it as `filePath` 
 """
-function getGroundData( type::Global.Data_Type=METEO, regions::Region... )
+function getGroundData( type::Symbol=:METEO, regions::Region... )
   ress = []
   for region in regions
       rnum = Integer(region)
-      fun = functions[ rnum ]
+      fun = region_modules[ rnum ].getData
 
-      resSta = fun( type=type, source=STATIONS )
-      resSen = fun( type=type, source=SENSORS )
+      resSta = fun( type=type, source=:STATIONS )
+      resSen = fun( type=type, source=:SENSORS )
 
       tnum = integer(type)
       res = standardize( resSta, resSen, maps[rnum][tnum], bridges[rnum][tnum] )
@@ -367,15 +383,7 @@ function getGroundData( type::Global.Data_Type=METEO, regions::Region... )
   return ress
 end
 
-#   res = getGroundData( Global.METEO, AA, FVG, L, T, V )
-
-
-
-
-
-
-
-
+#   res = getGroundData( :METEO, AA, L )
 
 
 

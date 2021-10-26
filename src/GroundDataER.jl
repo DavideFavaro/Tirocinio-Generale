@@ -15,8 +15,8 @@ Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il
 =#
 
 
-
-include("./src/Global.jl")
+str = occursin( "GroundDataER.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
 export getDataER

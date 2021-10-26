@@ -2,11 +2,12 @@ module Global
 
 
 
-export Data_Type, Data_Source
+export types, sources
 
 
-@enum Data_Type     METEO=1 AIRQUALITY=2 
-@enum Data_Source   STATIONS=1 SENSORS=2
+
+types = Dict( :METEO => 1, :AIRQUALITY => 2 )
+sources = Dict( :STATIONS => 1, SENSORS => 2 )
 
 
 

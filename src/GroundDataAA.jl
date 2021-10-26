@@ -24,19 +24,20 @@ using HTTP
 using JSONTables
 
 
-include("./src/Global.jl")
+str = occursin( "GroundDataAA.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
-export getDataAA
+export getData
 
 
 
 """
-    getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+    getDataAA(; type::Symbol=:METEO, source::Symbol=STATIONS )
 
 Obtain the data of the specified `type` regarding the stations themselves or the sensor's measureents
 """
-function getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+function getData(; type::Data_Type=METEO, source::Data_Source=STATIONS )
     opt1 = type == METEO ? "meteo/v1" : "airquality"
     opt2 = source == STATIONS ? "stations" : type == METEO ? "sensors" : "timeseries"
 
@@ -64,9 +65,9 @@ function getDataAA(; type::Data_Type=METEO, source::Data_Source=STATIONS )
 end
 
 #   resAA = getDataAA( type=METEO, source=STATIONS )
-#   resAA = getDataAA( type=METEO, source=SENSORS )
-#   resAA = getDataAA( type=AIRQUALITY, source=STATIONS )
-#   resAA = getDataAA( type=AIRQUALITY, source=SENSORS )
+#   resAA = getDataAA( type=type[1], source=source[2])
+#   resAA = getDataAA( type=type[2], source=source[1] )
+#   resAA = getDataAA( type=type[2], source=source[2])
 
 
 end # module

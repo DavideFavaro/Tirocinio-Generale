@@ -37,7 +37,8 @@ using HTTP
 using JSONTables
 
 
-include("./src/Global.jl")
+str = occursin( "GroundDataFVG.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
 export getDataFVG
@@ -52,6 +53,13 @@ export getDataFVG
                         Either( Numeric(Int64), Numeric(Float64), re"[^>]+" ),
                         "</", re"[^>]+", ">"
                      ) 
+
+
+
+function getMeteoStationsData()
+    return CSV.read( ".\\Dati stazioni\\stazioni_meteoclimatiche-FVG.csv", DataFrame )
+end
+
 
 
 
@@ -137,16 +145,21 @@ end
 
 """
 """
-function getDataFVG(; type::Data_Type=METEO, source::Data_Source=STATIONS )
-    if type == METEO
-        return getMeteoData()
+function getData(; type::Symbol=types[1], source::Symbol=sources[1] )
+    if type == types[1]
+        if source == sources[1]
+            return getMeteoStationsData()
+        else
+            return getMeteoData()
+        end
     else
         return getAQData()
     end
 end
 
-#   resFVG = getDataFVG( type=METEO )
-#   resFVG = getDataFVG( type=AIRQUALITY )
+#   resFVG = getData( type=Global.types[1], source=Global.sources[1] )
+#   resFVG = getData( type=types[1], source=sources[2] )
+#   resFVG = getData( type=types[2] )
 
 
 

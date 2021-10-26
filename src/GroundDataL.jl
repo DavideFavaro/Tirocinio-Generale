@@ -28,7 +28,8 @@ using DataFrames
 using HTTP
 
 
-include("./src/Global.jl")
+str = occursin( "GroundDataL.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)Global.jl")
 
 
 export getDataL
@@ -36,11 +37,11 @@ export getDataL
 
 
 """
-    getDataL(; type::Data_Type, source::Data_Source )
+    getDataL(; type::Symbol, source::Symbol )
 
 Download the data specified by `type` and `source`, returning a CSV file
 """
-function getDataL(; type::Data_Type=METEO, source::Data_Source=STATIONS )
+function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
 
     str = type == METEO ? ( source == STATIONS ? "nf78-nj6b" : "647i-nhxk" ) : ( source == STATIONS ? "ib47-atvt" : "nicp-bhqi" )
     data = HTTP.get( "https://www.dati.lombardia.it/resource/$str.csv" )
