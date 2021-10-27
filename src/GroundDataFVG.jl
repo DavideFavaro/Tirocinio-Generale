@@ -52,7 +52,7 @@ export getDataFVG
 
 
 const attributes = Dict(
-                      :METEO      => [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rel_measure_height#=, nothing, nothing=#],
+                      :METEO      => [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rel_measure_height, nothing, nothing ],
                       :AIRQUALITY => [ :parametro, :unita_misura, :value, nothing, :data_misura, :longitudine, :latitudine, nothing, :dati_insuff, nothing ]
                    )
 
@@ -61,9 +61,17 @@ const ids = Dict(
                 :AIRQUALITY => nothing
             )
 
+const stat_info = Dict(
+                      :METEO      => [ nothing, :nome, :longitude, :latitude ],
+                      :AIRQUALITY => [ nothing, :ubicazione, :longitudine, :latitudine ]
+                  )
+
 
 
 """
+    getMeteoStationsData()
+
+Obtain a `DataFrame` describing the meteo stations in Friuli Venezia Giulia, Italy
 """
 function getMeteoStationsData()
     return CSV.read( ".\\Dati stazioni\\stazioni_meteoclimatiche-FVG.csv", DataFrame )
@@ -76,6 +84,9 @@ end
 #   cloudiness
 #       0:n.d.; 1:sereno; 2:poco nuvoloso; 3:variabile; 4:nuvoloso; 5:coperto
 """
+    getMeteoData()
+
+Obtain the data of the meteorological stations in Friuli Venezia Giulia as a `DataFrame`
 """
 function getMeteoData()
     resources = [ "ARI", "BAR", "BGG", "BIC", "BOA", "BOR", "BRU", "CAP", "CDP", "CER", "CHI", "CIV", "CMT", "COD", "COR",
@@ -135,7 +146,9 @@ end
 
 
 """
-media_giornaliera, media_giornaliera, media_oraria_max, media_mobile_8h_max, media_giornaliera, media_oraria_max
+    getAQData()
+
+Obtain data on airquality gathered form measuring stations in Friuli Venezia Giulia
 """
 function getAQData()
     codes = [ "qp5k-6pvm" , "d63p-pqpr", "7vnx-28uy", "t274-vki6", "2zdv-x7g2", "ke9b-p6z2" ]
@@ -154,6 +167,13 @@ end
 
 
 """
+    getData(; <keyword arguments> )
+
+Obtain data of category `type` from `source`
+
+# Arguments
+ - `type::Symbol=:METEO`: defines the type of data to be downloaded may either be `:METEO` or `:AIRQUALITY`
+ - `source::Symbol=:STATIONS`: defines if the data to be downloaded has to regard information on the stations or their actual measurements, as such may either be `:STATIONS` or `:SENSORS`
 """
 function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     if type == :METEO
@@ -167,9 +187,9 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     end
 end
 
-#   resFVG = getData( type=:METEO, source=:STATIONS )
-#   resFVG = getData( type=:METEO, source=:SENSORS )
-#   resFVG = getData( type=:AIRQUALITY )
+#   resFVGsta = getData( type=:METEO, source=:STATIONS )
+#   resFVGsen = getData( type=:METEO, source=:SENSORS )
+#   resFVGaq = getData( type=:AIRQUALITY )
 
 
 

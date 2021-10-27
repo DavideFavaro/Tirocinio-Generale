@@ -1,0 +1,671 @@
+Stazione,Inquinante,Data,Valore,Unita_di_misura,NOME_STA
+Parco S. Chiara,PM10,2021-10-26T01:00:00.0,20.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T02:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T03:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T04:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T05:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T06:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T07:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T08:00:00.0,20.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T09:00:00.0,19.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T10:00:00.0,18.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T11:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T12:00:00.0,12.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T13:00:00.0,13.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T14:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T15:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T16:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T17:00:00.0,23.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T18:00:00.0,20.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T19:00:00.0,24.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T20:00:00.0,23.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T21:00:00.0,23.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T22:00:00.0,22.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T23:00:00.0,22.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM10,2021-10-26T00:00:00.0,22.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T01:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T02:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T03:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T04:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T05:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T06:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T07:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T08:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T09:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T10:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T11:00:00.0,11.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T12:00:00.0,9.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T13:00:00.0,9.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T14:00:00.0,9.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T15:00:00.0,10.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T16:00:00.0,11.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T17:00:00.0,14.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T18:00:00.0,15.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T19:00:00.0,18.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T20:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T21:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T22:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T23:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,PM2.5,2021-10-26T00:00:00.0,16.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T01:00:00.0,29.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T02:00:00.0,28.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T03:00:00.0,24.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T04:00:00.0,24.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T05:00:00.0,25.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T06:00:00.0,26.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T07:00:00.0,32.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T08:00:00.0,40.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T09:00:00.0,35.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T10:00:00.0,26.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T11:00:00.0,21.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T12:00:00.0,20.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T13:00:00.0,23.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T14:00:00.0,22.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T15:00:00.0,22.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T16:00:00.0,30.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T17:00:00.0,54.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T18:00:00.0,59.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T19:00:00.0,57.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T20:00:00.0,46.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T21:00:00.0,42.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T22:00:00.0,40.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T23:00:00.0,40.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido di Azoto,2021-10-26T00:00:00.0,39.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T01:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T02:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T03:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T04:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T05:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T06:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T07:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T08:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T09:00:00.0,5.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T10:00:00.0,9.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T11:00:00.0,17.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T12:00:00.0,21.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T13:00:00.0,24.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T14:00:00.0,30.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T15:00:00.0,32.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T16:00:00.0,23.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T17:00:00.0,6.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T18:00:00.0,4.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T19:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T20:00:00.0,4.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T21:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T22:00:00.0,5.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T23:00:00.0,5.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Ozono,2021-10-26T00:00:00.0,4.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T01:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T02:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T03:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T04:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T05:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T06:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T07:00:00.0,4.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T08:00:00.0,6.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T09:00:00.0,5.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T10:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T11:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T12:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T13:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T14:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T15:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T16:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T17:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T18:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T19:00:00.0,3.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T20:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T21:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T22:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T23:00:00.0,1.0,μg/m³,PARCO S. CHIARA
+Parco S. Chiara,Biossido Zolfo,2021-10-26T00:00:00.0,2.0,μg/m³,PARCO S. CHIARA
+Via Bolzano,PM10,2021-10-26T01:00:00.0,22.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T02:00:00.0,20.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T03:00:00.0,18.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T04:00:00.0,17.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T05:00:00.0,16.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T06:00:00.0,18.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T07:00:00.0,24.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T08:00:00.0,26.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T09:00:00.0,24.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T10:00:00.0,22.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T11:00:00.0,16.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T12:00:00.0,14.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T13:00:00.0,11.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T14:00:00.0,10.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T15:00:00.0,10.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T16:00:00.0,11.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T17:00:00.0,17.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T18:00:00.0,24.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T19:00:00.0,29.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T20:00:00.0,28.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T21:00:00.0,36.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T22:00:00.0,42.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T23:00:00.0,31.0,μg/m³,VIA BOLZANO
+Via Bolzano,PM10,2021-10-26T00:00:00.0,28.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T01:00:00.0,25.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T02:00:00.0,24.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T03:00:00.0,23.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T04:00:00.0,22.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T05:00:00.0,24.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T06:00:00.0,31.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T07:00:00.0,52.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T08:00:00.0,51.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T09:00:00.0,31.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T10:00:00.0,34.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T11:00:00.0,27.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T12:00:00.0,27.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T13:00:00.0,35.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T14:00:00.0,44.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T15:00:00.0,51.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T16:00:00.0,46.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T17:00:00.0,78.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T18:00:00.0,63.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T19:00:00.0,63.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T20:00:00.0,65.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T21:00:00.0,70.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T22:00:00.0,58.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T23:00:00.0,49.0,μg/m³,VIA BOLZANO
+Via Bolzano,Biossido di Azoto,2021-10-26T00:00:00.0,39.0,μg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T01:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T02:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T03:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T04:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T05:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T06:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T07:00:00.0,1.4,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T08:00:00.0,1.3,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T09:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T10:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T11:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T12:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T13:00:00.0,0.9,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T14:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T15:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T16:00:00.0,1.0,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T17:00:00.0,1.1,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T18:00:00.0,1.1,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T19:00:00.0,1.3,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T20:00:00.0,1.2,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T21:00:00.0,1.4,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T22:00:00.0,1.5,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T23:00:00.0,1.2,mg/m³,VIA BOLZANO
+Via Bolzano,Ossido di Carbonio,2021-10-26T00:00:00.0,1.2,mg/m³,VIA BOLZANO
+Piana Rotaliana,PM10,2021-10-26T01:00:00.0,19.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T02:00:00.0,18.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T03:00:00.0,17.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T04:00:00.0,15.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T05:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T06:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T07:00:00.0,12.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T08:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T09:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T10:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T11:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T12:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T13:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T14:00:00.0,10.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T15:00:00.0,12.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T16:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T17:00:00.0,15.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T18:00:00.0,27.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T19:00:00.0,19.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T20:00:00.0,20.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T21:00:00.0,21.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T22:00:00.0,22.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T23:00:00.0,21.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,PM10,2021-10-26T00:00:00.0,18.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T01:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T02:00:00.0,9.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T03:00:00.0,8.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T04:00:00.0,8.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T05:00:00.0,7.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T06:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T07:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T08:00:00.0,11.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T09:00:00.0,17.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T10:00:00.0,15.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T11:00:00.0,14.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T12:00:00.0,15.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T13:00:00.0,14.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T14:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T15:00:00.0,16.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T16:00:00.0,23.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T17:00:00.0,25.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T18:00:00.0,31.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T19:00:00.0,30.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T20:00:00.0,23.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T21:00:00.0,20.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T22:00:00.0,18.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T23:00:00.0,18.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Biossido di Azoto,2021-10-26T00:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T01:00:00.0,5.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T02:00:00.0,9.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T03:00:00.0,9.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T04:00:00.0,10.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T05:00:00.0,12.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T06:00:00.0,4.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T07:00:00.0,4.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T08:00:00.0,4.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T09:00:00.0,9.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T10:00:00.0,15.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T11:00:00.0,23.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T12:00:00.0,25.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T13:00:00.0,29.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T14:00:00.0,34.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T15:00:00.0,33.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T16:00:00.0,25.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T17:00:00.0,13.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T18:00:00.0,3.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T19:00:00.0,2.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T20:00:00.0,2.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T21:00:00.0,2.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T22:00:00.0,3.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T23:00:00.0,5.0,μg/m³,PIANA ROTALIANA
+Piana Rotaliana,Ozono,2021-10-26T00:00:00.0,7.0,μg/m³,PIANA ROTALIANA
+Rovereto,PM10,2021-10-26T01:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T02:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T03:00:00.0,16.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T04:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T05:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T06:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T07:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T08:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T09:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T10:00:00.0,16.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T11:00:00.0,12.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T12:00:00.0,11.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T13:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T14:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T15:00:00.0,18.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T16:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T17:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T18:00:00.0,20.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T19:00:00.0,20.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T20:00:00.0,18.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T21:00:00.0,19.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T22:00:00.0,20.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T23:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,PM10,2021-10-26T00:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T01:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T02:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T03:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T04:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T05:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T06:00:00.0,12.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T07:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T08:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T09:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T10:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T11:00:00.0,10.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T12:00:00.0,11.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T13:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T14:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T15:00:00.0,15.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T16:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T17:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T18:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T19:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T20:00:00.0,13.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T21:00:00.0,12.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T22:00:00.0,8.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T23:00:00.0,9.0,μg/m³,ROVERETO
+Rovereto,PM2.5,2021-10-26T00:00:00.0,9.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T01:00:00.0,18.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T02:00:00.0,22.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T03:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T04:00:00.0,24.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T05:00:00.0,25.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T06:00:00.0,28.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T07:00:00.0,31.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T08:00:00.0,37.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T09:00:00.0,34.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T10:00:00.0,26.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T11:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T12:00:00.0,19.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T13:00:00.0,20.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T14:00:00.0,19.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T15:00:00.0,23.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T16:00:00.0,29.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T17:00:00.0,34.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T18:00:00.0,35.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T19:00:00.0,23.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T20:00:00.0,19.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T21:00:00.0,22.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T22:00:00.0,29.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T23:00:00.0,35.0,μg/m³,ROVERETO
+Rovereto,Biossido di Azoto,2021-10-26T00:00:00.0,28.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T01:00:00.0,14.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T02:00:00.0,9.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T03:00:00.0,10.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T04:00:00.0,4.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T05:00:00.0,2.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T06:00:00.0,2.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T07:00:00.0,2.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T08:00:00.0,3.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T09:00:00.0,6.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T10:00:00.0,10.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T11:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T12:00:00.0,23.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T13:00:00.0,26.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T14:00:00.0,33.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T15:00:00.0,35.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T16:00:00.0,35.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T17:00:00.0,23.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T18:00:00.0,21.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T19:00:00.0,23.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T20:00:00.0,29.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T21:00:00.0,27.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T22:00:00.0,17.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T23:00:00.0,6.0,μg/m³,ROVERETO
+Rovereto,Ozono,2021-10-26T00:00:00.0,13.0,μg/m³,ROVERETO
+Borgo Valsugana,PM10,2021-10-26T01:00:00.0,18.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T02:00:00.0,16.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T03:00:00.0,14.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T04:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T05:00:00.0,14.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T06:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T07:00:00.0,22.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T08:00:00.0,24.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T09:00:00.0,28.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T10:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T11:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T12:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T13:00:00.0,14.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T14:00:00.0,10.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T15:00:00.0,9.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T16:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T17:00:00.0,23.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T18:00:00.0,42.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T19:00:00.0,56.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T20:00:00.0,42.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T21:00:00.0,25.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T22:00:00.0,33.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T23:00:00.0,22.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM10,2021-10-26T00:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T01:00:00.0,11.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T02:00:00.0,10.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T03:00:00.0,8.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T04:00:00.0,7.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T05:00:00.0,7.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T06:00:00.0,11.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T07:00:00.0,11.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T08:00:00.0,12.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T09:00:00.0,16.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T10:00:00.0,16.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T11:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T12:00:00.0,12.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T13:00:00.0,12.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T14:00:00.0,9.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T15:00:00.0,7.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T16:00:00.0,10.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T17:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T18:00:00.0,29.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T19:00:00.0,46.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T20:00:00.0,37.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T21:00:00.0,20.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T22:00:00.0,24.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T23:00:00.0,20.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,PM2.5,2021-10-26T00:00:00.0,15.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T01:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T02:00:00.0,13.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T03:00:00.0,14.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T04:00:00.0,16.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T05:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T06:00:00.0,21.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T07:00:00.0,25.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T08:00:00.0,26.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T10:00:00.0,22.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T11:00:00.0,23.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T12:00:00.0,21.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T13:00:00.0,18.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T14:00:00.0,17.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T15:00:00.0,14.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T16:00:00.0,31.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T17:00:00.0,47.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T18:00:00.0,53.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T19:00:00.0,49.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T20:00:00.0,43.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T21:00:00.0,33.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T22:00:00.0,28.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T23:00:00.0,25.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Biossido di Azoto,2021-10-26T00:00:00.0,21.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T01:00:00.0,4.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T02:00:00.0,4.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T03:00:00.0,3.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T04:00:00.0,4.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T05:00:00.0,3.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T06:00:00.0,3.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T07:00:00.0,3.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T08:00:00.0,3.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T10:00:00.0,10.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T11:00:00.0,19.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T12:00:00.0,27.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T13:00:00.0,42.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T14:00:00.0,51.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T15:00:00.0,52.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T16:00:00.0,40.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T17:00:00.0,18.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T18:00:00.0,10.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T19:00:00.0,9.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T20:00:00.0,9.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T21:00:00.0,5.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T22:00:00.0,5.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T23:00:00.0,4.0,μg/m³,BORGO VALSUGANA
+Borgo Valsugana,Ozono,2021-10-26T00:00:00.0,6.0,μg/m³,BORGO VALSUGANA
+Riva del Garda,PM10,2021-10-26T01:00:00.0,19.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T02:00:00.0,17.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T03:00:00.0,15.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T04:00:00.0,13.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T05:00:00.0,13.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T06:00:00.0,13.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T07:00:00.0,12.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T08:00:00.0,16.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T09:00:00.0,14.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T10:00:00.0,12.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T11:00:00.0,10.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T12:00:00.0,11.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T13:00:00.0,12.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T14:00:00.0,10.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T15:00:00.0,11.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T16:00:00.0,15.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T17:00:00.0,17.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T18:00:00.0,17.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T19:00:00.0,24.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T20:00:00.0,31.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T21:00:00.0,37.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T22:00:00.0,32.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T23:00:00.0,25.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,PM10,2021-10-26T00:00:00.0,21.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T01:00:00.0,24.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T02:00:00.0,20.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T03:00:00.0,18.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T04:00:00.0,17.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T05:00:00.0,19.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T06:00:00.0,28.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T07:00:00.0,34.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T08:00:00.0,35.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T09:00:00.0,25.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T10:00:00.0,22.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T11:00:00.0,16.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T12:00:00.0,16.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T13:00:00.0,21.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T14:00:00.0,16.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T15:00:00.0,18.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T16:00:00.0,35.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T17:00:00.0,38.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T18:00:00.0,47.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T19:00:00.0,55.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T20:00:00.0,53.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T21:00:00.0,46.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T22:00:00.0,42.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T23:00:00.0,35.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Biossido di Azoto,2021-10-26T00:00:00.0,28.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T01:00:00.0,8.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T02:00:00.0,9.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T03:00:00.0,9.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T04:00:00.0,10.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T05:00:00.0,9.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T06:00:00.0,4.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T07:00:00.0,2.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T08:00:00.0,3.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T09:00:00.0,12.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T10:00:00.0,19.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T11:00:00.0,28.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T12:00:00.0,32.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T13:00:00.0,30.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T14:00:00.0,39.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T15:00:00.0,35.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T16:00:00.0,20.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T17:00:00.0,21.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T18:00:00.0,13.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T19:00:00.0,5.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T20:00:00.0,4.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T21:00:00.0,5.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T22:00:00.0,5.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T23:00:00.0,10.0,μg/m³,RIVA DEL GARDA
+Riva del Garda,Ozono,2021-10-26T00:00:00.0,13.0,μg/m³,RIVA DEL GARDA
+A22 (Avio),PM10,2021-10-26T01:00:00.0,15.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T02:00:00.0,13.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T03:00:00.0,11.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T04:00:00.0,11.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T05:00:00.0,11.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T06:00:00.0,12.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T07:00:00.0,12.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T08:00:00.0,13.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T09:00:00.0,13.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T10:00:00.0,13.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T11:00:00.0,12.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T12:00:00.0,12.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T13:00:00.0,13.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T14:00:00.0,11.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T15:00:00.0,17.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T16:00:00.0,23.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T17:00:00.0,22.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T18:00:00.0,19.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T19:00:00.0,19.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T20:00:00.0,19.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T21:00:00.0,21.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T22:00:00.0,20.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T23:00:00.0,18.0,μg/m³,A22 (AVIO)
+A22 (Avio),PM10,2021-10-26T00:00:00.0,17.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T01:00:00.0,32.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T02:00:00.0,32.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T03:00:00.0,32.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T04:00:00.0,35.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T05:00:00.0,39.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T06:00:00.0,43.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T07:00:00.0,44.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T08:00:00.0,41.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T09:00:00.0,41.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T10:00:00.0,38.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T11:00:00.0,31.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T12:00:00.0,33.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T13:00:00.0,31.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T14:00:00.0,33.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T15:00:00.0,26.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T16:00:00.0,26.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T17:00:00.0,54.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T18:00:00.0,69.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T19:00:00.0,62.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T20:00:00.0,57.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T21:00:00.0,53.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T22:00:00.0,49.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T23:00:00.0,44.0,μg/m³,A22 (AVIO)
+A22 (Avio),Biossido di Azoto,2021-10-26T00:00:00.0,42.0,μg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T01:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T02:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T03:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T04:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T05:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T06:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T07:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T08:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T09:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T10:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T11:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T12:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T13:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T14:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T15:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T16:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T17:00:00.0,0.4,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T18:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T19:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T20:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T21:00:00.0,0.6,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T22:00:00.0,0.6,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T23:00:00.0,0.5,mg/m³,A22 (AVIO)
+A22 (Avio),Ossido di Carbonio,2021-10-26T00:00:00.0,0.5,mg/m³,A22 (AVIO)
+Monte Gaza,PM10,2021-10-26T01:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T02:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T03:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T04:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T05:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T06:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T07:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T08:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T09:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T10:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T11:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T12:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T13:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T14:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T15:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T16:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T17:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T18:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T19:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T20:00:00.0,6.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T21:00:00.0,7.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T22:00:00.0,6.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T23:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,PM10,2021-10-26T00:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T01:00:00.0,1.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T02:00:00.0,1.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T03:00:00.0,1.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T04:00:00.0,1.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T05:00:00.0,1.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T06:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T07:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T08:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T09:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T10:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T11:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T12:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T13:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T14:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T15:00:00.0,5.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T16:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T17:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T18:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T19:00:00.0,4.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T20:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T21:00:00.0,2.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T22:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T23:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Biossido di Azoto,2021-10-26T00:00:00.0,3.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T01:00:00.0,96.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T02:00:00.0,100.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T03:00:00.0,105.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T04:00:00.0,100.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T05:00:00.0,97.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T06:00:00.0,89.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T07:00:00.0,91.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T08:00:00.0,89.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T09:00:00.0,76.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T10:00:00.0,67.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T11:00:00.0,69.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T12:00:00.0,70.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T13:00:00.0,71.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T14:00:00.0,73.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T15:00:00.0,77.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T16:00:00.0,81.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T17:00:00.0,88.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T18:00:00.0,90.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T19:00:00.0,88.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T20:00:00.0,87.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T21:00:00.0,92.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T22:00:00.0,85.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T23:00:00.0,82.0,μg/m³,MONTE GAZA
+Monte Gaza,Ozono,2021-10-26T00:00:00.0,80.0,μg/m³,MONTE GAZA

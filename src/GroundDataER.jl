@@ -20,8 +20,8 @@ export getDataER
 
 
 const attributes = Dict(
-                      :METEO      => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing#=, nothing, nothing=#],
-                      :AIRQUALITY => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing#=, nothing, nothing=#]
+                      :METEO      => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ],
+                      :AIRQUALITY => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ]
                    )
 
 const ids = Dict(
@@ -29,8 +29,15 @@ const ids = Dict(
                 :AIRQUALITY => nothing
             )
 
+const stat_info = Dict(
+                      :METEO      => [ nothing, nothing, nothing, nothing ],
+                      :AIRQUALITY => [ nothing, nothing, nothing, nothing ]
+                  )
 
 
+
+"""
+"""
 function getDataER(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     println("Non ancora implementato")
     return nothing

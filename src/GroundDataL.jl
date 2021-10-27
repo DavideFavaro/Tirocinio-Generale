@@ -28,16 +28,12 @@ using DataFrames
 using HTTP
 
 
-str = occursin( "GroundDataL.jl", @__FILE__ ) ? "" : "src\\"
-include("$(@__DIR__)\\$(str)Global.jl")
-
-
 export getDataL
 
 
 const attributes = Dict(
-                      :METEO      => [ :tipologia, :unit_dimisura, :valore, nothing, :data, :lng, :lat, :quota, :quota#=, :stato, :note=#],
-                      :AIRQUALITY => [ :nometiposensore, :unitamisura, :valore, nothing, :data, :lng, :lat, :quota#=, :stato, nothing=#]
+                      :METEO      => [ :tipologia, :unit_dimisura, :valore, nothing, :data, :lng, :lat, :quota, :quota, :stato, :note ],
+                      :AIRQUALITY => [ :nometiposensore, :unitamisura, :valore, nothing, :data, :lng, :lat, :quota, :stato, nothing ]
                    )
 
 const ids = Dict(
@@ -45,16 +41,25 @@ const ids = Dict(
                 :AIRQUALITY => :idsensore
             )
 
+const stat_info = Dict(
+                      :METEO      => [ :idstazione, :nomestazione, :lng, :lat ],
+                      :AIRQUALITY => [ :idstazione, :nomestazione, :lng, :lat ]
+                  )
+
 
 
 """
-    getDataL(; type::Symbol, source::Symbol )
+    getData(; <keyword arguments> )
 
-Download the data specified by `type` and `source`, returning a CSV file
+Obtain data of category `type` from `source`
+
+# Arguments
+ - `type::Symbol=:METEO`: defines the type of data to be downloaded may either be `:METEO` or `:AIRQUALITY`
+ - `source::Symbol=:STATIONS`: defines if the data to be downloaded has to regard information on the stations or their actual measurements, as such may either be `:STATIONS` or `:SENSORS`
 """
-function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
 
-    str = type == METEO ? ( source == STATIONS ? "nf78-nj6b" : "647i-nhxk" ) : ( source == STATIONS ? "ib47-atvt" : "nicp-bhqi" )
+    str = type == :METEO ? ( source == :STATIONS ? "nf78-nj6b" : "647i-nhxk" ) : ( source == :STATIONS ? "ib47-atvt" : "nicp-bhqi" )
     data = HTTP.get( "https://www.dati.lombardia.it/resource/$str.csv" )
     data_csv = CSV.File( data.body )
 

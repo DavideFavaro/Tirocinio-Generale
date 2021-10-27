@@ -78,7 +78,7 @@ export getDataV
 
 
 const attributes = Dict(
-                      :METEO      => [ :param, :unit, :value, nothing, :instant, :x, :y, :quota, :quota, nothing, nothing ],
+                      :METEO      => [ :paramnm, :unitnm, :value, nothing, :instant, :x, :y, :quota, :quota, nothing, nothing ],
                       :AIRQUALITY => [ :param, nothing, :value, nothing, :date, :lon, :lat, nothing, nothing, :tipozona ]
                    )
 
@@ -86,6 +86,11 @@ const ids = Dict(
                 :METEO      => :idstaz,
                 :AIRQUALITY => :codseqst
             )
+
+const stat_info = Dict(
+                      :METEO      => [ :idstaz, :nome, :x, :y ],
+                      :AIRQUALITY => [ :codseqst, :nome, :lon, :lat ]
+                  )
 
 
 
@@ -240,16 +245,16 @@ end
 
 Obtain `type` data from `source`
 """
-function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
-    if type == METEO
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
+    if type == :METEO
         stations = getMeteoStationsData()
-        if source == STATIONS
+        if source == :STATIONS
             return stations
         else
             return getMeteoData( stations[:, :idstaz] )
         end
     else
-        if source == STATIONS
+        if source == :STATIONS
             return getAqStationsData()
         else
             return getAqData()
@@ -258,9 +263,9 @@ function getData(; type::Symbol=METEO, source::Symbol=STATIONS )
 end
 
 #   data = getDataV()
-#   data = getDataV( source=SENSORS )
-#   data = getDataV( type=AIRQUALITY, source=STATIONS )
-#   data = getDataV( type=AIRQUALITY, source=SENSORS )
+#   data = getDataV( source=:SENSORS )
+#   data = getDataV( type=:AIRQUALITY, source=:STATIONS )
+#   data = getDataV( type=:AIRQUALITY, source=:SENSORS )
 
 
 

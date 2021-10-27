@@ -45,13 +45,18 @@ export getDataT
 
 const attributes = Dict(
                       :METEO      => [ :info, :unit, :value, nothing, :date, :longitudine, :latitudine, :quota, :quota, nothing, nothing ],
-                      :AIRQUALITY => [ :Inquinante, :Unita_di_misura, :Valore, nothing, :Data_Ora, nothing, nothing, nothing, nothing, nothing ]
+                      :AIRQUALITY => [ :Inquinante, :Unita_di_misura, :Valore, nothing, :Data_Ora, :Longitude, :Latitude, nothing, nothing, nothing ]
                    )
 
 const ids = Dict(
                 :METEO      => :codice,
                 :AIRQUALITY => :NOME_STA
             )
+
+const stat_info = Dict(
+                      :METEO      => [ :codice, :nome, :longitudine, :latitudine ],
+                      :AIRQUALITY => [ nothing, :NOME_STA, :Longitude, :Latitude  ]
+                  )
 
 
 
@@ -171,9 +176,13 @@ end
 
 
 """
-    getDataT(; type::Symbol=METEO, source::Symbol=STATIONS )
+    getData(; <keyword arguments> )
 
-Obtain informations on the `type` stations or their sensor's data
+Obtain data of category `type` from `source`
+
+# Arguments
+ - `type::Symbol=:METEO`: defines the type of data to be downloaded may either be `:METEO` or `:AIRQUALITY`
+ - `source::Symbol=:STATIONS`: defines if the data to be downloaded has to regard information on the stations or their actual measurements, as such may either be `:STATIONS` or `:SENSORS`
 """
 function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     if type == :METEO
