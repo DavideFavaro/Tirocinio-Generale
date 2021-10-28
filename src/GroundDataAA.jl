@@ -25,23 +25,52 @@ using JSONTables
 
 
 export getData,
-       attributes, ids
+       getRegionAttributes, getRegionIds, getRegionStationsInfo
 
 
-const attributes = Dict(
-                      :METEO      => [ :DESC_I, :UNIT, :VALUE, nothing, :DATE, :LONG, :LAT, :ALT, :ALT, nothing, nothing ],
-                      :AIRQUALITY => [ :MCODE, nothing, :VALUE, nothing, :DATE, :LONG, :LAT, nothing, :FLAGS, nothing ]
-                   )
 
-const ids = Dict(
-                :METEO      => :SCODE,
-                :AIRQUALITY => :SCODE
-            )
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
 
-const stat_info = Dict(
-                          :METEO      => [ :SCODE, :NAME_I, :LONG, :LAT ],
-                          :AIRQUALITY => [ :SCODE, :NAME_I, :LONG, :LAT ]
-                      )
+Obtain the names of the columns of the region's dataframe required by `GroundData.createMap`'s `attributes` parameter to create
+`GroundData.standardize`'s `map` parameter
+"""
+function getRegionAttributes( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ :DESC_I, :UNIT, :VALUE, nothing, :DATE, :LONG, :LAT, :ALT, :rmh, nothing, nothing ] :
+               type == :AIRQUALITY ?
+                   [ :MCODE, nothing, :VALUE, nothing, :DATE, :LONG, :LAT, nothing, :FLAGS, nothing ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
+
+Obtain the names of the columns of the dataframe required for `GroundData.standardize`'s `bridge` parameter
+"""
+function getRegionIds( type::Symbol=:METEO )
+    if type != :METEO && type != :AIRQUALITY
+        throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+    end
+    return :SCODE
+end
+
+
+
+"""
+    getRegionStationInfo( [ type::Symbol=:METEO  ] )
+
+Obtain the names of the columns of the region's stations dataframe required by `GroundData.createMap`'s `attributes` parameter to be used
+in `GroundData.generateUuidsTable`
+"""
+function getRegionStationsInfo( type::Symbol=:METEO )
+    if type != :METEO && type != :AIRQUALITY
+        throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+    end
+    return [ :SCODE, :NAME_I, :LONG, :LAT ]
+end
 
 
 
@@ -76,15 +105,19 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
         page = "[" * join( stations[2:end], "," )[1:end-lim] * "]"
     end 
 
-    data = jsontable(page)
+    data = DataFrame( jsontable(page) )
+    
+    if type == :METEO && source == :SENSORS
+        insertcols!( data, :rmh => "0m" ) 
+    end
 
-    return DataFrame(data)
+    return data
 end
 
-#   resAA = getDataAA( type=:METEO, source=:STATIONS )
-#   resAA = getDataAA( type=:METEO, source=:SENSROS )
-#   resAA = getDataAA( type=:AIRQUALITY, source=:STATIONS )
-#   resAA = getDataAA( type=:AIRQUALITY, source=:SENSROS )
+#   resAA = getData( type=:METEO, source=:STATIONS )
+#   resAA = getData( type=:METEO, source=:SENSROS )
+#   resAA = getData( type=:AIRQUALITY, source=:STATIONS )
+#   resAA = getData( type=:AIRQUALITY, source=:SENSROS )
 
 
 end # module

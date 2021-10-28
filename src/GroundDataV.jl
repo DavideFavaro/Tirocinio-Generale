@@ -16,7 +16,8 @@ using JSONTables
 using Revise
 
 
-export getDataV
+export getData,
+       getRegionAttributes, getRegionIds, getRegionStationInfo
 
 
 @syntax informations = Sequence(
@@ -77,20 +78,48 @@ export getDataV
                   )
 
 
-const attributes = Dict(
-                      :METEO      => [ :paramnm, :unitnm, :value, nothing, :instant, :x, :y, :quota, :quota, nothing, nothing ],
-                      :AIRQUALITY => [ :param, nothing, :value, nothing, :date, :lon, :lat, nothing, nothing, :tipozona ]
-                   )
 
-const ids = Dict(
-                :METEO      => :idstaz,
-                :AIRQUALITY => :codseqst
-            )
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
 
-const stat_info = Dict(
-                      :METEO      => [ :idstaz, :nome, :x, :y ],
-                      :AIRQUALITY => [ :codseqst, :nome, :lon, :lat ]
-                  )
+Obtain the names of the columns of the region's dataframe required by `GroundData.createMap`'s `attributes` parameter to create
+`GroundData.standardize`'s `map` parameter
+"""
+function getRegionAttributes( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ :paramnm, :unitnm, :value, nothing, :instant, :x, :y, :quota, :rmh, nothing, nothing ] :
+               type == :AIRQUALITY ?
+                   [ :param, nothing, :value, nothing, :date, :lon, :lat, nothing, nothing, :tipozona ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
+
+Obtain the names of the columns of the dataframe required for `GroundData.standardize`'s `bridge` parameter
+"""
+function getRegionIds( type::Symbol=:METEO )
+    return type == :METEO ? :idstaz :
+               type == :AIRQUALITY ? :codseqst : throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionStationInfo( [ type::Symbol=:METEO  ] )
+
+Obtain the names of the columns of the region's stations dataframe required by `GroundData.createMap`'s `attributes` parameter to be used
+in `GroundData.generateUuidsTable`
+"""
+function getRegionStationsInfo( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ :idstaz, :nome, :x, :y ] :
+               type == :AIRQUALITY ?
+                   [ :codseqst, :nome, :lon, :lat ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
 
 
 
@@ -100,7 +129,6 @@ const stat_info = Dict(
 Obtain the dataframe containing informations on all available ARPAV stations 
 """
 function getMeteoStationsData()
-
 #Get the information on the available stations
     # Get the page containing informations on all the available stations
     page = String( HTTP.get( "https://www.arpa.veneto.it/bollettini/meteo/h24/img07/stazioni.xml" ).body )
@@ -126,7 +154,7 @@ function getMeteoStationsData()
              ) for station in stats ]
 
     df = DataFrame(dict)
-
+    insertcols!( df, :rmh => "0m" )
     return df
 end
 
@@ -233,7 +261,6 @@ function getAqData()
             push!( arr, Dict( :codseqst => station["codseqst"], :param => missing, :date => missing, :value => missing ) )
         end
     end
-
     return DataFrame(arr)
 end
 

@@ -37,7 +37,8 @@ using HTTP
 using JSONTables
 
 
-export getDataFVG
+export getData,
+       getRegionAttributes, getRegionIds, getRegionStationInfo
 
 
 @syntax meteo_data = Repeat(
@@ -51,20 +52,48 @@ export getDataFVG
                      ) 
 
 
-const attributes = Dict(
-                      :METEO      => [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rel_measure_height, nothing, nothing ],
-                      :AIRQUALITY => [ :parametro, :unita_misura, :value, nothing, :data_misura, :longitudine, :latitudine, nothing, :dati_insuff, nothing ]
-                   )
 
-const ids = Dict(
-                :METEO      => :nome,
-                :AIRQUALITY => nothing
-            )
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
 
-const stat_info = Dict(
-                      :METEO      => [ nothing, :nome, :longitude, :latitude ],
-                      :AIRQUALITY => [ nothing, :ubicazione, :longitudine, :latitudine ]
-                  )
+Obtain the names of the columns of the region's dataframe required by `GroundData.createMap`'s `attributes` parameter to create
+`GroundData.standardize`'s `map` parameter
+"""
+function getRegionAttributes( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rmh, nothing, nothing ] :
+               type == :AIRQUALITY ?
+                   [ :parametro, :unita_misura, :value, nothing, :data_misura, :longitudine, :latitudine, nothing, :dati_insuff, nothing ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
+
+Obtain the names of the columns of the dataframe required for `GroundData.standardize`'s `bridge` parameter
+"""
+function getRegionIds( type::Symbol=:METEO )
+    return type == :METEO ? :nome :
+               type == :AIRQUALITY ? nothing : throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionStationInfo( [ type::Symbol=:METEO  ] )
+
+Obtain the names of the columns of the region's stations dataframe required by `GroundData.createMap`'s `attributes` parameter to be used
+in `GroundData.generateUuidsTable`
+"""
+function getRegionStationsInfo( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ nothing, :nome, :longitude, :latitude ] :
+               type == :AIRQUALITY ?
+                   [ nothing, :ubicazione, :longitudine, :latitudine ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
 
 
 
@@ -138,7 +167,7 @@ function getMeteoData()
 
     transform!( df, [:station_name] => ByRow( x -> x = uppercase(x) ) => :nome )
 
-    insertcols!( df, :rel_measure_height => rel_heights )
+    insertcols!( df, :rmh => rel_heights )
 
     return df
 end

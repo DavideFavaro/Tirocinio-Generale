@@ -16,29 +16,59 @@ Per gli altri dati non ci sono link espliciti e nemmeno bottoni o opzioni per il
 
 
 
-export getDataER
+export getData,
+       getRegionAttributes, getRegionIds, getRegionStationInfo
 
 
-const attributes = Dict(
-                      :METEO      => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ],
-                      :AIRQUALITY => [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ]
-                   )
 
-const ids = Dict(
-                :METEO      => nothing,
-                :AIRQUALITY => nothing
-            )
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
 
-const stat_info = Dict(
-                      :METEO      => [ nothing, nothing, nothing, nothing ],
-                      :AIRQUALITY => [ nothing, nothing, nothing, nothing ]
-                  )
+Obtain the names of the columns of the region's dataframe required by `GroundData.createMap`'s `attributes` parameter to create
+`GroundData.standardize`'s `map` parameter
+"""
+function getRegionAttributes( type::Symbol=:METEO )
+    return type == :METEO ?
+               [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ] :
+               type == :AIRQUALITY ?
+                   [ nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing ] :
+                   throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+end
+
+
+
+"""
+    getRegionAttributes( [ type::Symbol=:METEO ] )
+
+Obtain the names of the columns of the dataframe required for `GroundData.standardize`'s `bridge` parameter
+"""
+function getRegionIds( type::Symbol=:METEO )
+    if type != :METEO && type != :AIRQUALITY
+        throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+    end
+    return nothing
+end
+
+
+
+"""
+    getRegionStationInfo( [ type::Symbol=:METEO  ] )
+
+Obtain the names of the columns of the region's stations dataframe required by `GroundData.createMap`'s `attributes` parameter to be used
+in `GroundData.generateUuidsTable`
+"""
+function getRegionStationsInfo( type::Symbol=:METEO )
+    if type != :METEO && type != :AIRQUALITY
+        throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
+    end
+    return [ nothing, nothing, nothing, nothing ]
+end
 
 
 
 """
 """
-function getDataER(; type::Symbol=:METEO, source::Symbol=:STATIONS )
+function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     println("Non ancora implementato")
     return nothing
 end
