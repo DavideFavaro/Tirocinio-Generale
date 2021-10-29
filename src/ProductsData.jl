@@ -4,19 +4,16 @@ Module for the Download and processing of descriptors of satellitar data from th
 """
 
 
-using HTTP
-using Downloads
-
-using CombinedParsers
-using CombinedParsers.Regexp
 
 using ArchGDAL
-using DataFrames
-using Dates
+using CombinedParsers
+using CombinedParsers.Regexp
 using CSV
-
+using Dates
+using DataFrames
+using Downloads
+using HTTP
 using Revise
-
 
 
 test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
@@ -52,12 +49,6 @@ out = [ "D:\\Vario\\Stage",
 
 
 
-
-
-
-
-
-
 # Funzione presa da Stackoverflow https://stackoverflow.com/questions/48104390/julias-most-efficient-way-to-choose-longest-array-in-array-of-arrays
 function maxLenIndex( vect::AbstractVector )
     len = 0
@@ -70,6 +61,7 @@ function maxLenIndex( vect::AbstractVector )
 end
 
 
+
 """
     authenticate( username::AbstractString, password::AbstractString[, type::AbstractString ] )
 
@@ -80,6 +72,7 @@ function authenticate( username::AbstractString, password::AbstractString, type:
         return HTTP.Base64.base64encode("$username:$password") #Trasformazione dei dati nel formato valido per la verifica
     end
 end
+
 
 
 """
@@ -170,14 +163,6 @@ end
 
 
 
-
-
-
-
-
-
-
-
 """
     getProductsDicts( fileIO::IO )
 
@@ -209,8 +194,6 @@ end
 
 #   io = getProductsBuffer( authenticate("davidefavaro","Tirocinio"), 5115, 50 )
 #   res = getProductsDicts(io)
-
-
 
 
 
@@ -248,23 +231,8 @@ function getProductsDF( authToken::AbstractString; start::Integer = 0, max::Unio
 # Create the column indicating wether a product has been downloaded 
     insertcols!( data, ( :available => fill( true, nrow(data) ) ) ),( :downloaded => fill( false, nrow(data) ) )
 
-
     return data
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -327,7 +295,6 @@ end
 
 
 
-
 function checkAvailabile()
     # Get the last available product as a DataFrame row
     data = getProductsDF( authenticate("davidefavaro","Tirocinio"), max=1, last=true  )
@@ -351,29 +318,23 @@ function checkAvailabile()
     CSV.write( *( @__DIR__, "\\Dati di prova\\data.csv" ), old_data )
 end
 
+#   df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 1000 )
+#   saveProductsDF( out[2], df )
 
 
-#df = getProductsDF( authenticate("davidefavaro","Tirocinio"), 1000 )
-#saveProductsDF( out[2], df )
+#   df = getProductsDF( authenticate("davidefavaro","Tirocinio"), max=1, last=true )
+#   odf = CSV.read( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+#   odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 
 
-
-df = getProductsDF( authenticate("davidefavaro","Tirocinio"), max=1, last=true )
-#odf = CSV.read( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
-odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+#   saveProductsDF( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova", df )
+#   saveProductsDF( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova", df )
 
 
+#   odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+#   checkAvailabile()
+#   ndf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 
-
-
-
-saveProductsDF( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova", df )
-#saveProductsDF( "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Dati di prova", df )
-
-
-odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
-checkAvailabile()
-ndf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 
 
 end #module

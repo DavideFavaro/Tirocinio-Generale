@@ -1,20 +1,20 @@
 module ProductsDownload
-
 """
 Module for the download of satellitar data of the Copernicus project
 """
 
-using HTTP
-using Downloads
 
-using DataFrames
-using Dates
+
 using CSV
-using ZipFile
+using Dates
+using DataFrames
+using Downloads
+using HTTP
 using NCDatasets
+using ZipFile
+
 
 include("ProductsData.jl")
-
 
 
 test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
@@ -61,15 +61,7 @@ function getData( fileId::AbstractString, targetDirectory::AbstractString, authT
     
 end
 
-#getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefavaro", "Tirocinio")  )
-
-
-
-function 
-
-
-
-
+#   getData( "b57f225e-d288-4e4a-bb35-2a7eb75d60e4", out[3], authenticate("davidefavaro", "Tirocinio")  )
 
 
 
@@ -91,4 +83,4 @@ function unzip( dir::AbstractString )
     return new
 end
 
-dir = unzip( out[3] )
+#   dir = unzip( out[3] )

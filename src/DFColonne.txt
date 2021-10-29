@@ -1,3 +1,28 @@
+Vaidazione dei dati
+ 	   _________
+      | M  | AQ |
+ ==== |====|====|	
+| AA  |    |    |
+|-----|----|----|
+| ER  |	-  | -  |
+|-----|----|----|
+| FVG |	   |    |
+|-----|----|----|
+| L   |	   |    |
+|-----|----|----|
+| T   |	   |    |
+|-----|----|----|
+| V   |	NV | V  |
+|===============|
+
+
+
+
+
+
+
+
+
 farei così, dimme se credi che manchi qualcosa
 
 colonna	descrizione

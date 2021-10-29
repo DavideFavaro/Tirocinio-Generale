@@ -122,7 +122,12 @@ function generateUuidsTable()
     if r != ER
       for t in [:METEO, :AIRQUALITY]
         rgn = regions_modules[Integer(r)]
-        station = rgn.getData( type=t )
+        station = try
+                    rgn.getData( type=t )
+                  catch e
+                    println( "Skipped $r $t, due to:\n", e )
+                    continue
+                  end
         stat_info = rgn.getRegionStationsInfo(t)
         map = createMap( stat_info, columns )
         res = standardize( map, nothing, station )
@@ -132,17 +137,20 @@ function generateUuidsTable()
     end
   end
 
+
   # AA e V hanno delle stazioni ( 7 e 2 rispettivamente, che non hanno latitudine e longitudine )
+  mdf = DataFrame( [ row for row in eachrow(df) if any( ismissing, row[[:longitude, :latitude]] ) ] )
+  CSV.write( "./Dati stazioni/missing_stazioni.csv", mdf )
   dropmissing!( df, [:longitude, :latitude], disallowmissing=true )
 
-  dict = Dict( (point[:longitude], point[:latitude]) => uuid4() for point in eachrow(unique( df[:, [:longitude, :latitude]] ) ) )
-  df[!, :uuid] = getindex.( Ref(dict), (df[!,:longitude], df[!,:latitude])... )
 
+  unique!( df, [:longitude, :latitude] )
+  insertcols!( df, :uuid => [ uuid4() for i in 1:nrow(df) ] )
+  CSV.write( "./Dati stazioni/stazioni.csv", df )
   return df
 end
 
 #   uuids = generateUuidsTable()
-#   CSV.write( "./Dati stazioni/stazioni.csv", uuids )
 
 
 
@@ -165,31 +173,46 @@ function getGroundData( type::Symbol=:METEO, regions::Region... )
               :validation,                # bool (già segnalato dalla stazione)
               :note                       # errori e outlayers? altro?
             ]
-
   ress = []
   for region in regions
       rnum = Integer(region)
       rgn = regions_modules[rnum]
-
-      resSta = rgn.getData( type=type, source=:STATIONS )
-      resSen = rgn.getData( type=type, source=:SENSORS )
-
+      resSta = try 
+                  rgn.getData( type=type, source=:STATIONS )
+               catch e
+                  println( "Skipped $region, due to:\n", e )
+                  continue
+               end
+      resSen = try
+                  rgn.getData( type=type, source=:SENSORS )
+               catch e
+                  println( "Skipped $region, due to:\n", e )
+                  continue
+               end
       s = type == :METEO ? 0 : 1
       attributes = rgn.getRegionAttributes(type)
       map = createMap( attributes, columns, stop=s )
       bridge = rgn.getRegionIds(type)
       res = standardize( map, bridge, resSta, resSen )
 
+      
+
+
+      uuids = isfile(".\\Dati stazioni\\stazioni.csv") ? CSV.read( ".\\Dati stazioni\\stazioni.csv", DataFrame ) : generateUuidsTable()
+
+      #dict = Dict( (point[:longitude], point[:latitude]) => uuid4() for point in eachrow(unique( df[:, [:longitude, :latitude]] ) ) )
+      #df[!, :uuid] = getindex.( Ref(dict), (df[!,:longitude], df[!,:latitude])... )
+
+      return innerjoin( uuids[:, [:uuid, :longitude, :latitude]], res, on=[:longitude, :latitude] )
+
       # res[!, :date] = DateTime.( res[!, :date] )
 
       push!( ress, res )
   end
-
   return ress
 end
 
-#   res = getGroundData( :METEO, AA, FVG, L, T, V )
-
+#   res = getGroundData( :METEO, AA )
 
 
 

@@ -1,0 +1,8 @@
+local_id,name,longitude,latitude,type,region
+BZ3,Bolzano 3 - ,,,AIRQUALITY,AA
+ML4,Mobile 4 - ,,,AIRQUALITY,AA
+ST1,Vipiteno - Via Josef Hirn,,,AIRQUALITY,AA
+AB1,Autostrada Nord - Chiusa,,,AIRQUALITY,AA
+BZ1,Bolzano 1 - Via Amba Alagi,,,AIRQUALITY,AA
+BZ2,Bolzano 2 - Piazza Verdi,,,AIRQUALITY,AA
+ML3,Mobile 3 - ,,,AIRQUALITY,AA
