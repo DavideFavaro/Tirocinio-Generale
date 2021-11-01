@@ -33,6 +33,7 @@ using CombinedParsers
 using CombinedParsers.Regexp
 using CSV
 using DataFrames
+using Dates
 using HTTP
 using JSONTables
 
@@ -61,7 +62,7 @@ Obtain the names of the columns of the region's dataframe required by `GroundDat
 """
 function getRegionAttributes( type::Symbol=:METEO )
     return type == :METEO ?
-               [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, :rmh, nothing, nothing ] :
+               [ :param, :unit, :value, nothing, :observation_time, :longitude, :latitude, :station_altitude, nothing, nothing, :rmh ] :
                type == :AIRQUALITY ?
                    [ :parametro, :unita_misura, :value, nothing, :data_misura, :longitudine, :latitudine, nothing, :dati_insuff, nothing ] :
                    throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
@@ -165,7 +166,11 @@ function getMeteoData()
 
     rel_heights = [ length( split( param, " a " ) ) == 2 ? split( param, " a " )[2] : "0m" for param in df[:, :param] ]
 
-    transform!( df, [:station_name] => ByRow( x -> x = uppercase(x) ) => :nome )
+    transform!(
+        df,
+        [:station_name] => ByRow( x -> x = uppercase(x) ) => :nome,
+        [:observation_time] => ByRow( x -> DateTime( x[1:14], "dd/mm/yyyy H.M" ) ) => :observation_time    
+    )
 
     insertcols!( df, :rmh => rel_heights )
 
@@ -216,9 +221,9 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     end
 end
 
-#   resFVGsta = getData( type=:METEO, source=:STATIONS )
-#   resFVGsen = getData( type=:METEO, source=:SENSORS )
-#   resFVGaq = getData( type=:AIRQUALITY )
+#   ressta = getData( type=:METEO, source=:STATIONS )
+#   ressen = getData( type=:METEO, source=:SENSORS )
+#   ressen = getData( type=:AIRQUALITY )
 
 
 

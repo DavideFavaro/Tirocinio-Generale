@@ -42,7 +42,7 @@ Obtain the names of the columns of the region's dataframe required by `GroundDat
 """
 function getRegionAttributes( type::Symbol=:METEO )
     return type == :METEO ?
-               [ :tipologia, :unit_dimisura, :valore, nothing, :data, :lng, :lat, :quota, :rmh, :stato, nothing ] :
+               [ :tipologia, :unit_dimisura, :valore, nothing, :data, :lng, :lat, :quota, :stato, nothing, :rmh ] :
                type == :AIRQUALITY ?
                    [ :nometiposensore, :unitamisura, :valore, nothing, :data, :lng, :lat, :quota, :stato, nothing ] :
                    throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
@@ -100,10 +100,10 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     return df
 end
 
-#   resLst = getDataL( type=METEO, source=STATIONS )
-#   resLse = getDataL( type=METEO, source=SENSORS )
-#   resL = getDataL( type=AIRQUALITY, source=STATIONS )
-#   resL = getDataL( type=AIRQUALITY, source=SENSORS )
+#   ressta = getData( type=:METEO, source=:STATIONS )
+#   ressen = getData( type=:METEO, source=:SENSORS )
+#   ressta = getData( type=:AIRQUALITY, source=:STATIONS )
+#   ressen = getData( type=:AIRQUALITY, source=:SENSORS )
 
 
 

@@ -20,6 +20,7 @@ Alto Adige:
 
 using CSV
 using DataFrames
+using Dates
 using HTTP
 using JSONTables
 
@@ -37,7 +38,7 @@ Obtain the names of the columns of the region's dataframe required by `GroundDat
 """
 function getRegionAttributes( type::Symbol=:METEO )
     return type == :METEO ?
-               [ :DESC_I, :UNIT, :VALUE, nothing, :DATE, :LONG, :LAT, :ALT, :rmh, nothing, nothing ] :
+               [ :DESC_I, :UNIT, :VALUE, nothing, :DATE, :LONG, :LAT, :ALT, nothing, nothing, :rmh ] :
                type == :AIRQUALITY ?
                    [ :MCODE, nothing, :VALUE, nothing, :DATE, :LONG, :LAT, nothing, :FLAGS, nothing ] :
                    throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
@@ -108,16 +109,18 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     data = DataFrame( jsontable(page) )
     
     if type == :METEO && source == :SENSORS
-        insertcols!( data, :rmh => "0m" ) 
+        insertcols!( data, :rmh => "0m" )
+        transform!( data, [:DATE] => ByRow( x -> ismissing(x) ? missing : DateTime( x[1:19], "yyyy-mm-ddTH:M:S" ) ) => :DATE ) 
     end
 
     return data
 end
 
-#   resAA = getData( type=:METEO, source=:STATIONS )
-#   resAA = getData( type=:METEO, source=:SENSROS )
-#   resAA = getData( type=:AIRQUALITY, source=:STATIONS )
-#   resAA = getData( type=:AIRQUALITY, source=:SENSROS )
+#   ressta = getData( type=:METEO, source=:STATIONS )
+#   ressen = getData( type=:METEO, source=:SENSORS )
+#   ressta = getData( type=:AIRQUALITY, source=:STATIONS )
+#   ressen = getData( type=:AIRQUALITY, source=:SENSORS )
+
 
 
 end # module

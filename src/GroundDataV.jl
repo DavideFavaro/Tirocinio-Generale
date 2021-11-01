@@ -87,7 +87,7 @@ Obtain the names of the columns of the region's dataframe required by `GroundDat
 """
 function getRegionAttributes( type::Symbol=:METEO )
     return type == :METEO ?
-               [ :paramnm, :unitnm, :value, nothing, :instant, :x, :y, :quota, :rmh, nothing, nothing ] :
+               [ :paramnm, :unitnm, :value, nothing, :instant, :x, :y, :quota, nothing, nothing, :rmh ] :
                type == :AIRQUALITY ?
                    [ :param, nothing, :value, nothing, :date, :lon, :lat, nothing, nothing, :tipozona ] :
                    throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
@@ -199,11 +199,13 @@ function getMeteoData( ids::AbstractVector{Int64} )
                         for (id, station) in zip(ids, vect)
                         for sensor in station   
                         for entry in sensor[2]
-                     ]
-
+                     ]   
     df = DataFrame( data_dict_vect )
-    transform!( df, [:unitnm] => ByRow( x -> x = replace( replace( x, "\xb0" => "°" ), "2" => "²" ) ) => :unitnm )
-
+    transform!(
+        df,
+        [:unitnm] => ByRow( x -> x = replace( replace( x, "\xb0" => "°" ), "2" => "²" ) ) => :unitnm,
+        [:instant] => ByRow( x -> DateTime( string(x), "yyyymmddHHMM" ) ) => :instant
+    )
     return df
 end
 
@@ -289,10 +291,10 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     end
 end
 
-#   data = getDataV()
-#   data = getDataV( source=:SENSORS )
-#   data = getDataV( type=:AIRQUALITY, source=:STATIONS )
-#   data = getDataV( type=:AIRQUALITY, source=:SENSORS )
+#   ressta = getData()
+#   ressen = getData( source=:SENSORS )
+#   ressta = getData( type=:AIRQUALITY, source=:STATIONS )
+#   ressen = getData( type=:AIRQUALITY, source=:SENSORS )
 
 
 

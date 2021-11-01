@@ -27,7 +27,6 @@ using CombinedParsers
 using CombinedParsers.Regexp
 using CSV
 using DataFrames
-using Dates
 using EzXML
 using HTTP
 using Revise
@@ -53,9 +52,9 @@ Obtain the names of the columns of the region's dataframe required by `GroundDat
 """
 function getRegionAttributes( type::Symbol=:METEO )
     return type == :METEO ?
-               [ :info, :unit, :value, nothing, :date, :longitudine, :latitudine, :quota, :rmh, nothing, nothing ] :
+               [ :info, :unit, :value, nothing, :date, :longitudine, :latitudine, :quota, nothing, nothing, :rmh ] :
                type == :AIRQUALITY ?
-                   [ :Inquinante, :Unita_di_misura, :Valore, nothing, :Data_Ora, :Longitude, :Latitude, nothing, nothing, nothing ] :
+                   [ :Inquinante, :Unita_di_misura, :Valore, nothing, :Data, :Longitude, :Latitude, nothing, nothing, nothing ] :
                    throw( DomainError( type, "`type` must be either `:METEO` OR `:AIRQUALITY`" ) )
 end
 
@@ -232,10 +231,10 @@ function getData(; type::Symbol=:METEO, source::Symbol=:STATIONS )
     end
 end
 
-#   resTsta = getData( type=:METEO, source=:STATIONS )
-#   resTsen = getData( type=:METEO, source=:SENSORS )
-#   resTsta = getData( type=:AIRQUALITY, source=:STATIONS )
-#   resTsen = getData( type=:AIRQUALITY, source=:SENSORS )
+#   ressta = getData( type=:METEO, source=:STATIONS )
+#   ressen = getData( type=:METEO, source=:SENSORS )
+#   ressta = getData( type=:AIRQUALITY, source=:STATIONS )
+#   ressen = getData( type=:AIRQUALITY, source=:SENSORS )
 
 
 
