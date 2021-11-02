@@ -34,8 +34,10 @@ using DataFrames
 using Dates
 using UUIDs
 
+using Revise
 
-str = occursin( "GroundData.jl", @__FILE__ ) ? "" : "src\\"
+
+str = occursin( "GroundData.jl", @__FILE__ ) ? "" : "src\\GroundDataRegions\\"
 include("$(@__DIR__)\\$(str)GroundDataAA.jl")
 include("$(@__DIR__)\\$(str)GroundDataER.jl")
 include("$(@__DIR__)\\$(str)GroundDataFVG.jl")
@@ -193,7 +195,7 @@ function getGroundData( type::Symbol=:METEO, regions::Region... )
               :uuid                   => String[],
               :parameter              => String[],                    # tipo di parametro misurato
               :unit                   => Union{String, Missing}[],    # unita di misura (possibilmente SI)
-              :value                  => Float64[],                   # valore misurato
+              :value                  => Union{Float64, Missing}[],   # valore misurato
               :frequency              => Union{String, Missing}[],    # frequency of measurements
               :date                   => Union{DateTime, Missing}[],  # anno mese giorno ora (UTM)
               :longitude              => Float64[],                   # longitudine della stazione
@@ -207,12 +209,9 @@ function getGroundData( type::Symbol=:METEO, regions::Region... )
   # There are no `:rel_measurement_height` columns for the airquality data so if that is the type of data
     # the created dataframe will lack the specific column
   df = DataFrame( columns[1:end-s] )
+  mdf = DataFrame( columns[2:end-s] )
+  allowmissing!( mdf, [:longitude, :latitude] )
   for region in regions
-
-      println("REGION:")
-      println( region )
-      println("\n")
-
       # Use the Region enum number to obtain the corresponding module
       rnum = Integer(region)
       rgn = regions_modules[rnum]
@@ -230,40 +229,22 @@ function getGroundData( type::Symbol=:METEO, regions::Region... )
                   println( "Skipped $region, due to:\n", e )
                   continue
                end
-
-      println("DF:")
-      println( names(df) )
-      println("\n")
-
+      # Create the standard dataframe
       attributes = rgn.getRegionAttributes(type)
       map = createMap( attributes, Symbol.(names(df)[2:end]) )
-
-      println("MAP:")
-      println( map )
-      println("\n")
-
       bridge = rgn.getRegionIds(type)
       res = standardize( map, resSta, resSen, bridge )
-
-      println("RES:")
-      println( names(res) )
-      println("\n")
-
+      mres = pop!( res, [:latitude, :longitude], ismissing )
       uuids = isfile(".\\Dati stazioni\\stazioni.csv") ? CSV.read( ".\\Dati stazioni\\stazioni.csv", DataFrame ) : generateUuidsTable()
-
-      # Per gestire le stazioni che non hanno latitudine e o longitudine
-      dropmissing!( res, [:value, :longitude, :latitude], disallowmissing=true )
-      
       res = innerjoin( uuids[:, [:uuid, :longitude, :latitude]], res, on=[:longitude, :latitude] )
-      
-      
       append!( df, res )
+      append!( mdf, mres )
   end
-  return df
+  return df, mdf
 end
 
-#   resmt = getGroundData( :METEO, AA, FVG, L, T, V )
-#   resaq = getGroundData( :AIRQUALITY, AA, FVG, L, T, V )
+#   resmt, mresmt = getGroundData( :METEO, AA, FVG, L, T, V )
+#   resaq, mresaq = getGroundData( :AIRQUALITY, AA, FVG, L, T, V )
 
 
 
