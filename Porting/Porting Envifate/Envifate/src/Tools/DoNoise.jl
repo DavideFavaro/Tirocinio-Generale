@@ -5,8 +5,13 @@ module DoNoise
 
 using GeoStats
 
+@enum GroundType Soft=0 Hard=1
 
-Base.:-( x::Tuple, y::Tuple ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
+Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
+Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+
 
 
 """
@@ -36,8 +41,8 @@ function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity:
     humidity = relative_humidity * p_saturation_pressure * p_atm_pressure^(-1)
 
     # Calculate relaxation frequency of O (equation 3)
-    #   frO = ( p_atm_pressure * ( (24 + 4.04e04) * humidity ) * (0.02 + humidity) ) / (0.391 + humidity)
-    frO = p_atm_pressure * (
+    #   frO₂ = ( p_atm_pressure * ( (24 + 4.04e04) * humidity ) * (0.02 + humidity) ) / (0.391 + humidity)
+    frO₂ = p_atm_pressure * (
                                24 + ( 
                                         4.04e04 * humidity * (
                                                                  (0.02 + humidity) / (0.391 + humidity)
@@ -46,7 +51,7 @@ function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity:
                            )
 
     # Calculate relaxation frequency of N (equation 4)
-    frN = p_atm_pressure * √t_tr * (
+    frN₂ = p_atm_pressure * √t_tr * (
                                        9 + (
                                                280 * humidity * ℯ^( -4.170 * (
                                                                                  t_tr^(-1/3) - 1
@@ -57,16 +62,16 @@ function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity:
 
     # Calculate alpha (equation 5)
     term1 = 1.84*10^(-11) * p_atm_pressure^(-1) * √t_tr
-    #   term2 = t_tr^(-2.5) * ( 0.01275 * ℯ^(-2239.1 / temp_k) * ( frO / (frO^2 + freq^2) ) )
+    #   term2 = t_tr^(-2.5) * ( 0.01275 * ℯ^(-2239.1 / temp_k) * ( frO₂ / (frO₂^2 + freq^2) ) )
     term2 = t_tr^(-2.5) * (
                               0.01275 * ℯ^(-2239.1 / temp_k) / (
-                                                                   frO + (freq^2 / frO)
+                                                                   frO₂ + (freq^2 / frO₂)
                                                                )
                           )
-    #   term3 = 0.1068 * ℯ^(-3352 / temp_k) * ( frN / (frN^2 + freq^2) )
+    #   term3 = 0.1068 * ℯ^(-3352 / temp_k) * ( frN₂ / (frN₂^2 + freq^2) )
     term3 = t_tr^(-2.5) * (
                               0.1068 * ℯ^(-3352 / temp_k) / (
-                                                                frN + (freq^2 / frN)
+                                                                frN₂ + (freq^2 / frN₂)
                                                             )
                           ) 
     #   α = 8.686 * (frequency^2) * ( term1 + term2 + term3 )
@@ -110,7 +115,7 @@ function subw2( a::Real, b::Real, c::Real, d::Real, w::Complex )::Complex
     return complex( wr, wi )
 end
 
-function ww2(t::Complex)::Complex
+function ww(t::Complex)::Complex
     a = abs(t.re)
     b = abs(t.im)
 
@@ -173,27 +178,53 @@ function ww2(t::Complex)::Complex
     return w
 end
 
-function qq2( d::Real, src_h::Real, rec_h::Real, freq::Real, z::Complex )::Complex
+function qq( r::Real, h::Real, freq::Real, z::Complex )::Complex
     k = 2.0 * π * freq/340.0
+    #   r1 = √( d^2 + (src_h - rec_h)^2 )
+    c = abs(h) / r
+    n = (z.re * c + 1.0)^2 + (z.im * c)^2
+    
+    rr = ( ( c * abs2(z) ) - 1.0 ) / n
+    ri = 2.0 * z.im * c / n
+
+    nyr = z.re / abs2(z)
+    nyi = -z.im / abs2(z)
+
+    dumr = √(k * r / 4.0) * (nyr + c - nyi)
+    dumi = √(k * r / 4.0) * (nyr + c + nyi)
+    t = complex(dumr, dumi)
+
+    w = ww(t)
+
+    fr = 1.0 + √π * -real(t*w)
+    fi = √π * real(t*w)
+
+    dumr = rr + (1.0 - rr) * fr + fi * ri
+    dumi = ri + fi * (1.0 - rr) - ri * fr
+    return complex(dumr, dumi)
+end
+
+function qq2( d::Real, src_h::Real, rec_h::Real, freq::Real, z::Complex )::Complex
+    k = 2.0 * π * freq / 340.0
     #   r1 = √( d^2 + (src_h - rec_h)^2 )
     r = √( d^2 + (src_h + rec_h)^2 )
     c = (src_h + rec_h) / r
     
     n = (z.re * c + 1.0)^2 + (z.im * c)^2
-    rr = ( ( c * abs(z) )^2 - 1 ) / n
+    rr = ( ( c * abs(z) )^2 - 1.0 ) / n
     ri = 2.0 * z.im * c / n
 
-    nyr = z.re / abs2(z)
-    nyi = z.im / abs2(z)
+    nyr = z.re / abs2(z)^2
+    nyi = -z.im / abs2(z)^2
 
-    dumr = √(k * r / 4.0) * (nyr + c + nyi)
-    dumi = √(k * r / 4.0) * (-nyr - c + nyi)
+    dumr = √(k * r / 4.0) * (nyr + c - nyi)
+    dumi = √(k * r / 4.0) * (nyr + c + nyi)
     t = complex(dumr, dumi)
 
-    w = ww2(-t)
+    w = ww(t)
 
-    fr = 1.0 + √π * real(t*w)
-    fi = -√π * real(t*w)
+    fr = 1.0 + √π * -real(t*w)
+    fi = √π * real(t*w)
 
     dumr = rr + (1.0 - rr) * fr + fi * ri
     dumi = ri + fi * (1.0 - rr) - ri * fr
@@ -209,10 +240,10 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
     arg5  = src_flow_res
     arg6  = rec_flow_res
     arg7  = e_wind_vel
-    arg8  = transition_height ? o turbulence? o cosa?
-    arg9  = ? 
-    arg10 = ?
-    arg11 = ?
+    arg8  = transition_height
+    arg9  = turbulence
+    arg10 = freq
+    arg11 = dum
  =#
     src_rx = delbaz( freq, src_flow_res )
     rec_rx = delbaz( freq, rec_flow_res )
@@ -319,7 +350,128 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
     return (levturb, lnot)
 end
 
-function oncut( dists::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
+function varysurf( dists::AbstractVector, ground_type::AbstractVector{GroundType}, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
+    drefl = src_h * dists[end] / (src_h + rec_h)
+
+    srcInf = ground_type[1] == Soft ?
+             src_h > 3.0 ?
+                 (20.0 * src_h / 3.0 - 10.0) * src_h :
+                 10.0 * src_h :
+             30.0 * src_h
+       
+    recInf = ground_type[end] == Soft ?
+             rec_h > 3.0 ?
+                 (20.0 * rec_h / 3.0 - 10.0) * rec_h :
+                 10.0 * rec_h :
+             30.0 * rec_h
+    
+    srcInf = min( srcInf, 0.7*drefl )
+    recInf = min( recInf, 0.7*(dists[end]-drefl) )
+    recInf = dists[end] - recInf
+
+    Δl = sum = denom = 0
+    for i in 1:length(dists)
+        w1 = w2 = 0
+        if dists[i] > srcInf && dists[i] < recInf
+            w1 = dists[i] < drefl ? rec_h : src_h
+            w2, Δl = ground_type[i] == Hard ? (0.5, hard_atten) : (1.0, soft_atten)
+        end
+        sum += w1 * w2 * Δl
+        denom += w1 * w2
+    end
+
+    return sum / denom
+end
+
+function diff( r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real )::Complex
+    df = -ℯ^complex(0.0, k*r1+π/4.0) / complex(r1, 0.0)
+    tangent = tan( (π + pm * al2) / (2.0 * any) )
+
+    if tangent != 0
+        aa = 1.0 / tangent / (2.0 * any) / √(2.0*π*k*a)
+end
+
+function bakkernn( src_h::Real, rec_h::Real, src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abstractvector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
+    
+    # Delany-Bazley under source, berm and reciver
+    dbs = delbaz.( Ref(freq), [ src_flow_res, ber_flow_res, rec_flow_res ] )
+    #   waveno = 2.0 * π * freq / 340.0
+
+    # Distance from image source to top of hill
+    Δx, Δy = hills[3] - src_loc[2]
+    rr = √( Δx^2 + Δy^2 )
+    # Angle from image to top of hill
+    θi = atan( Δy, Δx )
+    # Angle of the hillside
+    Δxh, Δyh = hills[3] - hills[2]
+    θh = atan( Δyh, Δxh )
+
+    if θi < θh
+        # Angle of the flat
+        Δxf, Δyf = hill[2] - hill[1]
+        θf = atan2(Δyf,Δxf)
+        # Angle of the image path relative to the flat
+        θ = θi - θf
+        # Net image source to receiver height, as needed by QQ
+        Δz = rr * sin(θ)
+
+        rr = abs( rr * cos(θ) )
+        qs = qq( rr, Δz, waveno, dbs[1] )
+    else
+        qs = complex(0.0, 0.0)
+    end
+
+
+    Δx, Δz = hills[3] - hills[2]
+    θ1 = atan( Δx, Δz )
+    Δx = hills[4][1] - hills[3][1]
+    Δz = hills[3][2] - hills[4][3]
+    θ2 = atan( Δx, Δz )
+    θ = θ1 + θ2
+
+
+    for i in 1:4
+        src_i = i == 1 || i == 3 ? 1 : 2
+        rec_i = i <= 2 ? 1 : 2
+
+        qn = i == 2 ? qs :
+                 i == 3 ? qr :
+                     i == 4 ? qs * qr : 1.0 + 0.0im
+
+        # Get length and angle of path from source to top of wedge
+        Δx, Δz = hills[3] - src_loc[isrc]
+        # Distance
+        rh0 = √( Δx^2 + Δz^2 )
+        # Angle, clockwise from straight down
+        θh = atan( Δx, Δz )
+        f0 = θh - θ1
+        
+        Δx = rec_loc[isrc][1] - hills[3][1]
+        Δz = hills[3][2] - rec_loc[isrc][2]
+        rh1 = √( Δx^2 + Δz^2 )
+        # Angle, counterclockwise from straight down
+        θ = atan( Δx, Δz )
+        f1 = 2.0 * π - θ1 - θh
+
+        tot_propag_path = rh0 + rh1
+
+
+        if f0 > 0 && (f1 + θ) < (2.0 * π)
+            hx = sin(f0) * tot_propag_path
+            # COSA SONO "k" E "b" (NELL'AMBITO DEL CODICE)
+            q1 = qq( tot_propag_path, hx, k, b )
+            hx = sin( 2 * π - f1 - θ ) * tot_propag_path
+            q2 = ( tot_propag_path, hx, k, b )
+
+            a = rh0 * rh1 / tot_propag_path
+            any = 2.0 - θ / π
+
+
+
+
+end 
+
+function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
  #=
     hgts(i) ==> points[i][1]
     locs(i) ==> points[i][2]
@@ -328,9 +480,12 @@ function oncut( dists::AbstractVector, heights::AbstractVector, impdcs::Abstract
     flohard = flosoft = 0.0
     profile = flowpr = ignd = []
 
-    for i in 1:length(dists)
-        push!( profile, (dists[i], heights[i]) )
-        push!( flowpr, (dists[i], impdcs[i]) )
+
+# ====================================================== Section to Process Profile =====================================================================
+
+    for i in 1:length(distances)
+        push!( profile, (distances[i], heights[i]) )
+        push!( flowpr, (distances[i], impdcs[i]) )
         if flowpr[i][2] <= 1000.0
             push!( ignd, 0 )
             isoft += 1
@@ -346,6 +501,8 @@ function oncut( dists::AbstractVector, heights::AbstractVector, impdcs::Abstract
     
     flosoft == 0.0 && flosoft = 200.0
     floHard == 0.0 && floHard = 10^6
+
+# =======================================================================================================================================================
 
 
     points = [ (0.0, 0.0), (0.0, 0.0), (0.0, 0.0) ]
@@ -397,14 +554,18 @@ function oncut( dists::AbstractVector, heights::AbstractVector, impdcs::Abstract
         hillx[4] = ( hillxz[3][1] + 0.1*dx, hillxz[3][2] + 0.1*dy  )
     end
 
+# ================================================= Profile and Supporting Stuff Established ============================================================
 
+ # ----------------------------------------------- Level Model ----------------------------------------------------- 
+    
     if nmm <= 2
         ax = profile[1][1]
         ox = profile[end][1]
+        ay = oy = 0.0
 
         #   dist = √( (ax-ox)^2 + (ay-oy)^2 )
         # `ay` e `oy` sono uguali a zero quindi la funzione diventa `√( (ax-ox)^2 )`
-        d = abs(ax - ox)
+        d = √( (ax-ox)^2 + (ay-oy)^2 )
 
         for j in 1:nfreq
             dumf = freq[j]
@@ -417,27 +578,74 @@ function oncut( dists::AbstractVector, heights::AbstractVector, impdcs::Abstract
                 atten = attens
             end
             if ihard > 0 && isoft > 0
-                atten = varysurf( dists, ignd, src_h, rec_h, attens, attenh )
+                atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
             end
         end
-    elseif nmm == 3
-        dist = profile[klocs[3]][1] - profile[klocs[1]][1]
-        dsl = profile[klocs[2]][1] - profile[klocs[1]][1]
-        zz1 = profile[klocs[1]][2]
-        zz2 = profile[klocs[2]][2]
-        zz3 = profile[klocs[3]][2]
+    end
+
+ # ------------------------------------------------- Hill Model ---------------------------------------------------- 
+    
+    if nmm == 3
+        dist = profile[ klocs[3 ]][1] - profile[ klocs[1] ][1]
+        dsl = profile[ klocs[2] ][1] - profile[ klocs[1] ][1]
+        zz1 = profile[ klocs[1] ][2]
+        zz2 = profile[ klocs[2] ][2]
+        zz3 = profile[ klocs[3] ][2]
         zcrit = zz1 + (zz3-zz1) * dsl / dist
-    elseif nmm > 3 || ( nmm == 3 && zz2 >= zcrit ) 
-        costh = 1
-        sinth = 0
-        delx = hillxz[2][1] - hillxz[1][1]
-        if delx > 0
+    end
+    if nmm > 3 || ( nmm == 3 && zz2 >= zcrit ) 
+        cosθ = 1
+        sinθ = 0
+        Δx = hillxz[2][1] - hillxz[1][1]
+        if Δx > 0
  # NON SO QUALE SIA IL CORRISPETTIVO DI ATAN2()
-            thet = atan( )
-            costh = cos(thet)
-            sinth = sin(thet)
-    else
-    end 
+            θ = atan( )
+            cosθ = cos(θ)
+            sinθ = sin(θ)
+        end
+
+        srcloc = [ hillxz[1] + (0, src_h) ]
+        push!( srcloc, srcloc[1] + 2*rec_h*cosθ*(sinθ, -cosθ) )
+
+        cosθ = 1
+        sinθ = 0
+        Δx = hillxz[5][1] - hillxz[4][1]
+        if Δx > 0
+ # NON SO QUALE SIA IL CORRISPETTIVO DI ATAN2()
+            θ = atan( )
+            cosθ = cos(θ)
+            sinθ = sin(θ)
+        end
+
+
+
+
+
+        for i in 1:nfreq
+            if ihard > 0
+                atten = bakker( src_h, rec_h, hillxz, srcloc, recloc)
+
+
+
+
+
+
+
+
+
+
+
+ # ------------------------------------------------ Valley Model --------------------------------------------------- 
+
+
+
+
+
+
+
+
+
+    
 end
 
 
