@@ -4,6 +4,8 @@ module DoNoise
 
 
 using GeoStats
+using GeoRegions
+using Plots
 
 @enum GroundType Soft=0 Hard=1
 
@@ -11,6 +13,7 @@ Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x
 Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
 Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
 Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
 
 
@@ -82,9 +85,6 @@ end
 
 
 
-
-
-
 function minmax( profile::Vector{Tuple{Float64, Float64}}, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )
     # Define parameters A and B such that height of the source-receiver line
     # is given by z = Ax + B.
@@ -107,11 +107,11 @@ function delbaz( freq::Real, flow_res::Real )::Complex
     return complex(dumr, dumi)
 end
 
-function subw2( a::Real, b::Real, c::Real, d::Real, w::Complex )::Complex
-    an = (a^2 - b^2  - d)^2 + (2 * a * b)^2
-    ir = c * (a^2 + b^2 + d)
-    wr = b * ir / an + w.re
-    wi = a * ir / an + w.im
+function subw( a::Real, b::Real, c::Real, d::Real, w::Complex )::Complex
+    an = (a^2 - b^2  - d)^2 + (2.0 * a * b)^2
+    r_i = c * (a^2 + b^2 + d)
+    wr = b * r_i / an + w.re
+    wi = a * r_i / an + w.im
     return complex( wr, wi )
 end
 
@@ -160,7 +160,7 @@ function ww(t::Complex)::Complex
              ]
         w = 0.0 + 0.0im
         for (c, d) in cd
-            w = subw2(a, b, c, d, w)    
+            w = subw(a, b, c, d, w)    
         end
     end
 
@@ -383,45 +383,128 @@ function varysurf( dists::AbstractVector, ground_type::AbstractVector{GroundType
     return sum / denom
 end
 
-function diff( r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real )::Complex
+function fres( y::Real )::Complex
+    x = y * 0.797885
+    f = (1.0 + 0.962x) / (2.0 + 1.792x + 3.104x^2 )
+    g = 1.0 / (2.0 + 4.142x + 3.492x^2 + 6.67x^3 )
+    si = sin( (x / c)^2 )
+    co = cos( (x / c)^2 )
+    return complex( (-f * si + g * co)/c, (f * co + g * si)/c )
+end
+
+function diffraction( r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real )::Complex
     df = -ℯ^complex(0.0, k*r1+π/4.0) / complex(r1, 0.0)
     tangent = tan( (π + pm * al2) / (2.0 * any) )
 
     if tangent != 0
-        aa = 1.0 / tangent / (2.0 * any) / √(2.0*π*k*a)
+        aa = 1.0 / tangent / (2.0 * any) / √(2.0 * π * k * a)
+    else
+        # NON SO COSA RAPPRESENTI "aalast" 
+        aa = aalast
+    end
+    aalast = aa
+    df *= complex( aa, 0.0 )
+
+    n = pm < -0.9 ?
+            al2 > π+any*π ? 1 :
+                al2 > π-any*π ? 0 : -1:
+            al2 > any*π-π ? 1 : 0
+    xv = 2.0 * k * a * cos( (2.0 * n * any * π - al2) / 2.0 )^2
+
+    aa = -2.0 * √xv
+    y = ℯ^complex(0.0, -xv) * fres(√xv)
+
+    return df * y * complex(0.0, aa)
 end
 
-function bakkernn( src_h::Real, rec_h::Real, src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abstractvector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
-    
-    # Delany-Bazley under source, berm and reciver
-    dbs = delbaz.( Ref(freq), [ src_flow_res, ber_flow_res, rec_flow_res ] )
-    #   waveno = 2.0 * π * freq / 340.0
+function calc_mirror( locs, points; source::Bool )
+    i, j, l = source ? (3,2,1) : (3,4,5) 
 
-    # Distance from image source to top of hill
-    Δx, Δy = hills[3] - src_loc[2]
+    # Distance from image to top of hill
+    Δx, Δy = source ? points[i]-locs : ( locs[1]-points[i][1], points[i][2]-locs[2] )
     rr = √( Δx^2 + Δy^2 )
     # Angle from image to top of hill
     θi = atan( Δy, Δx )
     # Angle of the hillside
-    Δxh, Δyh = hills[3] - hills[2]
+    Δxh, Δyh = source ? points[i]-points[j] : ( points[j][1]-points[i][1], points[i][2]-points[j][2] )
     θh = atan( Δyh, Δxh )
 
     if θi < θh
         # Angle of the flat
-        Δxf, Δyf = hill[2] - hill[1]
-        θf = atan2(Δyf,Δxf)
+        Δxf, Δyf = source ? points[j]-points[l] : ( points[l][1]-points[j][1], points[j][2]-points[l][2] )
+        θf = atan( Δyf, Δxf )
         # Angle of the image path relative to the flat
         θ = θi - θf
-        # Net image source to receiver height, as needed by QQ
+        # Net image source-receiver height, as needed by QQ
         Δz = rr * sin(θ)
-
         rr = abs( rr * cos(θ) )
-        qs = qq( rr, Δz, waveno, dbs[1] )
+        return (rr, Δz)
     else
-        qs = complex(0.0, 0.0)
+        return nothing
     end
+end
 
+function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abstractvector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
+    
+    # Delany-Bazley under source, berm and reciver
+    dbs = delbaz.( Ref(freq), [ src_flow_res, ber_flow_res, rec_flow_res ] )
+    waveno = 2.0 * π * freq / 340.0
 
+ # Mirror Source
+  #    # Distance from image source to top of hill
+   #    Δx, Δy = hills[3] - src_loc[2]
+   #    rr = √( Δx^2 + Δy^2 )
+   #    # Angle from image to top of hill
+   #    θi = atan( Δy, Δx )
+   #    # Angle of the hillside
+   #    Δxh, Δyh = hills[3] - hills[2]
+   #    θh = atan( Δyh, Δxh )
+   #
+   #    qs = 0.0 + 0.0im
+   #    if θi < θh
+   #        # Angle of the flat
+   #        Δxf, Δyf = hill[2] - hill[1]
+   #        θf = atan2(Δyf,Δxf)
+   #        # Angle of the image path relative to the flat
+   #        θ = θi - θf
+   #        # Net image source to receiver height, as needed by QQ
+   #        Δz = rr * sin(θ)
+   #
+   #        rr = abs( rr * cos(θ) )
+   #        qs = qq( rr, Δz, waveno, dbs[1] )
+  #    end
+    rr_Δz = mirror( src_loc[2], hills, source=true )
+    qs = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
+
+ # Mirror Receiver
+  #    # Distance from image receiver to top of hill
+   #    Δx = rec_loc[2][1] - hills[3][1]
+   #    Δy = hills[3][2] - rec_loc[2][2]
+   #    rr = √( Δx^2 + Δy^2 )
+   #    # Angle from image to top of hill
+   #    θi = atan( Δy, Δx )
+   #    # Angle of the hillside
+   #    Δxh = hills[4][1] - hills[3][1]
+   #    Δyh = hills[3][2] - hills[4][2]
+   #    θh = atan( Δyh, Δxh )#
+   
+   #    qr = 0.0 + 0.0im
+   #    if θi < θh
+   #        # Angle of the flat
+   #        Δxf = hills[5][1] - hills[4][1]
+   #        Δyf = hills[4][2] - hills[5][2]
+   #        θf = atan( Δyf, Δxf )
+   #        # Angle of the image path relative to the flat
+   #        θ = θi - θf
+   #        # Net image source to receiver height, as needed by QQ
+   #        Δz = rr * sin(θ)
+   #        rr = abs( rr * cos(θ) )
+   #        qr = ( rr, Δz, waveno, db[1] )
+  #    end
+    rr_Δz = mirror( rec_loc[2], hills, source=false )
+    qr = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
+
+ # Wedge Angle
     Δx, Δz = hills[3] - hills[2]
     θ1 = atan( Δx, Δz )
     Δx = hills[4][1] - hills[3][1]
@@ -429,59 +512,237 @@ function bakkernn( src_h::Real, rec_h::Real, src_loc::AbstractVector, rec_loc::A
     θ2 = atan( Δx, Δz )
     θ = θ1 + θ2
 
-
+    pt = 0.0 + 0.0im
+    f0dir = f1dir = f0refl = f1refl = 0
     for i in 1:4
         src_i = i == 1 || i == 3 ? 1 : 2
         rec_i = i <= 2 ? 1 : 2
 
-        qn = i == 2 ? qs :
-                 i == 3 ? qr :
-                     i == 4 ? qs * qr : 1.0 + 0.0im
+        relev_refl_factor = i == 2 ? qs :
+                                i == 3 ? qr :
+                                    i == 4 ? qs * qr : 1.0 + 0.0im
 
         # Get length and angle of path from source to top of wedge
-        Δx, Δz = hills[3] - src_loc[isrc]
+        Δx, Δz = hills[3] - src_loc[src_i]
         # Distance
         rh0 = √( Δx^2 + Δz^2 )
         # Angle, clockwise from straight down
         θh = atan( Δx, Δz )
         f0 = θh - θ1
         
-        Δx = rec_loc[isrc][1] - hills[3][1]
-        Δz = hills[3][2] - rec_loc[isrc][2]
+        Δx = rec_loc[rec_i][1] - hills[3][1]
+        Δz = hills[3][2] - rec_loc[rec_i][2]
         rh1 = √( Δx^2 + Δz^2 )
         # Angle, counterclockwise from straight down
         θ = atan( Δx, Δz )
         f1 = 2.0 * π - θ1 - θh
 
+        if i == 1
+            f0dir = f0
+            f1dir = f1
+        end
+        if i == 4
+            f0refl = f0
+            f1refl = f1
+        end
+
         tot_propag_path = rh0 + rh1
 
-
         if f0 > 0 && (f1 + θ) < (2.0 * π)
-            hx = sin(f0) * tot_propag_path
+            h_over_wedgeleg = sin(f0) * tot_propag_path
             # COSA SONO "k" E "b" (NELL'AMBITO DEL CODICE)
-            q1 = qq( tot_propag_path, hx, k, b )
-            hx = sin( 2 * π - f1 - θ ) * tot_propag_path
-            q2 = ( tot_propag_path, hx, k, b )
+            wedge_impedence1 = qq( tot_propag_path, h_over_wedgeleg, waveno, db[2] )
+            h_over_wedgeleg = sin( 2 * π - f1 - θ ) * tot_propag_path
+            wedge_impedence2 = ( tot_propag_path, h_over_wedgeleg, waveno, db[2] )
 
             a = rh0 * rh1 / tot_propag_path
             any = 2.0 - θ / π
+            # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
+            #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
+            #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
+            #        diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2 +
+            #        diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
+            pl = sum( diffraction.(
+                        tot_propag_path,
+                        a,
+                        [ f1-f0, f1+f0, f1+f0, f1-f0 ],
+                        [  -1.0,  -1.0,   1.0,   1.0 ],
+                        any,
+                        waveno
+                      ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
+            pl *= relev_refl_factor
+            pt += pl
+        end
+    end
 
+ # Direct path source to receiver
+    if π + f0dir - f1dir > 0
+        Δx, Δz = rec_loc[1] - src_loc[1]
+        rd = √( Δx^2 + Δz^2 )
+        po = ℯ^complex(0.0, waveno*rd) / complex(rd, 0.0)
+        pt += po
+    end
+ # Path mirrored source to receiver
+    if π + f0refl - f1refl > 0
+        Δx, Δz = rec_loc[1] - src_loc[2]
+        rd = √( Δx^2 + Δz^2 )
+        po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, db[1] ) / complex(rd, 0.0)
+        pt += po
+    end   
+ # Path source to mirrored receiver
+    if π + f0refl - f1dir > 0
+        Δx, Δz = rec_loc[2] - src_loc[1]
+        rd = √( Δx^2 + Δz^2 )
+        po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, db[1] ) / complex(rd, 0.0)
+        pt += po
+    end
 
+    Δx, Δz = rec_loc[1] - src_loc[1]
+    rd = √( Δx^2 + Δz^2 )
+    level = 4.34 * log( (rr * abs(pt))^2 )
 
-
+    return level
 end 
 
+function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_solpe_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
+    
+    # Delany-Bazley for source and receiver leg
+    dbs = delbaz.( freq, [flow_res1, flow_res2] )
+    waveno = 2.0 * π * freq / 340.0
+
+    calc_r( ra, rb, α ) = √( ra^2 + rb^2 - 2.0 * ra * rb * cos(α) )
+
+
+    rh0 = √( src_h^2 + first_second_dist^2 )
+    rh1 = √( rec_h^2 + second_third_dist^2 )
+    r1 = rh0 + rh1
+    f0 = atan(src_h, first_second_dist)
+    f1 = 2.0 * π - src_solpe_α - atan(rec_h, second_third_dist)
+
+    rd = calc_r( rh0, rh1, f0-f1 )
+    direct_field = ℯ^complex(0.0, waveno*rd) / complex(rd, 0.0)
+
+    h_over_wedgeleg = sin(f0) * r1
+    wedge_impedence1 = qq( r1, h_over_wedgeleg, waveno, dbs[1] )
+ #NON SO SE E' UN ERRORE
+    # h_over_wedgeleg = sin(2.0 * π - f1 - src_solpe_α) * r1
+    h_over_wedgeleg = sin(f1) * r1
+    wedge_impedence2 = qq( r1, h_over_wedgeleg, waveno, dbs[2] )
+
+    a = rh0 * rh1 / r1
+    any = 2.0 - src_solpe_α / π
+ # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
+    #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
+    #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
+    #        diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2 +
+    #        diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
+    pl = sum( diffraction.(
+                r1,
+                a,
+                [ f1-f0, f1+f0, f1+f0, f1-f0 ],
+                [  -1.0,  -1.0,   1.0,   1.0 ],
+                any,
+                waveno
+              ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
+
+    f1-f0 < π && pl += direct_field
+
+    if f1+f0 < π
+        rs = calc_r( rh0, rh1, f1+f0 )
+        q = qq( rs, src_h+rh1*sin(π-f1), waveno, dbs[1] )
+        ps = ℯ^complex(0.0, waveno*rs) / complex(rs, 0.0) * q
+        pl += ps
+    end
+
+    θ = atan(rec_h, first_second_dist)
+
+    if ( f1 - f0 + 2.0 * θ ) < π
+        rr = clac_r( rh0, rh1, f1-f0+2.0*θ )
+        q = qq(rr, rec_h+rh0*sin(f0 + src_solpe_α - π), waveno, dbs[2] )
+        pr = ℯ^complex(0.0, waveno*rr) / complex(rr, 0.0) * q
+        pl += pr
+    end
+
+    if ( f1 + f0 + 2.0 * θ ) < π
+        rb = clac_r( rh0, rh1, f1+f0+2.0*θ )
+        q1 = qq(rb, src_h+rh1*sin(2.0 * src_solpe_α - 3.0 * π + f1), waveno, dbs[1] )
+        q2 = qq(rb, src_h+rh0*sin(-f0 + src_solpe_α - π), waveno, dbs[2] )
+        pb = ℯ^complex(0.0, waveno*rb) / complex(rb, 0.0) * q1 * q2
+        pl += pb
+    end
+
+    return 4.34 * log( (rd*abs(pl))^2 )
+end
+
+# FORSE VERSIONE MIGLIORATA
+function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_solpe_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
+    
+    # Delany-Bazley for source and receiver leg
+    dbs = delbaz.( freq, [flow_res1, flow_res2] )
+    waveno = 2.0 * π * freq / 340.0
+
+    rh0 = √( src_h^2 + first_second_dist^2 )
+    rh1 = √( rec_h^2 + second_third_dist^2 )
+    r1 = rh0 + rh1
+    f0 = atan(src_h, first_second_dist)
+    f1 = 2.0 * π - src_solpe_α - atan(rec_h, second_third_dist)
+    θ = atan(rec_h, first_second_dist)
+
+    h_over_wedgeleg = sin(f0) * r1
+    wedge_impedence1 = qq( r1, h_over_wedgeleg, waveno, dbs[1] )
+ #NON SO SE E' UN ERRORE
+    # h_over_wedgeleg = sin(2.0 * π - f1 - src_solpe_α) * r1
+    h_over_wedgeleg = sin(f1) * r1
+    wedge_impedence2 = qq( r1, h_over_wedgeleg, waveno, dbs[2] )
+
+    a = rh0 * rh1 / r1
+    any = 2.0 - src_solpe_α / π
+ # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
+    #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
+    #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
+    #        diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2 +
+    #        diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
+    pl = sum( diffraction.(
+                r1,
+                a,
+                [ f1-f0, f1+f0, f1+f0, f1-f0 ],
+                [  -1.0,  -1.0,   1.0,   1.0 ],
+                any,
+                waveno
+              ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
+
+    αs = [ f1-f0, f1+f0, f1-f0+2θ, f1+f0+2θ ]
+    βs = [ π-f1, f0+src_solpe_α-π, 2src_solpe_α-3π+f1, -f0+src_solpe_α-π ]
+    dists = [ src_h+rh1, rec_h+rh0 ]
+    for i in 1:4
+        if αs[i] < π
+            r = √( rh0^2 + rh1^2 - 2.0 * rh0 * rh1 * cos(αs[i]) )
+            if i == 1
+                q = 1
+            elseif i == 4
+                q = qq( r, dists[1]*sin(βs[i-1]), waveno*rα, db[1] ) * qq( r, dists[2]*sin(βs[i]), waveno*rα, db[2] )
+            else
+                q = qq( r, dists[2-i%2]*sin(βs[i-1]), waveno*rα, db[2] )
+            end
+            p = ℯ^complex(0.0, waveno*rα) / complex(rα, 0.0) * q
+            pl += p
+        end
+    end
+
+    return 4.34log( (rd*abs(pl))^2 )
+end
+
 function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
- #=
-    hgts(i) ==> points[i][1]
-    locs(i) ==> points[i][2]
- =#
+  #=
+     hgts(i) ==> points[i][1]
+     locs(i) ==> points[i][2]
+  =#
     ihard = isoft = 0 
-    flohard = flosoft = 0.0
-    profile = flowpr = ignd = []
+    flow_ress = [0.0, 0.0]
+    attenuations = profile = flowpr = ignd = []
 
 
-# ====================================================== Section to Process Profile =====================================================================
+ # ====================================================== Section to Process Profile =====================================================================
 
     for i in 1:length(distances)
         push!( profile, (distances[i], heights[i]) )
@@ -489,20 +750,20 @@ function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         if flowpr[i][2] <= 1000.0
             push!( ignd, 0 )
             isoft += 1
-            flosoft += flowpr[i][2]
+            flow_res[1] += flowpr[i][2]
         else
             push!( ignd, 1 )
             ihard += 1
-            flohard += flowpr[i][2]
+            flow_res[2] += flowpr[i][2]
         end
     end
-    flosoft /= max(isoft)
-    flohard /= max(ihard)
+    flow_ress /= max(isoft)
+    flow_ress /= max(ihard)
     
-    flosoft == 0.0 && flosoft = 200.0
-    floHard == 0.0 && floHard = 10^6
+    flow_ress == 0.0 && flow_ress = 200.0
+    flow_ress == 0.0 && flow_ress = 10^6
 
-# =======================================================================================================================================================
+ # =======================================================================================================================================================
 
 
     points = [ (0.0, 0.0), (0.0, 0.0), (0.0, 0.0) ]
@@ -534,6 +795,7 @@ function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         push!( klocs, length(profile) )
     end
 
+    "D:\\Z_Tirocinio_Materiali_Parte_2\\sound_mapping_tools\\toolbox\\NMSIMGIS_dll_SourceCode"
 
     if points[1][2] == points[2][2]
         hillxz[2] = hillxz[1]
@@ -554,9 +816,9 @@ function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         hillx[4] = ( hillxz[3][1] + 0.1*dx, hillxz[3][2] + 0.1*dy  )
     end
 
-# ================================================= Profile and Supporting Stuff Established ============================================================
-
- # ----------------------------------------------- Level Model ----------------------------------------------------- 
+ # ================================================= Profile and Supporting Stuff Established ============================================================
+ 
+  # ----------------------------------------------- Level Model ----------------------------------------------------- 
     
     if nmm <= 2
         ax = profile[1][1]
@@ -570,90 +832,120 @@ function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         for j in 1:nfreq
             dumf = freq[j]
             if ishard > 0
-                duml, attenh = egal( d/2, d/2, src_h, rec_h, flohard, flohard, vl, 0.0, 0.0, dumf, duml )
+                duml, attenh = egal( d/2, d/2, src_h, rec_h, flow_ress[2], flow_ress[2], vl, 0.0, 0.0, dumf, duml )
                 atten = attenh
             end
             if isoft > 0
-                duml, attens = egal( d/2, d/2, src_h, rec_h, flosoft, flosoft, vl, 0.0, 0.0, dumf, duml )
+                duml, attens = egal( d/2, d/2, src_h, rec_h, flow_ress[1], flow_ress[1], vl, 0.0, 0.0, dumf, duml )
                 atten = attens
             end
             if ihard > 0 && isoft > 0
                 atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
             end
+            push!( attenuations, atten )
         end
     end
 
- # ------------------------------------------------- Hill Model ---------------------------------------------------- 
+  # ------------------------------------------------- Hill Model ---------------------------------------------------- 
     
+    zz2 = zcrit = 0
     if nmm == 3
-        dist = profile[ klocs[3 ]][1] - profile[ klocs[1] ][1]
+        dist = profile[ klocs[3] ][1] - profile[ klocs[1] ][1]
         dsl = profile[ klocs[2] ][1] - profile[ klocs[1] ][1]
         zz1 = profile[ klocs[1] ][2]
         zz2 = profile[ klocs[2] ][2]
         zz3 = profile[ klocs[3] ][2]
         zcrit = zz1 + (zz3-zz1) * dsl / dist
     end
-    if nmm > 3 || ( nmm == 3 && zz2 >= zcrit ) 
+    if nmm > 3 || ( nmm == 3 && zz2 >= zcrit )
+        # Set up the source and receiver locations, normal to the corresponding plateaus
         cosθ = 1
         sinθ = 0
-        Δx = hillxz[2][1] - hillxz[1][1]
+        Δx, Δz = hillxz[2] - hillxz[1]
         if Δx > 0
- # NON SO QUALE SIA IL CORRISPETTIVO DI ATAN2()
-            θ = atan( )
+            θ = atan(Δz, Δx)
             cosθ = cos(θ)
             sinθ = sin(θ)
         end
-
+        # Source location is hs above the start of the terrain cut
         srcloc = [ hillxz[1] + (0, src_h) ]
-        push!( srcloc, srcloc[1] + 2*rec_h*cosθ*(sinθ, -cosθ) )
+        # Reflect the original source image
+        push!( srcloc, srcloc[1] + 2*src_h*cosθ*(sinθ, -cosθ) )
 
         cosθ = 1
         sinθ = 0
-        Δx = hillxz[5][1] - hillxz[4][1]
+        Δx, Δz = hillxz[5] - hillxz[4]
         if Δx > 0
- # NON SO QUALE SIA IL CORRISPETTIVO DI ATAN2()
-            θ = atan( )
+            θ = atan(Δz, Δx)
             cosθ = cos(θ)
             sinθ = sin(θ)
         end
-
-
-
-
+        # Right over the end of the cut receiver
+        srcloc = [ hillxz[5] + (0, rec_h) ]
+        # reflect the original receiver image
+        push!( recloc, recloc[1] + 2*rec_h*cosθ*(sinθ, -cosθ) )
 
         for i in 1:nfreq
             if ihard > 0
-                atten = bakker( src_h, rec_h, hillxz, srcloc, recloc)
+                attenh = bakkernn( hillxz, srcloc, recloc, flow_ress[2], flow_ress[2], flow_ress[2], freqs[i] )
+                atten = attenh
+            end
+            if isoft > 0
+                attens = bakkernn( hillxz, srcloc, recloc, flow_ress[1], flow_ress[1], flow_ress[1], freqs[i] )
+                atten = attens
+            end
+            if ihard > 0 && isoft > 0
+                atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
+            end
+            push!( attenuations[i], atten )
+        end
+    end
+
+  # ------------------------------------------------ Valley Model --------------------------------------------------- 
 
 
+    if nmm == 3 && zz2 < zcrit
+        diff1 = profile[ klocs[2] ] - profile[ klocs[1] ]
+        diff2 = profile[ klocs[3] ] - profile[ klocs[2] ]
 
+        α1 = atan( diff1... )
+        α2 = atan( diff2... )
+        α = α2 - α1 + π
 
+        # d0 = √( diff1[1]^2 + diff1[2]^2 )
+        # d1 = √( diff2[1]^2 + diff2[2]^2 )
+        d0, d1 = @. √sum( [diff1, diff2]^2 )
 
+        for i in 1:nfreq
+            if ihard > 0
+                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[2], flow_ress[2], freqs[i] )
+                atten = attenh
+            end
+            if isoft > 0
+                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[1], flow_ress[1], freqs[i] )
+                atten = attens
+            end
+            if ihard > 0 && isoft > 0
+                atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
+            end
+            push!( attenuations[i], atten )
+        end
+    end
 
-
-
-
-
-
- # ------------------------------------------------ Valley Model --------------------------------------------------- 
-
-
-
-
-
-
-
-
-
-    
 end
 
 
 
+function ground_loss( x::Real, y::Real, z::Real, intensity::Real )
+    for i in 0:360
+end
 
 
-
-
+using ArchGDAL
+using GeoStats
+using GeoRegions
+using Plots
+using Shapefile
 
 
 function create_Grid( xs::Real, ys::Real, intensity::Real )
@@ -665,8 +957,50 @@ function create_Grid( xs::Real, ys::Real, intensity::Real )
 
     grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.,200.) )
 
-    return grid
+    # LE COORDINATE DELL'AREA NON SONO VALIDE PERCHE' NON SONO ADEGUATAMENTE SCALATE
+    reg = RectRegion( "NEW", "VNT", "Area Of Interest", [ x0, ys-max_radius, xs+max_radius, y0 ] )
+
+    return grid, reg
 end
+
+
+#   geo = GeoRegion("GLB")  # Rappresenta il mondo
+#   bound_lon, bound_lat = coordGeoRegion(geo)  # Ottieni i vettori di latitudine e longitudine se `geo` e poligonale ritorna anche i vettori di lat e lon per la forma
+#   ref = ( max(bound_lon...) + min(bound_lon...) ) / 2
+#   ginfo = RegionGrid(geo, bound_lon, bound_lat )
+#   plot!( bound_lon.-ref, bound_lat )
+
+# Shapefile
+coast_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline\\ne_10m_coastline.shp" )
+shp_tb = Shapefile.Table(coast_file)
+shp = Shapefile.shapes(shp_tb)
+plot(shp)
+
+# Poligono veneto
+veneto = isGeoRegion("VNT") ?
+             GeoRegion("VNT") : 
+             PolyRegion( "VNT", "GLB", "Veneto", [ 9.5, 14.0, 14.0, 9.5, 9.5 ], [ 47.0, 47.0, 44.0, 44.0, 47.0 ] )
+blon, blat, slon, slat = coordGeoRegion(veneto)
+plot!( blon, blat )
+plot!( slon, slat )
+
+
+# LA GRIGLIA E' FUORI SCALA RISPETTO A TUTTO IL RESTO
+geo_grid, aoi = create_Grid( 22., 22., 56. )
+plot!( geo_grid )
+
+
+
+
+
+
+
+
+# Tiff file 
+map_file = *( @__DIR__, "\\Mappe\\HYP_HR_SR_OB_DR\\HYP_HR_SR_OB_DR.tif" )
+map = ArchGDAL.read(map_file)
+ArchGDAL.imread(map)
+
 
 
 
