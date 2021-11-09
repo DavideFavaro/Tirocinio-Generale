@@ -675,6 +675,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 
 # FORSE VERSIONE MIGLIORATA
+#=
 function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_solpe_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
     
     # Delany-Bazley for source and receiver leg
@@ -731,12 +732,10 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 
     return 4.34log( (rd*abs(pl))^2 )
 end
+=#
 
 function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
-  #=
-     hgts(i) ==> points[i][1]
-     locs(i) ==> points[i][2]
-  =#
+
     ihard = isoft = 0 
     flow_ress = [0.0, 0.0]
     attenuations = profile = flowpr = ignd = []
@@ -948,14 +947,14 @@ using Plots
 using Shapefile
 
 
-function create_Grid( xs::Real, ys::Real, intensity::Real )
+function create_Grid( xs::Real, ys::Real, dB::Real )
     # maximum ideal radius for the diffusion of a sound with given intensity  
-    max_radius = 10^(intensity/20)
+    max_radius = 10^(dB/20)
     # Coordinates of the first point (upper left) of the grid containing the radius 
     x0 = xs - max_radius 
     y0 = ys + max_radius
 
-    grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.,200.) )
+    grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )  
 
     # LE COORDINATE DELL'AREA NON SONO VALIDE PERCHE' NON SONO ADEGUATAMENTE SCALATE
     reg = RectRegion( "NEW", "VNT", "Area Of Interest", [ x0, ys-max_radius, xs+max_radius, y0 ] )
@@ -976,13 +975,21 @@ shp_tb = Shapefile.Table(coast_file)
 shp = Shapefile.shapes(shp_tb)
 plot(shp)
 
+# Shapefile Veneto
+veneto_shp = *( @__DIR__, "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp")
+shp_tb2 = Shapefile.Table(veneto_shp)
+shp2 = Shapefile.shapes(shp_tb2)
+plot!(shp2)
+
 # Poligono veneto
-veneto = isGeoRegion("VNT") ?
-             GeoRegion("VNT") : 
-             PolyRegion( "VNT", "GLB", "Veneto", [ 9.5, 14.0, 14.0, 9.5, 9.5 ], [ 47.0, 47.0, 44.0, 44.0, 47.0 ] )
-blon, blat, slon, slat = coordGeoRegion(veneto)
+veneto = try
+            GeoRegion("VNT")
+         catch
+            # [ 9.5 47.0, 14.0 47.0, 14.0 44.0, 9.5 44.0, 9.5 47.0 ]
+            RectRegion( "VNT", "GLB", "Veneto", [ 47.0, 44.0, 14.0, 9.5 ] )
+         end
+blon, blat = coordGeoRegion(veneto)
 plot!( blon, blat )
-plot!( slon, slat )
 
 
 # LA GRIGLIA E' FUORI SCALA RISPETTO A TUTTO IL RESTO
@@ -991,15 +998,25 @@ plot!( geo_grid )
 
 
 
-
+plot!( [ 22.0, 22.0 ] )
 
 
 
 
 # Tiff file 
-map_file = *( @__DIR__, "\\Mappe\\HYP_HR_SR_OB_DR\\HYP_HR_SR_OB_DR.tif" )
+dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tif" )
+map_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline" )
+map_v_file = *( @__DIR__, "\\Mappe\\c0104011_Comuni" )
+
+dtm = ArchGDAL.read(dtm_file)
 map = ArchGDAL.read(map_file)
+map_v = ArchGDAL.read(map_v_file)
+
+band = ArchGDAL.getband( dtm, 1 )
+ArchGDAL.imread(band)
 ArchGDAL.imread(map)
+ArchGDAL.imread(map_v)
+plot(map)
 
 
 
