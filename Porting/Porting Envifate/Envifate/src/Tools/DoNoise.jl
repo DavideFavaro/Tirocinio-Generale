@@ -9,6 +9,7 @@ using Plots
 
 @enum GroundType Soft=0 Hard=1
 
+Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
 Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
 Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
 Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
@@ -991,8 +992,34 @@ function create_grid( xs::Real, ys::Real, dB::Real )
     return grid
 end
 
-#   g = create_grid( 22., 22., 56. )
-#   centers = centroid.(g)
+g = create_grid( 22., 22., 56. )
+plot(g)
+centers = centroid.(g)
+plot!(centers)
+
+size = convert( Int64, √length(centers) )
+start = size * Int64(floor(size/2)) + 1
+x_axis = centers[ start:start+size-1 ]
+plot!(x_axis, c=:blue )
+
+start = convert( Int64, ceil(size/2) )
+y_axis = centers[[ start + size*i for i in 0:size-1 ]]
+plot!(y_axis, c=:red )
+
+diagonal1 = centers[[ size + (size-1)i for i in 0:size-1 ]]
+plot!(diagonal1, c=:yellow)
+
+diagonal2 = centers[[ 1 + (size+1)i for i in 0:size-1 ]]
+plot!(diagonal2, c=:purple)
+
+is = collect(x0:size)
+x0 = y0 = Int64(round(size/2))
+r = Int64(floor(size/2))
+radius_y(x) = Int64( round( √( r^2 - (x-x0)^2 ) + y0 ) )
+idxs = ( radius_y.(is) .- 1 )
+half_circle = centers[idxs]
+plot!( half_circle, c=:orange )
+
 
 
 function ground_loss( x0::Real, y0::Real, z0::Real, dB::Real, ground_map )
@@ -1007,16 +1034,23 @@ function ground_loss( x0::Real, y0::Real, z0::Real, dB::Real, ground_map )
     centers = centroid.(grid)
 
     # The grid is a square so te size of a row
-    size = √length(centers)
-    start = size * floor(size/2)
-    x_axis = centers[ start:strat+size ]
-    start = ceil(size/2)
-    idxs = [ start*i for i in 1:size-1 ]
-    y_axis = centers[idxs...]
+    size = convert( Int64, √length(centers) )
+    start = size * Int64(floor(size/2)) + 1
+    x_axis = centers[ start:strat+size-1 ]
+
+    start = convert( Int64, ceil(size/2) )
+    idxs = [ start + size*i for i in 0:size ]
+    y_axis = centers[idxs]
+
+    idxs = [ size + (size-1)i for i in 0:size-1 ]
+    diagonal1 = centers[idx]
+    idxs = [ 1 + (size+1)i for i in 0:size-1 ]
+    diagonal2 = centers[idxs]
 
     radius(x, y) = √((x-x0)^2 + (y-y0)^2)
     line(x, α) = tan(deg2rad(α))x
     radius_y(x) = √( max_radius^2 - (x-x0)^2 ) + y0
+
 
     
 
