@@ -935,89 +935,166 @@ end
 
 
 
-function ground_loss( x::Real, y::Real, z::Real, intensity::Real )
-    for i in 0:360
-end
+
+
+
 
 
 using ArchGDAL
 using GeoStats
 using GeoRegions
+using GeoData
 using Plots
 using Shapefile
 
 
-function create_Grid( xs::Real, ys::Real, dB::Real )
+# Taken from "GeekForGeeks":"https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
+function DDA( x0::Number, y0::Number, xn::Number, yn::Number, ::Number )
+    
+    Δx = xn - x0
+    Δy = yn - y0
+
+    steps = min( max( abs(Δx), abs(Δy) ), size )
+
+    x_inc = Δx / steps
+    y_inc = Δy / steps
+
+    x = x0
+    y = y0
+
+    profile = []
+    for i in 1:steps
+        push!( profile, (round(x), round(y)) )
+        x += x_inc
+        y += y_inc
+    end
+
+    return profile
+end
+
+
+function create_grid( xs::Real, ys::Real, dB::Real )
     # maximum ideal radius for the diffusion of a sound with given intensity  
-    max_radius = 10^(dB/20)
+    max_radius = ceil(10^(dB/20))
     # Coordinates of the first point (upper left) of the grid containing the radius 
     x0 = xs - max_radius 
     y0 = ys + max_radius
 
     grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )  
 
+#=
     # LE COORDINATE DELL'AREA NON SONO VALIDE PERCHE' NON SONO ADEGUATAMENTE SCALATE
     reg = RectRegion( "NEW", "VNT", "Area Of Interest", [ x0, ys-max_radius, xs+max_radius, y0 ] )
 
     return grid, reg
+=#
+    return grid
+end
+
+#   g = create_grid( 22., 22., 56. )
+#   centers = centroid.(g)
+
+
+function ground_loss( x0::Real, y0::Real, z0::Real, dB::Real, ground_map )
+
+    # maximum ideal radius for the diffusion of a sound with given intensity  
+    max_radius = ceil(10^(dB/20))
+    # Coordinates of the first point (upper left) of the grid containing the radius 
+    x0 = xs - max_radius 
+    y0 = ys + max_radius
+
+    grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )
+    centers = centroid.(grid)
+
+    # The grid is a square so te size of a row
+    size = √length(centers)
+    start = size * floor(size/2)
+    x_axis = centers[ start:strat+size ]
+    start = ceil(size/2)
+    idxs = [ start*i for i in 1:size-1 ]
+    y_axis = centers[idxs...]
+
+    radius(x, y) = √((x-x0)^2 + (y-y0)^2)
+    line(x, α) = tan(deg2rad(α))x
+    radius_y(x) = √( max_radius^2 - (x-x0)^2 ) + y0
+
+    
+
+    for i in 0:180
+    end
+
+
 end
 
 
-#   geo = GeoRegion("GLB")  # Rappresenta il mondo
-#   bound_lon, bound_lat = coordGeoRegion(geo)  # Ottieni i vettori di latitudine e longitudine se `geo` e poligonale ritorna anche i vettori di lat e lon per la forma
-#   ref = ( max(bound_lon...) + min(bound_lon...) ) / 2
-#   ginfo = RegionGrid(geo, bound_lon, bound_lat )
-#   plot!( bound_lon.-ref, bound_lat )
-
-# Shapefile
-coast_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline\\ne_10m_coastline.shp" )
-shp_tb = Shapefile.Table(coast_file)
-shp = Shapefile.shapes(shp_tb)
-plot(shp)
-
-# Shapefile Veneto
-veneto_shp = *( @__DIR__, "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp")
-shp_tb2 = Shapefile.Table(veneto_shp)
-shp2 = Shapefile.shapes(shp_tb2)
-plot!(shp2)
-
-# Poligono veneto
-veneto = try
-            GeoRegion("VNT")
-         catch
-            # [ 9.5 47.0, 14.0 47.0, 14.0 44.0, 9.5 44.0, 9.5 47.0 ]
-            RectRegion( "VNT", "GLB", "Veneto", [ 47.0, 44.0, 14.0, 9.5 ] )
-         end
-blon, blat = coordGeoRegion(veneto)
-plot!( blon, blat )
-
-
-# LA GRIGLIA E' FUORI SCALA RISPETTO A TUTTO IL RESTO
-geo_grid, aoi = create_Grid( 22., 22., 56. )
-plot!( geo_grid )
-
-
-
-plot!( [ 22.0, 22.0 ] )
 
 
 
 
-# Tiff file 
-dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tif" )
-map_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline" )
-map_v_file = *( @__DIR__, "\\Mappe\\c0104011_Comuni" )
 
-dtm = ArchGDAL.read(dtm_file)
-map = ArchGDAL.read(map_file)
-map_v = ArchGDAL.read(map_v_file)
 
-band = ArchGDAL.getband( dtm, 1 )
-ArchGDAL.imread(band)
-ArchGDAL.imread(map)
-ArchGDAL.imread(map_v)
-plot(map)
+#=
+    using ArchGDAL
+    using GeoStats
+    using GeoRegions
+    using Plots
+    using Shapefile
 
+    #   geo = GeoRegion("GLB")  # Rappresenta il mondo
+    #   bound_lon, bound_lat = coordGeoRegion(geo)  # Ottieni i vettori di latitudine e longitudine se `geo` e poligonale ritorna anche i vettori di lat e lon per la forma
+    #   ref = ( max(bound_lon...) + min(bound_lon...) ) / 2
+    #   ginfo = RegionGrid(geo, bound_lon, bound_lat )
+    #   plot!( bound_lon.-ref, bound_lat )
+
+    # Shapefile
+    coast_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline\\ne_10m_coastline.shp" )
+    shp_tb = Shapefile.Table(coast_file)
+    shp = Shapefile.shapes(shp_tb)
+    plot!(shp)
+
+    # Shapefile Veneto
+    veneto_shp = *( @__DIR__, "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp")
+    shp_tb2 = Shapefile.Table(veneto_shp)
+    shp2 = Shapefile.shapes(shp_tb2)
+    plot!(shp2)
+
+    # Poligono veneto
+    veneto = try
+                GeoRegion("VNT")
+             catch
+                # [ 9.5 47.0, 14.0 47.0, 14.0 44.0, 9.5 44.0, 9.5 47.0 ]
+                RectRegion( "VNT", "GLB", "Veneto", [ 47.0, 44.0, 14.0, 9.5 ] )
+             end
+    blon, blat = coordGeoRegion(veneto)
+    plot!( blon, blat )
+
+
+    # LA GRIGLIA E' FUORI SCALA RISPETTO A TUTTO IL RESTO
+    geo_grid, aoi = create_Grid( 22., 22., 56. )
+    plot!( geo_grid )
+
+
+
+    plot!( [ 22.0, 22.0 ] )
+
+
+
+
+    # Tiff file 
+    dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tif" )
+    map_file = *( @__DIR__, "\\Mappe\\ne_10m_coastline" )
+    map_v_file = *( @__DIR__, "\\Mappe\\c0104011_Comuni" )
+
+    dtm = ArchGDAL.read(dtm_file)
+    map = ArchGDAL.read(map_file)
+    map_v = ArchGDAL.read(map_v_file)
+
+    band = ArchGDAL.getband( dtm, 1 )
+    ArchGDAL.imread(band)
+    ArchGDAL.imread(map)
+    ArchGDAL.imread(map_v)
+    plot(map)
+=#
 
 
 
