@@ -1041,6 +1041,7 @@ function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString 
     r, c = indices( dtm, [x0, y0] )
     max_radius = ceil(10^(dB/20))
     cell_num = Int64( ceil( max_radius / Δx ) )
+    profile = Vector(179)
     
     x_axis = dtm[ r, c-max_radius:c+max_radius ]
     y_axis = dtm[ r-max_radius:r+max_radius, c ]
@@ -1049,6 +1050,21 @@ function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString 
     diagonal_desc = vcat( [ dtm[r-i, c-i] for i in 1:max_radius ],  [ dtm[r+i, c+i] for i in 1:max_radius ] )
 
 
+    # Equation of the line with an angle "α" from x axis 
+    line( x, α ) = tan(α)x
+    for i in 1:180
+        θ = deg2rad(i)
+        # Projection on "x" of the intersection point between the line and the circel of radius "max_radius"
+        max_dist = max_radius * cos(θ)
+        # Number of cells/points between the origin and the limit
+        x_num = max_dist / Δx
+        # X coordinate of the points of the line
+        xs = [ x0 + Δx * j for j in 1:x_num ]
+        # Y coordinates of the points of the line
+        ys = line.(xs, θ)
+
+        
+    end
 
 
 end
