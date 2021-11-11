@@ -1017,6 +1017,17 @@ using GeoStats
 using Plots
 using Shapefile
 
+Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
+Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
+Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
+Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
+Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
+Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
+Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
+Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+
 function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString )
 
     dtm = GeoArrays.read(heights_map)
@@ -1031,7 +1042,12 @@ function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString 
     max_radius = ceil(10^(dB/20))
     cell_num = Int64( ceil( max_radius / Δx ) )
     
-    
+    x_axis = dtm[ r, c-max_radius:c+max_radius ]
+    y_axis = dtm[ r-max_radius:r+max_radius, c ]
+    # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
+    diagonal_asc = vcat( [ dtm[r+i, c-i] for i in 1:max_radius ],  [ dtm[r-i, c+i] for i in 1:max_radius ] )
+    diagonal_desc = vcat( [ dtm[r-i, c-i] for i in 1:max_radius ],  [ dtm[r+i, c+i] for i in 1:max_radius ] )
+
 
 
 
