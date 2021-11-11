@@ -13,7 +13,10 @@ Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
 Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
 Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
 Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+Base.:*( x::Number, y::Tuple{Number, Number} ) = y .* x
+Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
+Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
+Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
 Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
 
@@ -949,29 +952,6 @@ using Plots
 using Shapefile
 
 
-# Taken from "GeekForGeeks":"https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
-function DDA( x0::Number, y0::Number, xn::Number, yn::Number, ::Number )
-    
-    Δx = xn - x0
-    Δy = yn - y0
-
-    steps = min( max( abs(Δx), abs(Δy) ), size )
-
-    x_inc = Δx / steps
-    y_inc = Δy / steps
-
-    x = x0
-    y = y0
-
-    profile = []
-    for i in 1:steps
-        push!( profile, (round(x), round(y)) )
-        x += x_inc
-        y += y_inc
-    end
-
-    return profile
-end
 
 
 function create_grid( xs::Real, ys::Real, dB::Real )
@@ -1022,43 +1002,75 @@ plot!( half_circle, c=:orange )
 
 
 
-function ground_loss( x0::Real, y0::Real, z0::Real, dB::Real, ground_map )
 
-    # maximum ideal radius for the diffusion of a sound with given intensity  
+
+
+
+
+
+
+
+using ArchGDAL
+using GeoArrays
+using GeoRegions
+using GeoStats
+using Plots
+using Shapefile
+
+function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString )
+
+    dtm = GeoArrays.read(heights_map)
+    # Coordinate dei punti
+    x1, y1 = GeoArrays.coords( dtm, [1,1] )
+    xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
+    # Dimensioni in metri di una cella
+    Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
+
+    dB -= 32
+    r, c = indices( dtm, [x0, y0] )
     max_radius = ceil(10^(dB/20))
-    # Coordinates of the first point (upper left) of the grid containing the radius 
-    x0 = xs - max_radius 
-    y0 = ys + max_radius
-
-    grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )
-    centers = centroid.(grid)
-
-    # The grid is a square so te size of a row
-    size = convert( Int64, √length(centers) )
-    start = size * Int64(floor(size/2)) + 1
-    x_axis = centers[ start:strat+size-1 ]
-
-    start = convert( Int64, ceil(size/2) )
-    idxs = [ start + size*i for i in 0:size ]
-    y_axis = centers[idxs]
-
-    idxs = [ size + (size-1)i for i in 0:size-1 ]
-    diagonal1 = centers[idx]
-    idxs = [ 1 + (size+1)i for i in 0:size-1 ]
-    diagonal2 = centers[idxs]
-
-    radius(x, y) = √((x-x0)^2 + (y-y0)^2)
-    line(x, α) = tan(deg2rad(α))x
-    radius_y(x) = √( max_radius^2 - (x-x0)^2 ) + y0
-
-
+    cell_num = Int64( ceil( max_radius / Δx ) )
+    
     
 
-    for i in 0:180
-    end
 
 
 end
+# Punto 3870, 4420 (centro):
+#   x = 723204.0
+#   y = 5065493.0
+#   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
+
+
+
+
+
+
+
+using GeoData
+
+#   dtm_file = *( @__DIR__, "\\Mappe\\DTM_wgs84.tiff" )
+dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tiff" )
+dtm = GeoArray(dtm_file)
+plot(dtm)
+#   # Altezza di x, y:
+ #   dtm[x, y]
+ #   # Coordinate:
+ #    # X (minima e massima)
+ #   dtm.dims[1][1]
+ #   dtm.dims[1][end]
+ #   length(dtm.dims[1])
+ #    # Y (massima e minima)
+ #   dtm.dims[2][1]
+ #   dtm.dims[2][end]
+#   length(dtm.dims[2])
+
+# Variazione delle 
+Δs = ( dtm.dims[1][end], dtm.dims[2][1] )
+Δs -= ( dtm.dims[1][1], dtm.dims[2][end] )
+Δs /= Float64.(size(dtm)[1:2])
+dB = 110 - 32
+max_radius = ceil(10^(dB/20))
 
 
 
