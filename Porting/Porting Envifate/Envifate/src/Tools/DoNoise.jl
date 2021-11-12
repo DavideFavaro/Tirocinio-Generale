@@ -3,22 +3,8 @@ module DoNoise
 """
 
 
-using GeoStats
-using GeoRegions
-using Plots
 
-@enum GroundType Soft=0 Hard=1
-
-Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
-Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y .* x
-Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
-
+# SPOSTARE TUTTI GLI "using", GLI OVERLOAD E ALTRO QUI SOPRA 
 
 
 """
@@ -1019,6 +1005,8 @@ using Shapefile
 
 Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
 Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
 Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
 Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
 Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
@@ -1076,17 +1064,36 @@ end
 
 
 # Taken from "https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
-function DDA( x0::Number, y0::Number, xn::Number, yn::Number)
+function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
+    #   println( "x0 = ", x0 )
+    #   println( "y0 = ", y0 )
+    #   println( "xn = ", xn )
+    #   println( "yn = ", yn )
+    #   println()
     Δx = xn - x0
+    #   println( "Δx = ", Δx )
+    #   println()
     Δy = yn - y0
-    steps = min( abs(Δx), abs(Δy) )
-    x_inc = Δx / steps
-    y_inc = Δy / steps
+    #   println( "Δy = ", Δy )
+    #   println()
+    steps = max( abs(Δx), abs(Δy) )
+    #   println( "steps = ", steps )
+    #   println()
+    x_inc = Int64( Δx / steps )
+    #   println( "x inc = ", x_inc )
+    #   println()
+    y_inc = Int64( Δy / steps )
+    #   println( "y inc = ", y_inc )
+    #   println()
     x = x0
     y = y0
     profile = []
     for i in 1:steps
-        push!( profile, (round(x), round(y)) )
+        #   println( "i  = ", i )
+        #   println( "x = ", x )
+        #   println( "y = ", y )
+        #   println()
+        push!( profile, map[x, y] )
         x += x_inc
         y += y_inc
     end
@@ -1099,7 +1106,8 @@ end
 
 x0 = 710705.0
 y0 = 5065493.0
-dtm = GeoArrays.read( *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = GeoArrays.read(dtm_file)
 # Coordinate dei punti
 x1, y1 = GeoArrays.coords( dtm, [1,1] )
 xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
@@ -1126,44 +1134,35 @@ row_end = r0 + cell_num
 col_begin = c0 - cell_num
 col_end = c0 + cell_num
 
-#=
-    # Points on the sides of the area of interest
-    top_coords = [ GeoArrays.coords( dtm, [row_begin, col] ) for col in  col_begin+1:col_end ]
-    left_coords = [ GeoArrays.coords( dtm, [row, col_begin] ) for row in row_begin:row_end-1 ]
-    right_coords = [ GeoArrays.coords( dtm, [row, col_end] ) for row in  row_begin+1:row_end ]
-    bottom_coords = [ GeoArrays.coords( dtm, [row_end, col] ) for col in  col_begin:col_end-1 ]
-=#
+# Upper side of the square, plus the halves of left and right side above x axis
+top_idxs = [ [row_begin, col] for col in  col_begin:col_end ]
+left_idxs = [ [row, col_begin] for row in row_begin+1:r0-1 ]
+right_idxs = [ [row, col_end] for row in  row_begin+1:r0-1 ]
 
-# Matrix' cells on the borders of the area of interest
-top_idxs = [ [row_begin, col] for col in  col_begin+1:col_end ]
-left_idxs = [ [row, col_begin] for row in row_begin:row_end-1 ]
-right_idxs = [ [row, col_end] for row in  row_begin+1:row_end ]
-bottom_idxs = [ [row_end, col] for col in  col_begin:col_end-1 ]
+# Vector with the indexis of the borders of the area of effect above the x axis
+endpoints = vcat( right_idxs, top_idxs, left_idxs )
 
 
-endpoints = vcat( top_idxs, left_idxs, right_idxs, bottom_idxs )
-
-# QUESTO CALCOLA TRA IL CENTRO E IL PUNTO DEL LATO, QUINDI L'ARRAY ORIGINATO E' META' DI QUELLO CHE DOVREBBE ESSERE
+# TUTTI GLI ARRAY TRANNE QUELLI MESSI MANUALMENTE HANNO UN VALORE IN MENO
+# For each point compute the rasterization of the line that connects it to its symmetrical point using the center (r0 c0) as reference
 for point in endpoints
-    if point[1] == r0 || point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+    #   println(point)
+    #   println()
+    # If the point is on the y axis or on the diagonals skip ( the points cannot be on the x axis by construction of the side indexis vectors )
+    if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
         continue
-    else
-        push!( profiles, DDA( r0, c0, point... ) )
     end
+    # Compute symmetrical point in regards to the center, checking also if the point is in the first quadrant or the second
+    val = ( point[1] > r0 ? -2 : 2, point[2] > c0 ? -2 : 2 ) * cell_num
+    #   println(val)
+    #   println()
+    rm = point[1] + val[1]
+    cm = point[2] + val[2]
+    #   println( rm, ", ", cm )
+    #   println()
+    push!( profiles, DDA( dtm, point[1], point[2], rm, cm ) )
 end
 
-
-#   # Equation of the line with an angle "α" from x axis 
-#   line( x, α ) = tan(α)x
-#   θ = deg2rad(89)
-#   # Projection on "x" of the intersection point between the line and the circel of radius "max_radius"
-#   max_dist = max_radius * cos(θ)
-#   # Number of cells/points between the origin and the limit
-#   x_num = Int64(ceil(max_dist / Δx))
-#   # X coordinate of the points of the line
-#   xs = [ x0 + Δx * j for j in 1:x_num ]
-#   # Y coordinates of the points of the line
-#   ys = line.(xs, θ)
 
 
 
