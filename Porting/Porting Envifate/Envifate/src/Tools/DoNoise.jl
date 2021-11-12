@@ -1075,6 +1075,109 @@ end
 
 
 
+# Taken from "https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
+function DDA( x0::Number, y0::Number, xn::Number, yn::Number)
+    Δx = xn - x0
+    Δy = yn - y0
+    steps = min( abs(Δx), abs(Δy) )
+    x_inc = Δx / steps
+    y_inc = Δy / steps
+    x = x0
+    y = y0
+    profile = []
+    for i in 1:steps
+        push!( profile, (round(x), round(y)) )
+        x += x_inc
+        y += y_inc
+    end
+    return profile
+end
+
+
+
+#   https://tildesites.bowdoin.edu/~ltoma/teaching/cs350/spring06/Lecture-Handouts/gis-viewshedsKreveld.pdf
+
+x0 = 710705.0
+y0 = 5065493.0
+dtm = GeoArrays.read( *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
+# Coordinate dei punti
+x1, y1 = GeoArrays.coords( dtm, [1,1] )
+xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
+# Dimensioni in metri di una cella
+Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
+
+dB = 110 - 32
+r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
+max_radius = ceil(10^(dB/20))
+cell_num = Int64( ceil( max_radius / Δx ) )
+
+profiles = [
+    dtm[ r0, c0-cell_num:c0+cell_num ], # x axis
+    dtm[ r0-cell_num:r0+cell_num, c0 ], # y axis
+    # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
+    # MANCANO I VALORI DI x0y0
+    # SI OTTENGONO ARRAY DI ARRAY
+    vcat( [ dtm[r0+i, c0-i] for i in 1:cell_num ],  [ dtm[r0-i, c0+i] for i in 1:cell_num ] ), # first diagonal
+    vcat( [ dtm[r0-i, c0-i] for i in 1:cell_num ],  [ dtm[r0+i, c0+i] for i in 1:cell_num ] ) # second diagonal
+]
+
+row_begin = r0 - cell_num
+row_end = r0 + cell_num
+col_begin = c0 - cell_num
+col_end = c0 + cell_num
+
+#=
+    # Points on the sides of the area of interest
+    top_coords = [ GeoArrays.coords( dtm, [row_begin, col] ) for col in  col_begin+1:col_end ]
+    left_coords = [ GeoArrays.coords( dtm, [row, col_begin] ) for row in row_begin:row_end-1 ]
+    right_coords = [ GeoArrays.coords( dtm, [row, col_end] ) for row in  row_begin+1:row_end ]
+    bottom_coords = [ GeoArrays.coords( dtm, [row_end, col] ) for col in  col_begin:col_end-1 ]
+=#
+
+# Matrix' cells on the borders of the area of interest
+top_idxs = [ [row_begin, col] for col in  col_begin+1:col_end ]
+left_idxs = [ [row, col_begin] for row in row_begin:row_end-1 ]
+right_idxs = [ [row, col_end] for row in  row_begin+1:row_end ]
+bottom_idxs = [ [row_end, col] for col in  col_begin:col_end-1 ]
+
+
+endpoints = vcat( top_idxs, left_idxs, right_idxs, bottom_idxs )
+
+# QUESTO CALCOLA TRA IL CENTRO E IL PUNTO DEL LATO, QUINDI L'ARRAY ORIGINATO E' META' DI QUELLO CHE DOVREBBE ESSERE
+for point in endpoints
+    if point[1] == r0 || point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+        continue
+    else
+        push!( profiles, DDA( r0, c0, point... ) )
+    end
+end
+
+
+#   # Equation of the line with an angle "α" from x axis 
+#   line( x, α ) = tan(α)x
+#   θ = deg2rad(89)
+#   # Projection on "x" of the intersection point between the line and the circel of radius "max_radius"
+#   max_dist = max_radius * cos(θ)
+#   # Number of cells/points between the origin and the limit
+#   x_num = Int64(ceil(max_dist / Δx))
+#   # X coordinate of the points of the line
+#   xs = [ x0 + Δx * j for j in 1:x_num ]
+#   # Y coordinates of the points of the line
+#   ys = line.(xs, θ)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
