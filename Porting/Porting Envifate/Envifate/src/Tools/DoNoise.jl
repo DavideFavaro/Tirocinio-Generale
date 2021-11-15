@@ -4,7 +4,27 @@ module DoNoise
 
 
 
-# SPOSTARE TUTTI GLI "using", GLI OVERLOAD E ALTRO QUI SOPRA 
+using ArchGDAL
+using GeoArrays
+using GeoRegions
+using GeoStats
+using Plots
+using Shapefile
+
+Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
+Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
+Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
+Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
+Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
+Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
+Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
+Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+
+toInt( n::Number, method::Function=round )::Int64 =  n isa Int64 ? n : Int64( method(n) )
 
 
 """
@@ -168,9 +188,7 @@ function ww(t::Complex)::Complex
     return w
 end
 
-function qq( r::Real, h::Real, freq::Real, z::Complex )::Complex
-    k = 2.0 * π * freq/340.0
-    #   r1 = √( d^2 + (src_h - rec_h)^2 )
+function qq( r::Real, h::Real, waveno::Real, z::Complex )::Complex
     c = abs(h) / r
     n = (z.re * c + 1.0)^2 + (z.im * c)^2
     
@@ -186,12 +204,12 @@ function qq( r::Real, h::Real, freq::Real, z::Complex )::Complex
 
     w = ww(t)
 
-    fr = 1.0 + √π * -real(t*w)
+    fr = 1.0 + √π * -imag(t*w)
     fi = √π * real(t*w)
 
     dumr = rr + (1.0 - rr) * fr + fi * ri
     dumi = ri + fi * (1.0 - rr) - ri * fr
-    return complex(dumr, dumi)
+    return z.re >= 1000.0 ? 1.0+0im : complex(dumr, dumi)
 end
 
 function qq2( d::Real, src_h::Real, rec_h::Real, freq::Real, z::Complex )::Complex
@@ -204,17 +222,17 @@ function qq2( d::Real, src_h::Real, rec_h::Real, freq::Real, z::Complex )::Compl
     rr = ( ( c * abs(z) )^2 - 1.0 ) / n
     ri = 2.0 * z.im * c / n
 
-    nyr = z.re / abs2(z)^2
-    nyi = -z.im / abs2(z)^2
+    nyr = z.re / abs2(z)
+    nyi = -z.im / abs2(z)
 
     dumr = √(k * r / 4.0) * (nyr + c - nyi)
-    dumi = √(k * r / 4.0) * (nyr + c + nyi)
+    dumi = √(k * r / 4.0) * (-nyr - c + nyi)
     t = complex(dumr, dumi)
 
-    w = ww(t)
+    w = ww(-t)
 
-    fr = 1.0 + √π * -real(t*w)
-    fi = √π * real(t*w)
+    fr = 1.0 + √π * imag(t*w)
+    fi = -√π * real(t*w)
 
     dumr = rr + (1.0 - rr) * fr + fi * ri
     dumi = ri + fi * (1.0 - rr) - ri * fr
@@ -340,7 +358,7 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
     return (levturb, lnot)
 end
 
-function varysurf( dists::AbstractVector, ground_type::AbstractVector{GroundType}, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
+function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
     drefl = src_h * dists[end] / (src_h + rec_h)
 
     srcInf = ground_type[1] == Soft ?
@@ -397,7 +415,7 @@ function diffraction( r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real
 
     n = pm < -0.9 ?
             al2 > π+any*π ? 1 :
-                al2 > π-any*π ? 0 : -1:
+                al2 > π-any*π ? 0 : -1 :
             al2 > any*π-π ? 1 : 0
     xv = 2.0 * k * a * cos( (2.0 * n * any * π - al2) / 2.0 )^2
 
@@ -434,7 +452,7 @@ function calc_mirror( locs, points; source::Bool )
     end
 end
 
-function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abstractvector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
+function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::AbstractVector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
     
     # Delany-Bazley under source, berm and reciver
     dbs = delbaz.( Ref(freq), [ src_flow_res, ber_flow_res, rec_flow_res ] )
@@ -635,7 +653,9 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
                 waveno
               ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
 
-    f1-f0 < π && pl += direct_field
+    if f1-f0 < π
+        pl += direct_field
+    end
 
     if f1+f0 < π
         rs = calc_r( rh0, rh1, f1+f0 )
@@ -724,7 +744,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
-function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
+function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
 
     ihard = isoft = 0 
     flow_ress = [0.0, 0.0]
@@ -749,8 +769,12 @@ function oncut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     flow_ress /= max(isoft)
     flow_ress /= max(ihard)
     
-    flow_ress == 0.0 && flow_ress = 200.0
-    flow_ress == 0.0 && flow_ress = 10^6
+    if flow_ress[1] == 0.0
+        flow_ress[1] = 200.0
+    end
+    if flow_ress[2] == 0.0
+        flow_ress[2] = 10^6
+    end
 
  # =======================================================================================================================================================
 
@@ -925,136 +949,31 @@ end
 
 
 
-
-
-
-
-
-using ArchGDAL
-using GeoStats
-using GeoRegions
-using GeoData
-using Plots
-using Shapefile
-
-
-
-
-function create_grid( xs::Real, ys::Real, dB::Real )
-    # maximum ideal radius for the diffusion of a sound with given intensity  
-    max_radius = ceil(10^(dB/20))
-    # Coordinates of the first point (upper left) of the grid containing the radius 
-    x0 = xs - max_radius 
-    y0 = ys + max_radius
-
-    grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )  
-
-#=
-    # LE COORDINATE DELL'AREA NON SONO VALIDE PERCHE' NON SONO ADEGUATAMENTE SCALATE
-    reg = RectRegion( "NEW", "VNT", "Area Of Interest", [ x0, ys-max_radius, xs+max_radius, y0 ] )
-
-    return grid, reg
-=#
-    return grid
+# Taken from "https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
+function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
+    Δx = xn - x0
+    Δy = yn - y0
+    steps = max( abs(Δx), abs(Δy) )
+    x_inc = Δx / steps
+    y_inc = Δy / steps
+    x = x0
+    y = y0
+    heigths_profile = []
+    coords_profile = []
+    for i in 1:steps
+        push!( heigths_profile, map[toInt(x), toInt(y)] )
+        push!( coords_profile, Tuple(GeoArrays.coords( map, [toInt(x), toInt(y)])) )
+        x += x_inc
+        y += y_inc
+    end
+    return heigths_profile, coords_profile
 end
 
-g = create_grid( 22., 22., 56. )
-plot(g)
-centers = centroid.(g)
-plot!(centers)
-
-size = convert( Int64, √length(centers) )
-start = size * Int64(floor(size/2)) + 1
-x_axis = centers[ start:start+size-1 ]
-plot!(x_axis, c=:blue )
-
-start = convert( Int64, ceil(size/2) )
-y_axis = centers[[ start + size*i for i in 0:size-1 ]]
-plot!(y_axis, c=:red )
-
-diagonal1 = centers[[ size + (size-1)i for i in 0:size-1 ]]
-plot!(diagonal1, c=:yellow)
-
-diagonal2 = centers[[ 1 + (size+1)i for i in 0:size-1 ]]
-plot!(diagonal2, c=:purple)
-
-is = collect(x0:size)
-x0 = y0 = Int64(round(size/2))
-r = Int64(floor(size/2))
-radius_y(x) = Int64( round( √( r^2 - (x-x0)^2 ) + y0 ) )
-idxs = ( radius_y.(is) .- 1 )
-half_circle = centers[idxs]
-plot!( half_circle, c=:orange )
 
 
+#   https://tildesites.bowdoin.edu/~ltoma/teaching/cs350/spring06/Lecture-Handouts/gis-viewshedsKreveld.pdf
 
-
-
-
-
-
-
-
-
-using ArchGDAL
-using GeoArrays
-using GeoRegions
-using GeoStats
-using Plots
-using Shapefile
-
-Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
-Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
-Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
-Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
-
-function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString )
-
-    dtm = GeoArrays.read(heights_map)
-    # Coordinate dei punti
-    x1, y1 = GeoArrays.coords( dtm, [1,1] )
-    xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
-    # Dimensioni in metri di una cella
-    Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
-
-    dB -= 32
-    r, c = indices( dtm, [x0, y0] )
-    max_radius = ceil(10^(dB/20))
-    cell_num = Int64( ceil( max_radius / Δx ) )
-    profile = Vector(179)
-    
-    x_axis = dtm[ r, c-max_radius:c+max_radius ]
-    y_axis = dtm[ r-max_radius:r+max_radius, c ]
-    # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
-    diagonal_asc = vcat( [ dtm[r+i, c-i] for i in 1:max_radius ],  [ dtm[r-i, c+i] for i in 1:max_radius ] )
-    diagonal_desc = vcat( [ dtm[r-i, c-i] for i in 1:max_radius ],  [ dtm[r+i, c+i] for i in 1:max_radius ] )
-
-
-    # Equation of the line with an angle "α" from x axis 
-    line( x, α ) = tan(α)x
-    for i in 1:180
-        θ = deg2rad(i)
-        # Projection on "x" of the intersection point between the line and the circel of radius "max_radius"
-        max_dist = max_radius * cos(θ)
-        # Number of cells/points between the origin and the limit
-        x_num = max_dist / Δx
-        # X coordinate of the points of the line
-        xs = [ x0 + Δx * j for j in 1:x_num ]
-        # Y coordinates of the points of the line
-        ys = line.(xs, θ)
-
-        
-    end
-
-
+function ground_loss( x0::Real, y0::Real, dB::Real, heights_map, impedences_map )
 end
 # Punto 3870, 4420 (centro):
 #   x = 723204.0
@@ -1063,46 +982,9 @@ end
 
 
 
-# Taken from "https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
-function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
-    #   println( "x0 = ", x0 )
-    #   println( "y0 = ", y0 )
-    #   println( "xn = ", xn )
-    #   println( "yn = ", yn )
-    #   println()
-    Δx = xn - x0
-    #   println( "Δx = ", Δx )
-    #   println()
-    Δy = yn - y0
-    #   println( "Δy = ", Δy )
-    #   println()
-    steps = max( abs(Δx), abs(Δy) )
-    #   println( "steps = ", steps )
-    #   println()
-    x_inc = Int64( Δx / steps )
-    #   println( "x inc = ", x_inc )
-    #   println()
-    y_inc = Int64( Δy / steps )
-    #   println( "y inc = ", y_inc )
-    #   println()
-    x = x0
-    y = y0
-    profile = []
-    for i in 1:steps
-        #   println( "i  = ", i )
-        #   println( "x = ", x )
-        #   println( "y = ", y )
-        #   println()
-        push!( profile, map[x, y] )
-        x += x_inc
-        y += y_inc
-    end
-    return profile
-end
 
 
 
-#   https://tildesites.bowdoin.edu/~ltoma/teaching/cs350/spring06/Lecture-Handouts/gis-viewshedsKreveld.pdf
 
 x0 = 710705.0
 y0 = 5065493.0
@@ -1117,16 +999,24 @@ xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
 dB = 110 - 32
 r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
 max_radius = ceil(10^(dB/20))
-cell_num = Int64( ceil( max_radius / Δx ) )
+cell_num = toInt( max_radius / Δx, ceil )
 
-profiles = [
+heights_profiles = [
     dtm[ r0, c0-cell_num:c0+cell_num ], # x axis
     dtm[ r0-cell_num:r0+cell_num, c0 ], # y axis
     # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
     # MANCANO I VALORI DI x0y0
     # SI OTTENGONO ARRAY DI ARRAY
-    vcat( [ dtm[r0+i, c0-i] for i in 1:cell_num ],  [ dtm[r0-i, c0+i] for i in 1:cell_num ] ), # first diagonal
-    vcat( [ dtm[r0-i, c0-i] for i in 1:cell_num ],  [ dtm[r0+i, c0+i] for i in 1:cell_num ] ) # second diagonal
+    [ dtm[r0+i, c0-i] for i in (-cell_num):cell_num ],
+    [ dtm[r0+i, c0+i] for i in (-cell_num):cell_num ]
+    # vcat( [ dtm[r0+i, c0-i] for i in 1:cell_num ],  [ dtm[r0-i, c0+i] for i in 1:cell_num ] ), # first diagonal
+    # vcat( [ dtm[r0-i, c0-i] for i in 1:cell_num ],  [ dtm[r0+i, c0+i] for i in 1:cell_num ] ) # second diagonal
+]
+coords_profiles = [
+    [ GeoArrays.coords(dtm, [r0, col]) for col in c0-cell_num:c0+cell_num ],
+    [ GeoArrays.coords(dtm, [row, c0]) for row in r0-cell_num:r0+cell_num ],
+    [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in (-cell_num):cell_num ],
+    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in (-cell_num):cell_num ],
 ]
 
 row_begin = r0 - cell_num
@@ -1146,23 +1036,20 @@ endpoints = vcat( right_idxs, top_idxs, left_idxs )
 # TUTTI GLI ARRAY TRANNE QUELLI MESSI MANUALMENTE HANNO UN VALORE IN MENO
 # For each point compute the rasterization of the line that connects it to its symmetrical point using the center (r0 c0) as reference
 for point in endpoints
-    #   println(point)
-    #   println()
     # If the point is on the y axis or on the diagonals skip ( the points cannot be on the x axis by construction of the side indexis vectors )
     if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
         continue
     end
-    # Compute symmetrical point in regards to the center, checking also if the point is in the first quadrant or the second
-    val = ( point[1] > r0 ? -2 : 2, point[2] > c0 ? -2 : 2 ) * cell_num
-    #   println(val)
-    #   println()
-    rm = point[1] + val[1]
-    cm = point[2] + val[2]
-    #   println( rm, ", ", cm )
-    #   println()
-    push!( profiles, DDA( dtm, point[1], point[2], rm, cm ) )
+    # Compute symmetrical point in regards to the center
+    rm, cm = 2(r0, c0) - point
+    heights, coords = DDA( dtm, point[1], point[2], rm, cm )
+    push!( heights_profiles, heights )
+    push!( coords_profiles, coords )
 end
 
+distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
+
+onCut( distances_profiles[1], heights_profiles[1], )
 
 
 
@@ -1178,42 +1065,81 @@ end
 
 
 
+#= COSE CON GEODATA
+    using GeoData
 
+    #   dtm_file = *( @__DIR__, "\\Mappe\\DTM_wgs84.tiff" )
+    dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tiff" )
+    dtm = GeoArray(dtm_file)
+    plot(dtm)
+    #   # Altezza di x, y:
+     #   dtm[x, y]
+     #   # Coordinate:
+     #    # X (minima e massima)
+     #   dtm.dims[1][1]
+     #   dtm.dims[1][end]
+     #   length(dtm.dims[1])
+     #    # Y (massima e minima)
+     #   dtm.dims[2][1]
+     #   dtm.dims[2][end]
+    #   length(dtm.dims[2])
 
+    Δs = ( dtm.dims[1][end], dtm.dims[2][1] )
+    Δs -= ( dtm.dims[1][1], dtm.dims[2][end] )
+    Δs /= Float64.(size(dtm)[1:2])
+    dB = 110 - 32
+    max_radius = ceil(10^(dB/20))
+=#
 
-using GeoData
+#=  CREAZIONE GRIGLIA
+    function create_grid( xs::Real, ys::Real, dB::Real )
+        # maximum ideal radius for the diffusion of a sound with given intensity  
+        max_radius = ceil(10^(dB/20))
+        # Coordinates of the first point (upper left) of the grid containing the radius 
+        x0 = xs - max_radius 
+        y0 = ys + max_radius
 
-#   dtm_file = *( @__DIR__, "\\Mappe\\DTM_wgs84.tiff" )
-dtm_file = *( @__DIR__, "\\Mappe\\DTM_32.tiff" )
-dtm = GeoArray(dtm_file)
-plot(dtm)
-#   # Altezza di x, y:
- #   dtm[x, y]
- #   # Coordinate:
- #    # X (minima e massima)
- #   dtm.dims[1][1]
- #   dtm.dims[1][end]
- #   length(dtm.dims[1])
- #    # Y (massima e minima)
- #   dtm.dims[2][1]
- #   dtm.dims[2][end]
-#   length(dtm.dims[2])
+        grid = CartesianGrid( (x0, ys-max_radius), (xs+max_radius, y0), (200.0,200.0) )  
 
-# Variazione delle 
-Δs = ( dtm.dims[1][end], dtm.dims[2][1] )
-Δs -= ( dtm.dims[1][1], dtm.dims[2][end] )
-Δs /= Float64.(size(dtm)[1:2])
-dB = 110 - 32
-max_radius = ceil(10^(dB/20))
+    #=
+        # LE COORDINATE DELL'AREA NON SONO VALIDE PERCHE' NON SONO ADEGUATAMENTE SCALATE
+        reg = RectRegion( "NEW", "VNT", "Area Of Interest", [ x0, ys-max_radius, xs+max_radius, y0 ] )
 
+        return grid, reg
+    =#
+        return grid
+    end
 
+    g = create_grid( 22., 22., 56. )
+    plot(g)
+    centers = centroid.(g)
+    plot!(centers)
 
+    size = convert( Int64, √length(centers) )
+    start = size * Int64(floor(size/2)) + 1
+    x_axis = centers[ start:start+size-1 ]
+    plot!(x_axis, c=:blue )
 
+    start = convert( Int64, ceil(size/2) )
+    y_axis = centers[[ start + size*i for i in 0:size-1 ]]
+    plot!(y_axis, c=:red )
 
+    diagonal1 = centers[[ size + (size-1)i for i in 0:size-1 ]]
+    plot!(diagonal1, c=:yellow)
 
+    diagonal2 = centers[[ 1 + (size+1)i for i in 0:size-1 ]]
+    plot!(diagonal2, c=:purple)
 
+    is = collect(x0:size)
+    x0 = y0 = Int64(round(size/2))
+    r = Int64(floor(size/2))
+    radius_y(x) = Int64( round( √( r^2 - (x-x0)^2 ) + y0 ) )
+    idxs = ( radius_y.(is) .- 1 )
+    half_circle = centers[idxs]
+    plot!( half_circle, c=:orange )
+=#
 
-#=
+#=  PLOTTING DI DTM E ALTRO
     using ArchGDAL
     using GeoStats
     using GeoRegions
@@ -1275,7 +1201,5 @@ max_radius = ceil(10^(dB/20))
     ArchGDAL.imread(map_v)
     plot(map)
 =#
-
-
 
 end # module
