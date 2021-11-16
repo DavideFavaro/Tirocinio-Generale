@@ -37,13 +37,13 @@ using UUIDs
 using Revise
 
 
-str = occursin( "GroundData.jl", @__FILE__ ) ? "" : "src\\GroundDataRegions\\"
-include("$(@__DIR__)\\$(str)GroundDataAA.jl")
-include("$(@__DIR__)\\$(str)GroundDataER.jl")
-include("$(@__DIR__)\\$(str)GroundDataFVG.jl")
-include("$(@__DIR__)\\$(str)GroundDataL.jl")
-include("$(@__DIR__)\\$(str)GroundDataT.jl")
-include("$(@__DIR__)\\$(str)GroundDataV.jl")
+str = occursin( "GroundData.jl", @__FILE__ ) ? "" : "src\\"
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataAA.jl")
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataER.jl")
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataFVG.jl")
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataL.jl")
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataT.jl")
+include("$(@__DIR__)\\$(str)GroundDataRegions\\GroundDataV.jl")
 
 
 export getGroundData
@@ -245,6 +245,26 @@ end
 
 #   resmt, mresmt = getGroundData( :METEO, AA, FVG, L, T, V )
 #   resaq, mresaq = getGroundData( :AIRQUALITY, AA, FVG, L, T, V )
+
+
+
+"""
+"""
+function saveGroundData( path::AbstractString, data::DataFrame; overwrite::Bool=false )
+  condition = !overwrite && basename(path) in readdir(dirname(path))
+  if condition
+      # Attributes to confront in order to see if the entry is a duplicate
+      attrs = [:uuid, :value, :date, :height, :rel_measurement_height]
+      # Preexisting data
+      old_data = CSV.read( path, DataFrame )
+      filter!( row -> row[attrs] in old_data[:, attrs], data )
+  end
+  CSV.write( path, data, append=condition )
+end
+
+#    path = *( @__DIR__, "\\..\\Dati stazioni")
+#    saveGroundData( path*"\\data.csv", resmt )
+#    saveGroundData( path*"\\missing_data.csv", mresmt )
 
 
 
