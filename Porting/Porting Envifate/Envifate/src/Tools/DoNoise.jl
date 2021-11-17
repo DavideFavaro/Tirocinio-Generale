@@ -25,7 +25,10 @@ Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x
 Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
 toInt( n::Number, method::Function=round )::Int64 =  n isa Int64 ? n : Int64( method(n) )
-
+# Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)" 
+rotate_x( xp, yp, xc, yc, θ ) = toInt( (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
+rotate_y( xp, yp, xc, yc, θ ) = toInt( (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
+rotate_point( xp, yp, xc, yc, θ ) = ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
 
 """
     transmission_loss( r::Real )
@@ -95,7 +98,7 @@ end
 
 
 
-function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Vector{Tuple{Float64, Float64}}
+function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Vector{Tuple{Int64, Float64}}
     if length(profile) <= 1
         return [ (1, -rel_h_src), (1, -rel_h_rec) ]
     end
@@ -114,10 +117,25 @@ function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Ve
     a = (zn - z1) / (xn - x1)
     b = z1 - a*x1
 
+ #=
     # Look for the max and min
     prf = map( row -> ( row[1], row[2] - ( a*row[1] + b ) ), profile )
     sort!( prf, by=(row) -> row[2] )
-    return [ prf[1], prf[end] ] 
+    
+    return [ prf[1], prf[end] ]
+ =# 
+    min = ( 1, profile[1][2] )  
+    max = ( 1, profile[1][2] )
+    for i in 1:length(profile)
+        hgt = profile[i][2] - a*profile[i][1] + b
+        if hgt > max[2]
+            max = (i, hgt)
+        end
+        if hgt < min[2]
+            min = (i, hgt)
+        end
+    end
+    return [min, max]
 end
 
 function delbaz( freq::Real, flow_res::Real )::Complex
@@ -753,10 +771,24 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
+
+
+atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+
+atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+
+atten = onCut( distances_profiles[600], heights_profiles[600], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+
+atten = onCut( distances_profiles[201], heights_profiles[201], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+
+
+
 function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
 
-    ihard = isoft = 0 
+    ihard = 0
+    isoft = 0 
     flow_ress = [0.0, 0.0]
+    atten = 0.0
     attenuations = []
     profile = []
     flowpr = []
@@ -768,80 +800,87 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     for i in 1:length(distances)
         push!( profile, (distances[i], heights[i]) )
         push!( flowpr, (distances[i], impdcs[i]) )
-        if impdcs[i] <= 1000.0
+        if flowpr[i][2] <= 1000.0
             push!( ignd, 0 )
             isoft += 1
-            flow_ress[1] += impdcs[i]
+            flow_ress[1] += flowpr[i][2]
         else
             push!( ignd, 1 )
             ihard += 1
-            flow_ress[2] += impdcs[i]
+            flow_ress[2] += flowpr[i][2]
         end
     end
-    flow_ress /= max(isoft)
-    flow_ress /= max(ihard)
+    flow_ress[1] /= max(isoft, 1)
+    flow_ress[2] /= max(ihard, 1)
     
     if flow_ress[1] == 0.0
         flow_ress[1] = 200.0
     end
     if flow_ress[2] == 0.0
-        flow_ress[2] = 10^6
+        flow_ress[2] = 10.0^6
     end
 
  # =======================================================================================================================================================
 
     # Points of interest:
-    #       min near src ||   max    || min near rec
-    #            x    z  ||  x    z  ||  x    z
-    points = [ (0.0, 0.0), (0.0, 0.0), (0.0, 0.0) ]
-    # Max point
+    #     min near src ||   max  || min near rec
+    #           x   z  || x   z  || x   z
+    points = [ (0, 0.0), (0, 0.0), (0, 0.0) ]
+    # Max point (second point)
     points[2] = minmax( profile, src_h, rec_h )[2]
-    # Min point near source
-    points[1] = minmax( profile[ 1:toInt(points[2][1]) ], src_h, 0.0 )[1]
-    ntemp = toInt(length(profile) - points[2][1])
-    #   call maxmin(prof(1,locs(2)),ntemp,0.,hrec,hgtmm,locmm)
-    # Non so cosa voglia dire `prof(1,locs(2))`
-    res = minmax( profile[ (toInt(points[2][1])+1):ntemp ], 0.0, rec_h )[1]
-    #   points[3][1] = points[2][1] + res[1] - 1
-    #   points[3][2] = res[2]
-    points[3] = (points[2][1]-1 , 0.0) + res 
-
+    # Min point near source (first point)
+    points[1] = minmax( profile[ 1:points[2][1] ], src_h, 0.0 )[1]
+    # Min point near receiver (third point)
+    ntemp = length(profile) - points[2][1]
+    #   xs = [ point[1] for point in profile[ points[2][1]+1:ntemp ] ] 
+    #   res = minmax( xs, 0.0, rec_h )[1]
+    res = minmax( profile[ points[2][1]+1:ntemp ], 0.0, rec_h )[1]
+    points[3] = (points[2][1]-1, 0.0) + res
 
     hillxz = [ profile[1] ]
     klocs = [1]
     nmm = 1
     for i in 1:3
-        hill = profile[ toInt(points[i][1]) ]
-        push!( hillxz, hill )
-        if points[i][2] != klocs[nmm]
+        push!( hillxz, profile[ points[i][1] ] )
+ # NEL CODICE METTONO CHE SE "points[i][1] == klocs[nmm]" VANNO AL CONTINUE
+  # SCRITTO ALLA FINE DEL CICLO, NON SO SE VOGLIA DIRE CHE IN QUEL CASO SALTA
+  # TUTTO IL CICLO
+        if points[i][1] != klocs[nmm]
             nmm += 1
-            push!( klocs, points[i][2] )
+            if length(klocs) >= nmm
+                klocs[nmm]= points[i][1]
+            else
+                push!( klocs, points[i][1] )
+            end
         end
     end
 
     push!( hillxz, profile[end] )
     if klocs[nmm] < length(profile)
         nmm += 1
-        push!( klocs, length(profile) )
+        if length(klocs) >= nmm
+            klocs[nmm] = length(profile)
+        else
+            push!( klocs, length(profile) )
+        end
     end
 
-    if points[1][2] == points[2][2]
+    if points[1][1] == points[2][1]
         hillxz[2] = hillxz[1]
     end
 
-    if points[3][2] == points[2][2]
-        # hillxz[4] = hillxz[5]
-        hillxz[end-1] = hillxz[end]
+    if points[3][1] == points[2][1]
+        hillxz[4] = hillxz[5]
     end
 
-    if hillxz[1] == hillxz[2]
+    if hillxz[1][1] == hillxz[2][1]
         dx, dy = hillxz[3] - hillxz[1]
-        hillxz[2] = ( hillxz[1][1] + 0.1*dx, hillxz[1][2] + 0.1*dy  )
+        hillxz[2] = hillxz[1] + 0.1(dx, dy)
     end
 
-    if hillxz[1] == hillxz[2]
+    if hillxz[4][1] == hillxz[5][1]
         dx, dy = hillxz[5] - hillxz[3]
-        hillx[4] = ( hillxz[3][1] + 0.1*dx, hillxz[3][2] + 0.1*dy  )
+        hillxz[4] = hillxz[3] + 0.1(dx, dy)
     end
 
  # ================================================= Profile and Supporting Stuff Established ============================================================
@@ -849,22 +888,26 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
   # ----------------------------------------------- Level Model ----------------------------------------------------- 
     
     if nmm <= 2
+        println("nmm <= 2: $(nmm <= 2)" )
         ax = profile[1][1]
+        ay = 0.0
+        az = profile[1][2]
         ox = profile[end][1]
-        ay = oy = 0.0
+        oy = 0.0
+        oz = profile[end][2]
 
-        #   dist = √( (ax-ox)^2 + (ay-oy)^2 )
-        # `ay` e `oy` sono uguali a zero quindi la funzione diventa `√( (ax-ox)^2 )`
         d = √( (ax-ox)^2 + (ay-oy)^2 )
 
         for j in 1:nfreq
-            dumf = freq[j]
-            if ishard > 0
-                duml, attenh = egal( d/2, d/2, src_h, rec_h, flow_ress[2], flow_ress[2], vl, 0.0, 0.0, dumf, duml )
+            duml = 0.0
+            if ihard > 0
+    # NON MI E' CHIARO IL SENSO DI "duml"
+                duml, atten = egal( d/2, d/2, src_h, rec_h, flow_ress[2], flow_ress[2], 0.0, 0.0, 0.0, freq[j], duml )
                 atten = attenh
             end
             if isoft > 0
-                duml, attens = egal( d/2, d/2, src_h, rec_h, flow_ress[1], flow_ress[1], vl, 0.0, 0.0, dumf, duml )
+    # NON MI E' CHIARO IL SENSO DI "duml"
+                duml, attens = egal( d/2, d/2, src_h, rec_h, flow_ress[1], flow_ress[1], 0.0, 0.0, 0.0, freq[j], duml )
                 atten = attens
             end
             if ihard > 0 && isoft > 0
@@ -876,51 +919,61 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
 
   # ------------------------------------------------- Hill Model ---------------------------------------------------- 
     
-    zz2 = zcrit = 0
+    zz2 = 0
+    zcrit = 0
     if nmm == 3
+        println("nmm == 3: $(nmm == 3)" )
+        # Total distance dist and distance to second point dsl
         dist = profile[ klocs[3] ][1] - profile[ klocs[1] ][1]
         dsl = profile[ klocs[2] ][1] - profile[ klocs[1] ][1]
+        # Altitudes at the three points
         zz1 = profile[ klocs[1] ][2]
         zz2 = profile[ klocs[2] ][2]
         zz3 = profile[ klocs[3] ][2]
         zcrit = zz1 + (zz3-zz1) * dsl / dist
     end
+    
     if nmm > 3 || ( nmm == 3 && zz2 >= zcrit )
+        println("nmm > 3 || ( nmm == 3 && zz2 >= zcrit ): $(nmm > 3 || ( nmm == 3 && zz2 >= zcrit ))" )
         # Set up the source and receiver locations, normal to the corresponding plateaus
-        cosθ = 1
-        sinθ = 0
+        cosθ = 1.0
+        sinθ = 0.0
         Δx, Δz = hillxz[2] - hillxz[1]
         if Δx > 0
             θ = atan(Δz, Δx)
             cosθ = cos(θ)
             sinθ = sin(θ)
         end
+
         # Source location is hs above the start of the terrain cut
         srcloc = [ hillxz[1] + (0, src_h) ]
         # Reflect the original source image
         push!( srcloc, srcloc[1] + 2*src_h*cosθ*(sinθ, -cosθ) )
 
-        cosθ = 1
-        sinθ = 0
+        cosθ = 1.0
+        sinθ = 0.0
         Δx, Δz = hillxz[5] - hillxz[4]
         if Δx > 0
             θ = atan(Δz, Δx)
             cosθ = cos(θ)
             sinθ = sin(θ)
         end
+
         # Right over the end of the cut receiver
         recloc = [ hillxz[5] + (0, rec_h) ]
         # reflect the original receiver image
         push!( recloc, recloc[1] + 2*rec_h*cosθ*(sinθ, -cosθ) )
 
-        for i in 1:nfreq
+        for j in 1:nfreq
             if ihard > 0
-                attenh = bakkernn( srcloc, recloc, hillxz, flow_ress[2], flow_ress[2], flow_ress[2], freqs[i] )
+                attenh = bakkernn( srcloc, recloc, hillxz, flow_ress[2], flow_ress[2], flow_ress[2], freqs[j] )
                 atten = attenh
+                println("Atten H: $attenh")
             end
             if isoft > 0
-                attens = bakkernn( srcloc, recloc, hillxz, flow_ress[1], flow_ress[1], flow_ress[1], freqs[i] )
+                attens = bakkernn( srcloc, recloc, hillxz, flow_ress[1], flow_ress[1], flow_ress[1], freqs[j] )
                 atten = attens
+                println("Atten S: $attens")
             end
             if ihard > 0 && isoft > 0
                 atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
@@ -931,36 +984,43 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
 
   # ------------------------------------------------ Valley Model --------------------------------------------------- 
 
-
     if nmm == 3 && zz2 < zcrit
+        println("nmm == 3 && zz2 < zcrit: $(nmm == 3 && zz2 < zcrit)" )
         diff1 = profile[ klocs[2] ] - profile[ klocs[1] ]
         diff2 = profile[ klocs[3] ] - profile[ klocs[2] ]
 
-        α1 = atan( diff1... )
-        α2 = atan( diff2... )
+        α1 = atan( diff1[2], diff1[1] )
+        α2 = atan( diff2[2], diff2[1] )
         α = α2 - α1 + π
-
         # d0 = √( diff1[1]^2 + diff1[2]^2 )
         # d1 = √( diff2[1]^2 + diff2[2]^2 )
         d0, d1 = @. √sum( [diff1, diff2]^2 )
 
-        for i in 1:nfreq
+        for j in 1:nfreq
+            attenh = 0.0
+            attens = 0.0
             if ihard > 0
-                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[2], flow_ress[2], freqs[i] )
+                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[2], flow_ress[2], freqs[j] )
                 atten = attenh
+                println("Atten H: $attenh")
             end
             if isoft > 0
-                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[1], flow_ress[1], freqs[i] )
+                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[1], flow_ress[1], freqs[j] )
                 atten = attens
+                println("Atten S: $attens")
             end
             if ihard > 0 && isoft > 0
                 atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
             end
-            push!( attenuations[i], atten )
+            push!( attenuations, atten )
         end
     end
+
+    println("Nmm: $nmm")
     return attenuations
 end
+
+
 
 
 
@@ -989,14 +1049,14 @@ end
 
 
 #   https://tildesites.bowdoin.edu/~ltoma/teaching/cs350/spring06/Lecture-Handouts/gis-viewshedsKreveld.pdf
-
-function ground_loss( x0::Real, y0::Real, dB::Real, heights_map, impedences_map )
-end
-# Punto 3870, 4420 (centro):
-#   x = 723204.0
-#   y = 5065493.0
-#   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
-
+#=
+    function ground_loss( x0::Real, y0::Real, dB::Real, heights_map, impedences_map )
+    end
+    # Punto 3870, 4420 (centro):
+    #   x = 723204.0
+    #   y = 5065493.0
+    #   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
+=#
 
 x0 = 710705.0
 y0 = 5065493.0
@@ -1043,23 +1103,47 @@ row_end = r0 + cell_num
 col_begin = c0 - cell_num
 col_end = c0 + cell_num
 
-# Upper side of the square, plus the halves of left and right side above x axis
-top_idxs = [ (row_begin, col) for col in  col_begin:col_end ]
-left_idxs = [ (row, col_begin) for row in row_begin+1:r0-1 ]
+
+#= CREAZIONE PROFILI SU DUE QUADRANTI
+    # Upper side of the square, plus the halves of left and right side above x axis
+    top_idxs = [ (row_begin, col) for col in  col_begin:col_end ]
+    left_idxs = [ (row, col_begin) for row in row_begin+1:r0-1 ]
+    right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
+
+    # Vector with the indexis of the borders of the area of effect above the x axis
+    endpoints = vcat( right_idxs, top_idxs, left_idxs )
+
+
+    # Rotazioni:
+     #  xa₂ = x0 + (xa - x0)cos(θ) - (ya - y0)sin(θ)
+     #  ya₂ = y0 + (xa - x0)sin(θ) - (ya - y0)cos(θ)
+
+    # TUTTI GLI ARRAY TRANNE QUELLI MESSI MANUALMENTE HANNO UN VALORE IN MENO
+    # For each point compute the rasterization of the line that connects it to its symmetrical point using the center (r0 c0) as reference
+    for point in endpoints
+        # If the point is on the y axis or on the diagonals skip ( the points cannot be on the x axis by construction of the side indexis vectors )
+        if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+            continue
+        end
+        # Compute profile from center to point
+        heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
+        push!( heights_profiles, heights )
+        push!( coords_profiles, coords )
+        # Compute symmetrical profile
+        rm, cm = 2(r0, c0) - point
+        heights, coords = DDA( dtm, r0, c0, rm, cm )
+        push!( heights_profiles, heights )
+        push!( coords_profiles, coords )
+    end
+=#
+
+
+top_idxs = [ (row_begin, col) for col in  c0+1:col_end ]
 right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
-
-# Vector with the indexis of the borders of the area of effect above the x axis
-endpoints = vcat( right_idxs, top_idxs, left_idxs )
-
-
-# Rotazioni:
- #  xa₂ = x0 + (xa - x0)cos(θ) - (ya - y0)sin(θ)
- #  ya₂ = y0 + (xa - x0)sin(θ) - (ya - y0)cos(θ)
-
-# TUTTI GLI ARRAY TRANNE QUELLI MESSI MANUALMENTE HANNO UN VALORE IN MENO
-# For each point compute the rasterization of the line that connects it to its symmetrical point using the center (r0 c0) as reference
+# Vector containing the indexis of the points on first quadrant of the border of the area of interest
+endpoints = vcat( top_idxs, right_idxs )
+# For every aforementioned points compute the profile ranging from them and their rotations to the center point
 for point in endpoints
-    # If the point is on the y axis or on the diagonals skip ( the points cannot be on the x axis by construction of the side indexis vectors )
     if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
         continue
     end
@@ -1067,17 +1151,24 @@ for point in endpoints
     heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
     push!( heights_profiles, heights )
     push!( coords_profiles, coords )
-    # Compute symmetrical profile
-    rm, cm = 2(r0, c0) - point
-    heights, coords = DDA( dtm, r0, c0, rm, cm )
-    push!( heights_profiles, heights )
-    push!( coords_profiles, coords )
+    # Compute the profiles for the three points obtained by rotating the starting point by 90, 180 and 270 degrees respectively
+    for α in [90, 180, 270]
+        rm, cm = rotate_point( point[1], point[2], r0, c0, α )
+        heights, coords = DDA( dtm, r0, c0, rm, cm )
+        push!( heights_profiles, heights )
+        push!( coords_profiles, coords )
+    end
 end
+
 distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
 
+atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 
 
-atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+
+
+
+
 
 
 
@@ -1085,7 +1176,6 @@ atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_
 
 attenuations = []
 for i in 1:length(heights_profiles)
-    println(i)
     atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
     push!( attenuations, atten )
 end
