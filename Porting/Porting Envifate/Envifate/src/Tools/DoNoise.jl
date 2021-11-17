@@ -483,62 +483,62 @@ end
 function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::AbstractVector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
     
     # Delany-Bazley under source, berm and reciver
-    dbs = delbaz.( Ref(freq), [ src_flow_res, ber_flow_res, rec_flow_res ] )
+    dbs = delbaz.( freq, [ src_flow_res, ber_flow_res, rec_flow_res ] )
     waveno = 2.0 * π * freq / 340.0
 
  # Mirror Source
-    #   # Distance from image source to top of hill
-     #   Δx, Δy = hills[3] - src_loc[2]
-     #   rr = √( Δx^2 + Δy^2 )
-     #   # Angle from image to top of hill
-     #   θi = atan( Δy, Δx )
-     #   # Angle of the hillside
-     #   Δxh, Δyh = hills[3] - hills[2]
-     #   θh = atan( Δyh, Δxh )
-     #   
-     #   qs = 0.0 + 0.0im
-     #   if θi < θh
-     #       # Angle of the flat
-     #       Δxf, Δyf = hills[2] - hills[1]
-     #       θf = atan2(Δyf,Δxf)
-     #       # Angle of the image path relative to the flat
-     #       θ = θi - θf
-     #       # Net image source to receiver height, as needed by QQ
-     #       Δz = rr * sin(θ)
-     #   
-     #       rr = abs( rr * cos(θ) )
-     #       qs = qq( rr, Δz, waveno, dbs[1] )
-    #   end
-    rr_Δz = calc_mirror( src_loc[2], hills, source=true )
-    qs = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
+    # Distance from image source to top of hill
+    Δx, Δy = hills[3] - src_loc[2]
+    rr = √( Δx^2 + Δy^2 )
+    # Angle from image to top of hill
+    θi = atan( Δy, Δx )
+    # Angle of the hillside
+    Δxh, Δyh = hills[3] - hills[2]
+    θh = atan( Δyh, Δxh )
+    
+    qs = 0.0 + 0.0im
+    if θi < θh
+        # Angle of the flat
+        Δxf, Δyf = hills[2] - hills[1]
+        θf = atan2(Δyf,Δxf)
+        # Angle of the image path relative to the flat
+        θ = θi - θf
+        # Net image source to receiver height, as needed by QQ
+        Δz = rr * sin(θ)
+    
+        rr = abs( rr * cos(θ) )
+        qs = qq( rr, Δz, waveno, dbs[1] )
+    end
+    #   rr_Δz = calc_mirror( src_loc[2], hills, source=true )
+    #   qs = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
 
  # Mirror Receiver
-    #   # Distance from image receiver to top of hill
-     #   Δx = rec_loc[2][1] - hills[3][1]
-     #   Δy = hills[3][2] - rec_loc[2][2]
-     #   rr = √( Δx^2 + Δy^2 )
-     #   # Angle from image to top of hill
-     #   θi = atan( Δy, Δx )
-     #   # Angle of the hillside
-     #   Δxh = hills[4][1] - hills[3][1]
-     #   Δyh = hills[3][2] - hills[4][2]
-     #   θh = atan( Δyh, Δxh )#
-     #   
-     #   qr = 0.0 + 0.0im
-     #   if θi < θh
-     #       # Angle of the flat
-     #       Δxf = hills[5][1] - hills[4][1]
-     #       Δyf = hills[4][2] - hills[5][2]
-     #       θf = atan( Δyf, Δxf )
-     #       # Angle of the image path relative to the flat
-     #       θ = θi - θf
-     #       # Net image source to receiver height, as needed by QQ
-     #       Δz = rr * sin(θ)
-     #       rr = abs( rr * cos(θ) )
-     #       qr = ( rr, Δz, waveno, dbs[1] )
-    #   end
-    rr_Δz = calc_mirror( rec_loc[2], hills, source=false )
-    qr = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
+    # Distance from image receiver to top of hill
+    Δx = rec_loc[2][1] - hills[3][1]
+    Δy = hills[3][2] - rec_loc[2][2]
+    rr = √( Δx^2 + Δy^2 )
+    # Angle from image to top of hill
+    θi = atan( Δy, Δx )
+    # Angle of the hillside
+    Δxh = hills[4][1] - hills[3][1]
+    Δyh = hills[3][2] - hills[4][2]
+    θh = atan( Δyh, Δxh )
+    
+    qr = 0.0 + 0.0im
+    if θi < θh
+        # Angle of the flat
+        Δxf = hills[5][1] - hills[4][1]
+        Δyf = hills[4][2] - hills[5][2]
+        θf = atan( Δyf, Δxf )
+        # Angle of the image path relative to the flat
+        θ = θi - θf
+        # Net image source to receiver height, as needed by QQ
+        Δz = rr * sin(θ)
+        rr = abs( rr * cos(θ) )
+        qr = qq( rr, Δz, waveno, dbs[1] )
+    end
+    #   rr_Δz = calc_mirror( rec_loc[2], hills, source=false )
+    #   qr = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
 
  # Wedge Angle
     Δx, Δz = hills[3] - hills[2]
@@ -549,9 +549,12 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
     θ = θ1 + θ2
 
     pt = 0.0 + 0.0im
-    f0dir = f1dir = f0refl = f1refl = 0
+    f0dir = 0
+    f1dir = 0
+    f0refl = 0
+    f1refl = 0
     for i in 1:4
-        src_i = i == 1 || i == 3 ? 1 : 2
+        src_i = ( i == 1 || i == 3 ) ? 1 : 2
         rec_i = i <= 2 ? 1 : 2
 
         relev_refl_factor = i == 2 ? qs :
@@ -584,7 +587,7 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
 
         tot_propag_path = rh0 + rh1
 
-        if f0 > 0 && (f1 + θ) < (2.0 * π)
+        if f0 > 0 && ( (f1 + θ) < (2.0 * π) )
             h_over_wedgeleg = sin(f0) * tot_propag_path
             wedge_impedence1 = qq( tot_propag_path, h_over_wedgeleg, waveno, dbs[2] )
             h_over_wedgeleg = sin( 2 * π - f1 - θ ) * tot_propag_path
