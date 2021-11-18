@@ -11,7 +11,7 @@ using GeoStats
 using Plots
 using Shapefile
 
-Base.convert(::Type{Int64}, n::Float64) = Int64(round(n))
+Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
 Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
 Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
 Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
@@ -24,10 +24,11 @@ Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
 Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
 Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
-toInt( n::Number, method::Function=round )::Int64 =  n isa Int64 ? n : Int64( method(n) )
+repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
+
 # Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)" 
-rotate_x( xp, yp, xc, yc, θ ) = toInt( (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
-rotate_y( xp, yp, xc, yc, θ ) = toInt( (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
+rotate_x( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
+rotate_y( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
 rotate_point( xp, yp, xc, yc, θ ) = ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
 
 """
@@ -480,8 +481,7 @@ function calc_mirror( locs, points; source::Bool )
     end
 end
 
-function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::AbstractVector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
-    
+function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::AbstractVector, src_flow_res::Real, ber_flow_res::Real, rec_flow_res::Real, freq::Real )::Real
     # Delany-Bazley under source, berm and reciver
     dbs = delbaz.( freq, [ src_flow_res, ber_flow_res, rec_flow_res ] )
     waveno = 2.0 * π * freq / 340.0
@@ -500,7 +500,7 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
     if θi < θh
         # Angle of the flat
         Δxf, Δyf = hills[2] - hills[1]
-        θf = atan2(Δyf,Δxf)
+        θf = atan( Δyf, Δxf )
         # Angle of the image path relative to the flat
         θ = θi - θf
         # Net image source to receiver height, as needed by QQ
@@ -587,7 +587,7 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
 
         tot_propag_path = rh0 + rh1
 
-        if f0 > 0 && ( (f1 + θ) < (2.0 * π) )
+        if f0 > 0 && ( (f1 + θ) < 2.0π )
             h_over_wedgeleg = sin(f0) * tot_propag_path
             wedge_impedence1 = qq( tot_propag_path, h_over_wedgeleg, waveno, dbs[2] )
             h_over_wedgeleg = sin( 2 * π - f1 - θ ) * tot_propag_path
@@ -595,19 +595,26 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
 
             a = rh0 * rh1 / tot_propag_path
             any = 2.0 - θ / π
+            dif1 = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno )
+            dif2 = diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1
+            dif3 = diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2
+            dif4 = diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
+            pl = dif1 + dif2 + dif3 + dif4
+
             # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
             #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
             #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
             #        diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2 +
             #        diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
-            pl = sum( diffraction.(
-                        tot_propag_path,
-                        a,
-                        [ f1-f0, f1+f0, f1+f0, f1-f0 ],
-                        [  -1.0,  -1.0,   1.0,   1.0 ],
-                        any,
-                        waveno
-                      ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
+
+            #   pl = sum( diffraction.(
+            #               tot_propag_path,
+            #               a,
+            #               [ f1-f0, f1+f0, f1+f0, f1-f0 ],
+            #               [  -1.0,  -1.0,   1.0,   1.0 ],
+            #               any,
+            #               waveno
+            #             ) .* [ 1.0, wedge_impedence1, wedge_impedence2, wedge_impedence1*wedge_impedence2 ] )
             pl *= relev_refl_factor
             pt += pl
         end
@@ -621,14 +628,14 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
         pt += po
     end
  # Path mirrored source to receiver
-    if π + f0refl - f1refl > 0
+    if π + f0refl - f1dir > 0
         Δx, Δz = rec_loc[1] - src_loc[2]
         rd = √( Δx^2 + Δz^2 )
         po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, dbs[1] ) / complex(rd, 0.0)
         pt += po
     end   
  # Path source to mirrored receiver
-    if π + f0refl - f1dir > 0
+    if π + f0dir - f1refl > 0
         Δx, Δz = rec_loc[2] - src_loc[1]
         rd = √( Δx^2 + Δz^2 )
         po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, dbs[1] ) / complex(rd, 0.0)
@@ -643,13 +650,11 @@ function bakkernn( src_loc::AbstractVector, rec_loc::AbstractVector, hills::Abst
 end
 
 function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_solpe_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
-    
     # Delany-Bazley for source and receiver leg
     dbs = delbaz.( freq, [flow_res1, flow_res2] )
     waveno = 2.0 * π * freq / 340.0
 
     calc_r( ra, rb, α ) = √( ra^2 + rb^2 - 2.0 * ra * rb * cos(α) )
-
 
     rh0 = √( src_h^2 + first_second_dist^2 )
     rh1 = √( rec_h^2 + second_third_dist^2 )
@@ -697,14 +702,14 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
     θ = atan(rec_h, first_second_dist)
 
     if ( f1 - f0 + 2.0 * θ ) < π
-        rr = clac_r( rh0, rh1, f1-f0+2.0*θ )
+        rr = calc_r( rh0, rh1, f1-f0+2.0*θ )
         q = qq(rr, rec_h+rh0*sin(f0 + src_solpe_α - π), waveno, dbs[2] )
         pr = ℯ^complex(0.0, waveno*rr) / complex(rr, 0.0) * q
         pl += pr
     end
 
     if ( f1 + f0 + 2.0 * θ ) < π
-        rb = clac_r( rh0, rh1, f1+f0+2.0*θ )
+        rb = calc_r( rh0, rh1, f1+f0+2.0*θ )
         q1 = qq(rb, src_h+rh1*sin(2.0 * src_solpe_α - 3.0 * π + f1), waveno, dbs[1] )
         q2 = qq(rb, src_h+rh0*sin(-f0 + src_solpe_α - π), waveno, dbs[2] )
         pb = ℯ^complex(0.0, waveno*rb) / complex(rb, 0.0) * q1 * q2
@@ -773,18 +778,6 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
     return 4.34log( (rd*abs(pl))^2 )
 end
 =#
-
-
-
-atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-
-atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-
-atten = onCut( distances_profiles[600], heights_profiles[600], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-
-atten = onCut( distances_profiles[201], heights_profiles[201], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-
-
 
 function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
 
@@ -891,7 +884,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
   # ----------------------------------------------- Level Model ----------------------------------------------------- 
     
     if nmm <= 2
-        println("nmm <= 2: $(nmm <= 2)" )
         ax = profile[1][1]
         ay = 0.0
         az = profile[1][2]
@@ -925,7 +917,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     zz2 = 0
     zcrit = 0
     if nmm == 3
-        println("nmm == 3: $(nmm == 3)" )
         # Total distance dist and distance to second point dsl
         dist = profile[ klocs[3] ][1] - profile[ klocs[1] ][1]
         dsl = profile[ klocs[2] ][1] - profile[ klocs[1] ][1]
@@ -937,7 +928,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     end
     
     if nmm > 3 || ( nmm == 3 && zz2 >= zcrit )
-        println("nmm > 3 || ( nmm == 3 && zz2 >= zcrit ): $(nmm > 3 || ( nmm == 3 && zz2 >= zcrit ))" )
         # Set up the source and receiver locations, normal to the corresponding plateaus
         cosθ = 1.0
         sinθ = 0.0
@@ -969,14 +959,12 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
 
         for j in 1:nfreq
             if ihard > 0
-                attenh = bakkernn( srcloc, recloc, hillxz, flow_ress[2], flow_ress[2], flow_ress[2], freqs[j] )
+                attenh = bakkernn( hillxz, srcloc, recloc, flow_ress[2], flow_ress[2], flow_ress[2], freqs[j] )
                 atten = attenh
-                println("Atten H: $attenh")
             end
             if isoft > 0
-                attens = bakkernn( srcloc, recloc, hillxz, flow_ress[1], flow_ress[1], flow_ress[1], freqs[j] )
+                attens = bakkernn( hillxz, srcloc, recloc, flow_ress[1], flow_ress[1], flow_ress[1], freqs[j] )
                 atten = attens
-                println("Atten S: $attens")
             end
             if ihard > 0 && isoft > 0
                 atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
@@ -988,7 +976,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
   # ------------------------------------------------ Valley Model --------------------------------------------------- 
 
     if nmm == 3 && zz2 < zcrit
-        println("nmm == 3 && zz2 < zcrit: $(nmm == 3 && zz2 < zcrit)" )
         diff1 = profile[ klocs[2] ] - profile[ klocs[1] ]
         diff2 = profile[ klocs[3] ] - profile[ klocs[2] ]
 
@@ -1005,12 +992,10 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
             if ihard > 0
                 attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[2], flow_ress[2], freqs[j] )
                 atten = attenh
-                println("Atten H: $attenh")
             end
             if isoft > 0
-                attenh = dal( d0, d1, src_h, rec_h, α, flow_ress[1], flow_ress[1], freqs[j] )
+                attens = dal( d0, d1, src_h, rec_h, α, flow_ress[1], flow_ress[1], freqs[j] )
                 atten = attens
-                println("Atten S: $attens")
             end
             if ihard > 0 && isoft > 0
                 atten = varysurf( distances, ignd, src_h, rec_h, attens, attenh )
@@ -1019,12 +1004,17 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         end
     end
 
-    println("Nmm: $nmm")
     return attenuations
 end
 
 
 
+
+atten = onCut( distances_profiles[5], heights_profiles[5], repeat!([1001], length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles[1])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+atten = onCut( distances_profiles[603], heights_profiles[603], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+atten = onCut( distances_profiles[1001], heights_profiles[1001], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 
 
 
@@ -1041,8 +1031,9 @@ function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
     heigths_profile = []
     coords_profile = []
     for i in 1:steps
-        push!( heigths_profile, map[toInt(x), toInt(y)][1] )
-        push!( coords_profile, Tuple(GeoArrays.coords( map, [toInt(x), toInt(y)])) )
+        xint, yint = round.(Int64, [x, y])
+        push!( heigths_profile, map[xint, yint][1] )
+        push!( coords_profile, Tuple(GeoArrays.coords( map, [xint, yint])) )
         x += x_inc
         y += y_inc
     end
@@ -1051,15 +1042,77 @@ end
 
 
 
-#   https://tildesites.bowdoin.edu/~ltoma/teaching/cs350/spring06/Lecture-Handouts/gis-viewshedsKreveld.pdf
-#=
-    function ground_loss( x0::Real, y0::Real, dB::Real, heights_map, impedences_map )
+function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString, impedences_map::AbstractString )
+ # BISOGNA DECIDERE SE LEGGERE IL DTM O PASSARLO COME PARAMETRO
+    dtm = GeoArrays.read(heights_map)
+    # Coordinate dei punti
+    x1, y1 = GeoArrays.coords( dtm, [1,1] )
+    xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
+    # Dimensioni in metri di una cella
+    Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
+    
+    dB -= 32
+    r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
+    max_radius = ceil(10^(dB/20))
+    cell_num = ceil( Int64, max_radius/Δx )
+
+    heights_profiles = [
+        dtm[ r0, c0:-1:c0-cell_num ], # x axis first half
+        dtm[ r0, c0:c0+cell_num ], # x axis second half
+        dtm[ r0:-1:r0-cell_num, c0 ], # y axis first half
+        dtm[ r0:r0+cell_num, c0 ], # y axis second half
+        [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal first half
+        [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal second half
+        [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal 1
+        [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal 2
+    ]
+
+    coords_profiles = [
+        [ GeoArrays.coords(dtm, [r0, col]) for col in c0:-1:c0-cell_num ],
+        [ GeoArrays.coords(dtm, [r0, col]) for col in c0:c0+cell_num ],
+        [ GeoArrays.coords(dtm, [row, c0]) for row in r0:-1:r0-cell_num ],
+        [ GeoArrays.coords(dtm, [row, c0]) for row in r0:r0+cell_num ],
+        [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:-1:-cell_num ],
+        [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:cell_num ],
+        [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:-1:-cell_num ],
+        [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:cell_num ],
+    ]
+
+    row_begin = r0 - cell_num
+    col_end = c0 + cell_num
+
+    top_idxs = [ (row_begin, col) for col in  c0+1:col_end ]
+    right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
+    # Vector containing the indexis of the points on first quadrant of the border of the area of interest
+    endpoints = vcat( top_idxs, right_idxs )
+    # For every aforementioned points compute the profile ranging from them and their rotations to the center point
+    for point in endpoints
+        if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+            continue
+        end
+        # Compute profile from center to point
+        heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
+        push!( heights_profiles, heights )
+        push!( coords_profiles, coords )
+        # Compute the profiles for the three points obtained by rotating the starting point by 90, 180 and 270 degrees respectively
+        for α in [90, 180, 270]
+            rm, cm = rotate_point( point[1], point[2], r0, c0, α )
+            heights, coords = DDA( dtm, r0, c0, rm, cm )
+            push!( heights_profiles, heights )
+            push!( coords_profiles, coords )
+        end
     end
-    # Punto 3870, 4420 (centro):
-    #   x = 723204.0
-    #   y = 5065493.0
-    #   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
-=#
+    distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
+    attenuations = []
+    for i in 1:length(heights_profiles)
+        atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles[i])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+        push!( attenuations, atten )
+    end
+end
+# Punto 3870, 4420 (centro):
+#   x = 723204.0
+#   y = 5065493.0
+#   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
 
 x0 = 710705.0
 y0 = 5065493.0
@@ -1074,30 +1127,30 @@ xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
 dB = 110 - 32
 r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
 max_radius = ceil(10^(dB/20))
-cell_num = toInt( max_radius / Δx, ceil )
+cell_num = ceil( Int64, max_radius/Δx )
 
 heights_profiles = [
-    dtm[ r0, c0-cell_num:c0 ], # x axis 1
+    dtm[ r0, c0:-1:c0-cell_num ], # x axis 1
     dtm[ r0, c0:c0+cell_num ], # x axis 2
-    dtm[ r0-cell_num:r0, c0 ], # y axis 1
+    dtm[ r0:-1:r0-cell_num, c0 ], # y axis 1
     dtm[ r0:r0+cell_num, c0 ], # y axis 2
     # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
     # MANCANO I VALORI DI x0y0
-    [ dtm[r0+i, c0-i][1] for i in (-cell_num):0 ], # first diagonal 1
+    [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal 1
     [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal 2
-    [ dtm[r0+i, c0+i][1] for i in (-cell_num):0 ], # second diagonal 1
+    [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal 1
     [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal 2
     # vcat( [ dtm[r0+i, c0-i] for i in 1:cell_num ],  [ dtm[r0-i, c0+i] for i in 1:cell_num ] ), # first diagonal
     # vcat( [ dtm[r0-i, c0-i] for i in 1:cell_num ],  [ dtm[r0+i, c0+i] for i in 1:cell_num ] ) # second diagonal
 ]
 coords_profiles = [
-    [ GeoArrays.coords(dtm, [r0, col]) for col in c0-cell_num:c0 ],
+    [ GeoArrays.coords(dtm, [r0, col]) for col in c0:-1:c0-cell_num ],
     [ GeoArrays.coords(dtm, [r0, col]) for col in c0:c0+cell_num ],
-    [ GeoArrays.coords(dtm, [row, c0]) for row in r0-cell_num:r0 ],
+    [ GeoArrays.coords(dtm, [row, c0]) for row in r0:-1:r0-cell_num ],
     [ GeoArrays.coords(dtm, [row, c0]) for row in r0:r0+cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in (-cell_num):0 ],
+    [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:-1:-cell_num ],
     [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in (-cell_num):0 ],
+    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:-1:-cell_num ],
     [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:cell_num ],
 ]
 
@@ -1179,7 +1232,7 @@ atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_
 
 attenuations = []
 for i in 1:length(heights_profiles)
-    atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
+    atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles[i])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
     push!( attenuations, atten )
 end
 
@@ -1241,12 +1294,12 @@ end
     centers = centroid.(g)
     plot!(centers)
 
-    size = convert( Int64, √length(centers) )
-    start = size * Int64(floor(size/2)) + 1
+    size = round(Int64, √length(centers))
+    start = size * floor(Int64, size/2) + 1
     x_axis = centers[ start:start+size-1 ]
     plot!(x_axis, c=:blue )
 
-    start = convert( Int64, ceil(size/2) )
+    start = ceil(Int64, size/2)
     y_axis = centers[[ start + size*i for i in 0:size-1 ]]
     plot!(y_axis, c=:red )
 
@@ -1258,7 +1311,7 @@ end
 
     is = collect(x0:size)
     x0 = y0 = Int64(round(size/2))
-    r = Int64(floor(size/2))
+    r = floor(Int64, size/2)
     radius_y(x) = Int64( round( √( r^2 - (x-x0)^2 ) + y0 ) )
     idxs = ( radius_y.(is) .- 1 )
     half_circle = centers[idxs]
