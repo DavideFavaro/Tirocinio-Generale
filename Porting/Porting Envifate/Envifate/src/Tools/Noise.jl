@@ -304,70 +304,70 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
                                          ) * e_wind_vel/10.0
                              )
         e_turbulence_scale = 10e3 / freq
-    end
 
-    rr = [
-             √( d1^2 + (src_h - ha)^2 ),
-             √( d1^2 + (src_h + ha)^2 ),
-             √( d2^2 + (ha - rec_h)^2 ),
-             √( d2^2 + (ha + rec_h)^2 ) 
-         ]
+        eq(x, rrn, rrm ) = ℯ^complex( 0.0, -x*(rrn + rrm) )
+        eq_cr( rrn, rrm ) = rrm * √( rrm * rrn * (rrn + rrm) )
+        eq_jarr( kv, k, rrn, rrm; q1=nothing, q2=nothing ) =  ( eq(kv, rrn, rrm) - eq(k, rrn, rrm) ) * ( isnothing(q1) ? 1 : q1 ) * ( isnothing(q2) ? 1 : q2 ) / complex( eq_cr(rrn, rrm), 0.0 ) 
 
-    eq(x, rrn, rrm ) = ℯ^complex( 0.0, -x*(rrn + rrm) )
-    eq_cr( rrn, rrm ) = rrm * √( rrm * rrn * (rrn + rrm) )
-    eq_jarr( kv, k, rrn, rrm; q1=nothing, q2=nothing ) =  ( eq(kv, rrn, rrm) - eq(k, rrn, rrm) ) * ( isnothing(q1) ? 1 : q1 ) * ( isnothing(q2) ? 1 : q2 ) / complex( eq_cr(rrn, rrm), 0.0 ) 
+        for j in 1:m
+            ha = (j-1) * (la/6.0) + (la/10.0)
+ #  NON CAPISCO SE CI VA `turbulence` O COSA
+            v = [ e_wind_vel + turbulence / 10.0 * cos( ha * 2π/e_turbulence_scale ) ]
+            push!( 
+                v,
+                2e_wind_vel - v[1],
+                e_wind_vel
+            )
 
-    for j in 1:m
-        ha = (j-1) * (la/6.0) + (la/10.0)
- #   NON CAPISCO SE CI VA `turbulence` O COSA
-        v = [ e_wind_vel + turbulence / 10.0 * cos( ha * 2.0 * π / e_turbulence_scale ) ]
-        push!( 
-            v,
-            2.0 * e_wind_vel - v[1],
-            e_wind_vel
-        )
+            for i in 1:3
+                kv[i] = 2.0 * π * freq / ( 340.0 + (ha/2.0) * v[i]/10.0 )
 
-        for i in 1:3
-            kv[i] = 2.0 * π * freq / ( 340.0 + (ha/2.0) * v[i]/10.0 )
+                rr = [
+                    √( d1^2 + (src_h - ha)^2 ),
+                    √( d1^2 + (src_h + ha)^2 ),
+                    √( d2^2 + (ha - rec_h)^2 ),
+                    √( d2^2 + (ha + rec_h)^2 ) 
+                ]
 
-            #   cr = eq_cr( rr[1], rr[3] )
-            #   jarray[i] = ( eq( kv[i], rr[1], rr[3] ) - eq( fixed_speed, rr[1], rr[3] ) ) / (cr + 0.0im)
-            #   db[i] += jarray[i]
-  
-            #   q2 = qq2( d2, ha, rec_h, freq, rec_rx )
-            #   cr = eq_cr( rr[1], rr[4] )
-            #   jarray[i] = ( eq( kv[i], rr[1], rr[4] ) - eq( fixed_speed, rr[1], rr[4] ) ) * q2 / (cr + 0.0im)
-            #   db[i] += jarray[i]
-            #   
-            #   q1 = qq2( d1, src_h, ha, freq, src_rx )
-            #   cr = eq_cr( rr[2], rr[3] )
-            #   jarray[i] = ( eq( kv[i], rr[2], rr[3] ) - eq( fixed_speed, rr[2], rr[3] ) ) * q1 / (cr + 0im)
-            #   db[i] += jarray[i]
-  
-            #   cr = eq_cr( rr[2], rr[4] )
-            #   jarray[i] = ( eq( kv[i], rr[2], rr[4] ) - eq( fixed_speed, rr[2], rr[4] ) ) * q1 * q2 / (cr + 0im)
-            #   db[i] += jarray[i]
-            jarray = [
-                eq_jarr( kv[i], fixed_speed, rr[1], rr[3] ),
-                eq_jarr( kv[i], fixed_speed, rr[1], rr[4], q2=q2 ),
-                eq_jarr( kv[i], fixed_speed, rr[2], rr[3], q1=q1 ),
-                eq_jarr( kv[i], fixed_speed, rr[2], rr[4], q1=q1, q2=q2 )  
-            ]
-            for val in jarray
-                db[i] += val
+                #   cr = eq_cr( rr[1], rr[3] )
+                #   jarray[i] = ( eq( kv[i], rr[1], rr[3] ) - eq( fixed_speed, rr[1], rr[3] ) ) / (cr + 0.0im)
+                #   db[i] += jarray[i]
+            
+                #   q2 = qq2( d2, ha, rec_h, freq, rec_rx )
+                #   cr = eq_cr( rr[1], rr[4] )
+                #   jarray[i] = ( eq( kv[i], rr[1], rr[4] ) - eq( fixed_speed, rr[1], rr[4] ) ) * q2 / (cr + 0.0im)
+                #   db[i] += jarray[i]
+                #   
+                #   q1 = qq2( d1, src_h, ha, freq, src_rx )
+                #   cr = eq_cr( rr[2], rr[3] )
+                #   jarray[i] = ( eq( kv[i], rr[2], rr[3] ) - eq( fixed_speed, rr[2], rr[3] ) ) * q1 / (cr + 0im)
+                #   db[i] += jarray[i]
+            
+                #   cr = eq_cr( rr[2], rr[4] )
+                #   jarray[i] = ( eq( kv[i], rr[2], rr[4] ) - eq( fixed_speed, rr[2], rr[4] ) ) * q1 * q2 / (cr + 0im)
+                #   db[i] += jarray[i]
+                jarray = [
+                    eq_jarr( kv[i], fixed_speed, rr[1], rr[3] ),
+                    eq_jarr( kv[i], fixed_speed, rr[1], rr[4], q2=q2 ),
+                    eq_jarr( kv[i], fixed_speed, rr[2], rr[3], q1=q1 ),
+                    eq_jarr( kv[i], fixed_speed, rr[2], rr[4], q1=q1, q2=q2 )  
+                ]
+                for val in jarray
+                    db[i] += val
+                end
             end
         end
+
+        c = ℯ^complex( 0.0, π/4.0 )
+        crh = (la / 6.0) * d2 * √(8.0 * π * k) / (16.0 * π^2)
+        c *= crh + 0.0im
+
+        db .*= c
+
     end
-
-    c = ℯ^complex( 0.0, π/4.0 )
-    crh = (la / 6.0) * d2 * √(8.0 * π * k) / (16.0 * π^2)
-    c *= crh + 0.0im
-
-    db .*= c
-
     q2 = qq2( d1+d2, src_h, rec_h, freq, rec_rx )
-    c = ℯ^complex( 0.0, -k*rr ) / complex( rr, 0.0 ) * q2
-    ch = ℯ^complex( 0.0, -k*rd ) / complex( rd, 0.0 )
+    c = ℯ^complex( 0.0, -fixed_speed*rr ) / complex( rr, 0.0 ) * q2
+    ch = ℯ^complex( 0.0, -fixed_speed*rd ) / complex( rd, 0.0 )
     c += ch
 
     c = c / complex( 4.0*π, 0.0 )
@@ -649,7 +649,7 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
     return level
 end
 
-function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_solpe_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
+function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec_h::Real, src_slope_α::Real, flow_res1::Real, flow_res2::Real, freq::Real )::Real
     # Delany-Bazley for source and receiver leg
     dbs = delbaz.( freq, [flow_res1, flow_res2] )
     waveno = 2.0 * π * freq / 340.0
@@ -660,20 +660,18 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
     rh1 = √( rec_h^2 + second_third_dist^2 )
     r1 = rh0 + rh1
     f0 = atan(src_h, first_second_dist)
-    f1 = 2.0 * π - src_solpe_α - atan(rec_h, second_third_dist)
+    f1 = 2.0 * π - src_slope_α - atan(rec_h, second_third_dist)
 
     rd = calc_r( rh0, rh1, f0-f1 )
     direct_field = ℯ^complex(0.0, waveno*rd) / complex(rd, 0.0)
 
     h_over_wedgeleg = sin(f0) * r1
     wedge_impedence1 = qq( r1, h_over_wedgeleg, waveno, dbs[1] )
- #NON SO SE E' UN ERRORE
-    # h_over_wedgeleg = sin(2.0 * π - f1 - src_solpe_α) * r1
-    h_over_wedgeleg = sin(f1) * r1
+    h_over_wedgeleg = sin(2.0 * π - f1 - src_slope_α) * r1
     wedge_impedence2 = qq( r1, h_over_wedgeleg, waveno, dbs[2] )
 
     a = rh0 * rh1 / r1
-    any = 2.0 - src_solpe_α / π
+    any = 2.0 - src_slope_α / π
  # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
     #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
     #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
@@ -703,15 +701,15 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 
     if ( f1 - f0 + 2.0 * θ ) < π
         rr = calc_r( rh0, rh1, f1-f0+2.0*θ )
-        q = qq(rr, rec_h+rh0*sin(f0 + src_solpe_α - π), waveno, dbs[2] )
+        q = qq(rr, rec_h+rh0*sin(f0 + src_slope_α - π), waveno, dbs[2] )
         pr = ℯ^complex(0.0, waveno*rr) / complex(rr, 0.0) * q
         pl += pr
     end
 
     if ( f1 + f0 + 2.0 * θ ) < π
         rb = calc_r( rh0, rh1, f1+f0+2.0*θ )
-        q1 = qq(rb, src_h+rh1*sin(2.0 * src_solpe_α - 3.0 * π + f1), waveno, dbs[1] )
-        q2 = qq(rb, src_h+rh0*sin(-f0 + src_solpe_α - π), waveno, dbs[2] )
+        q1 = qq(rb, src_h+rh1*sin(2.0 * src_slope_α - 3.0 * π + f1), waveno, dbs[1] )
+        q2 = qq(rb, src_h+rh0*sin(-f0 + src_slope_α - π), waveno, dbs[2] )
         pb = ℯ^complex(0.0, waveno*rb) / complex(rb, 0.0) * q1 * q2
         pl += pb
     end
@@ -897,12 +895,12 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
             duml = 0.0
             if ihard > 0
     # NON MI E' CHIARO IL SENSO DI "duml"
-                duml, atten = egal( d/2, d/2, src_h, rec_h, flow_ress[2], flow_ress[2], 0.0, 0.0, 0.0, freq[j], duml )
+                duml, atten = egal( d/2, d/2, src_h, rec_h, flow_ress[2], flow_ress[2], 0.0, 0.0, 0.0, freqs[j], duml )
                 atten = attenh
             end
             if isoft > 0
     # NON MI E' CHIARO IL SENSO DI "duml"
-                duml, attens = egal( d/2, d/2, src_h, rec_h, flow_ress[1], flow_ress[1], 0.0, 0.0, 0.0, freq[j], duml )
+                duml, attens = egal( d/2, d/2, src_h, rec_h, flow_ress[1], flow_ress[1], 0.0, 0.0, 0.0, freqs[j], duml )
                 atten = attens
             end
             if ihard > 0 && isoft > 0
@@ -1009,13 +1007,13 @@ end
 
 
 
-
+#=
 atten = onCut( distances_profiles[5], heights_profiles[5], repeat!([1001], length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles[1])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 atten = onCut( distances_profiles[603], heights_profiles[603], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 atten = onCut( distances_profiles[1001], heights_profiles[1001], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-
+=#
 
 
 
@@ -1041,7 +1039,7 @@ function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
 end
 
 
-
+#=
 function ground_loss( x0::Real, y0::Real, dB::Real, heights_map::AbstractString, impedences_map::AbstractString )
  # BISOGNA DECIDERE SE LEGGERE IL DTM O PASSARLO COME PARAMETRO
     dtm = GeoArrays.read(heights_map)
@@ -1113,6 +1111,9 @@ end
 #   x = 723204.0
 #   y = 5065493.0
 #   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
+=#
+
+
 
 x0 = 710705.0
 y0 = 5065493.0
@@ -1134,8 +1135,6 @@ heights_profiles = [
     dtm[ r0, c0:c0+cell_num ], # x axis 2
     dtm[ r0:-1:r0-cell_num, c0 ], # y axis 1
     dtm[ r0:r0+cell_num, c0 ], # y axis 2
-    # I VALORI OTTENUTI IN QUESTO MODO NON SONO IN ORDINE
-    # MANCANO I VALORI DI x0y0
     [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal 1
     [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal 2
     [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal 1
@@ -1218,23 +1217,45 @@ end
 
 distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
 
-atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles)), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
 
-
-
-
-
-
-
-
-
-
-
+#=
 attenuations = []
 for i in 1:length(heights_profiles)
     atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles[i])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
     push!( attenuations, atten )
 end
+=#
+attenuations = []
+for i in 1:length(heights_profiles)
+    attens = []
+    for j in 2:length(heights_profiles[i])
+        atten = onCut( distances_profiles[i][1:j], heights_profiles[i][1:j], zeros(length(heights_profiles[i][1:j])), dtm[r0,c0][1], heights_profiles[1][j], 1, [dB] )
+        push!( attens, atten )
+    end
+    push!( attenuations, attens )
+end
+
+points = []
+for ( profile, results ) in zip( coords_profiles, attenuations )
+    pnts = [ (
+                .-( GeoArrays.indices(dtm, [coords...]), [row_begin, col_begin] )...,
+                coords[1],
+                coords[2],
+                atten[1]
+             ) for (coords, atten) in zip(profile, results) ]
+    push!( points, pnts )
+end
+
+mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
+for ( profile, results ) in zip( coords_profiles, attenuations )
+    for (coords, atten) in zip(profile, results)
+        row, col = Int64.( GeoArrays.indices(dtm, [coords...]) .- [row_begin, col_begin] )
+        if ismissing(mat[row, col]) || mat[row, col][3]  < atten[1]
+            mat[row, col] = ( coords[1], coords[2], atten[1] )
+        end
+    end
+end
+
 
 
 
