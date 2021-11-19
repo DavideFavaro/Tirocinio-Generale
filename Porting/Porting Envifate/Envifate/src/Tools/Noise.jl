@@ -836,9 +836,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     nmm = 1
     for i in 1:3
         push!( hillxz, profile[ points[i][1] ] )
- # NEL CODICE METTONO CHE SE "points[i][1] == klocs[nmm]" VANNO AL CONTINUE
-  # SCRITTO ALLA FINE DEL CICLO, NON SO SE VOGLIA DIRE CHE IN QUEL CASO SALTA
-  # TUTTO IL CICLO
         if points[i][1] != klocs[nmm]
             nmm += 1
             if length(klocs) >= nmm
@@ -1127,6 +1124,7 @@ xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
 
 dB = 110 - 32
 r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
+h0 = dtm[r0, c0][1]
 max_radius = ceil(10^(dB/20))
 cell_num = ceil( Int64, max_radius/Δx )
 
@@ -1139,8 +1137,6 @@ heights_profiles = [
     [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal 2
     [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal 1
     [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal 2
-    # vcat( [ dtm[r0+i, c0-i] for i in 1:cell_num ],  [ dtm[r0-i, c0+i] for i in 1:cell_num ] ), # first diagonal
-    # vcat( [ dtm[r0-i, c0-i] for i in 1:cell_num ],  [ dtm[r0+i, c0+i] for i in 1:cell_num ] ) # second diagonal
 ]
 coords_profiles = [
     [ GeoArrays.coords(dtm, [r0, col]) for col in c0:-1:c0-cell_num ],
@@ -1193,7 +1189,7 @@ col_end = c0 + cell_num
 =#
 
 
-top_idxs = [ (row_begin, col) for col in  c0+1:col_end ]
+top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
 right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
 # Vector containing the indexis of the points on first quadrant of the border of the area of interest
 endpoints = vcat( top_idxs, right_idxs )
@@ -1229,7 +1225,7 @@ attenuations = []
 for i in 1:length(heights_profiles)
     attens = []
     for j in 2:length(heights_profiles[i])
-        atten = onCut( distances_profiles[i][1:j], heights_profiles[i][1:j], zeros(length(heights_profiles[i][1:j])), dtm[r0,c0][1], heights_profiles[1][j], 1, [dB] )
+        atten = onCut( distances_profiles[i][1:j], heights_profiles[i][1:j], zeros(length(heights_profiles[i][1:j])), h0, heights_profiles[1][j], 1, [dB] )
         push!( attens, atten )
     end
     push!( attenuations, attens )
@@ -1246,6 +1242,25 @@ for ( profile, results ) in zip( coords_profiles, attenuations )
     push!( points, pnts )
 end
 
+
+
+
+attenuations = []
+for point in endpoints
+    if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+        continue
+    end
+    heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
+    dists = map( point -> √( ( point[1] - x0 )^2 + ( point[2] - y0 )^2 ), coords )
+    attens = [ onCut(dists[1:j], heights[1:j], zeroes(length(heights[1:j])), h0, heights[j], 1, [db] ) for j in 2:length(heights) ]
+
+        
+    end
+end
+
+
+
+
 mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
 for ( profile, results ) in zip( coords_profiles, attenuations )
     for (coords, atten) in zip(profile, results)
@@ -1255,6 +1270,117 @@ for ( profile, results ) in zip( coords_profiles, attenuations )
         end
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+# === VIEWSHED ===========================================================================================================================
+
+profile1 = [
+    (0,12),
+    (25,12),
+    (50,8),
+    (75,10),
+    (100,13),
+    (125,11),
+    (150,15),
+    (175,14),
+    (200,23)
+]
+
+profile2 = [
+    (0,500),
+    (25,12),
+    (50,8),
+    (75,10),
+    (100,9),
+    (125,11),
+    (150,15),
+    (175,14),
+    (200,23)
+]
+
+profile = profile2
+
+visible = [ profile[1], profile[2] ]
+vali = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
+for i in 3:length(profile)
+    println("vali: $vali")
+    val = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
+    print("$(profile[i]): $val")
+    if val >= abs(vali)
+        print("    PUSH")
+        push!( visible, profile[i] )
+    end
+    println("\n")
+    vali += val
+end
+
+visible
+
+
+
+
+
+
+
+
+
+
+
+
+res = [] 
+
+nonvisible = pop!( profile, point -> point[2] - profile[1][2] < 0 )
+visible = pop!( profile, point -> point[2] - profile[1][2] == 0 )
+
+
+
+
+
+visible = []
+nonvisible = []
+undefined = []
+
+res = profile .- Ref( (0, profile[1][2]) )
+
+for point in res
+    if point[2] < 0
+        push!(nonvisible, point)
+    elseif point[2] == 0
+        push!(visible, point)
+    else
+        push!(undefined, point)
+    end
+end
+
+res = undefined .- Ref((0, undefined[1][2]))
+
+for point in res
+    if point[2] < 0
+        push!(nonvisible, point)
+    elseif point[2] == 0
+        push!(visible, point)
+    else
+        push!(undefined, point)
+    end
+end
+
+for point in undefined
+end
+
+
+
+
 
 
 
