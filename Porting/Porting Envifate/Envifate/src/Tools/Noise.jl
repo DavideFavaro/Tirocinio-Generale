@@ -1,4 +1,4 @@
-module DoNoise
+module Noise
 """
 """
 
@@ -1253,8 +1253,6 @@ for point in endpoints
     heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
     dists = map( point -> √( ( point[1] - x0 )^2 + ( point[2] - y0 )^2 ), coords )
     attens = [ onCut(dists[1:j], heights[1:j], zeroes(length(heights[1:j])), h0, heights[j], 1, [db] ) for j in 2:length(heights) ]
-
-        
     end
 end
 
@@ -1285,99 +1283,48 @@ end
 
 # === VIEWSHED ===========================================================================================================================
 
-profile1 = [
-    (0,12),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,13),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
+using Plots
 
-profile2 = [
-    (0,500),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,9),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
-
-profile = profile2
-
-visible = [ profile[1], profile[2] ]
-vali = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
-for i in 3:length(profile)
-    println("vali: $vali")
-    val = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
-    print("$(profile[i]): $val")
-    if val >= abs(vali)
-        print("    PUSH")
-        push!( visible, profile[i] )
-    end
-    println("\n")
-    vali += val
+plot( profile[1], seriestype=:scatter )
+plot!( profile[2], seriestype=:scatter )
+slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
+fun(x) = slope * ( x + profile[2][1] ) + profile[2][2]
+plot!( fun )
+for i in 2:length(profile)
+    plot!( profile[i], seriestype=:scatter )
+    slope = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
+    fun(x) = slope * ( x + profile[i][1] ) + profile[i][2]
+    plot!( fun )
 end
-
-visible
-
+current()
 
 
 
 
-
-
-
-
-
-
-
-res = [] 
-
-nonvisible = pop!( profile, point -> point[2] - profile[1][2] < 0 )
-visible = pop!( profile, point -> point[2] - profile[1][2] == 0 )
-
-
-
-
-
-visible = []
-nonvisible = []
-undefined = []
-
-res = profile .- Ref( (0, profile[1][2]) )
-
-for point in res
-    if point[2] < 0
-        push!(nonvisible, point)
-    elseif point[2] == 0
-        push!(visible, point)
+function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractVector
+    if result == visible
+        visible = [ profile[1], profile[2] ]
+        slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
+        for i in 3:length(profile)
+            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
+            if new_slope >= slope
+                push!( visible, profile[i] )
+                slope = new_slope
+            end
+        end
+        return visible
     else
-        push!(undefined, point)
+        nonvisible = []
+        for i in 3:length(profile)
+            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
+            if new_slope < slope
+                push!( nonvisible, profile[i] )
+                slope = new_slope
+            end
+        end
+        return nonvisible
     end
 end
-
-res = undefined .- Ref((0, undefined[1][2]))
-
-for point in res
-    if point[2] < 0
-        push!(nonvisible, point)
-    elseif point[2] == 0
-        push!(visible, point)
-    else
-        push!(undefined, point)
-    end
-end
-
-for point in undefined
-end
-
 
 
 

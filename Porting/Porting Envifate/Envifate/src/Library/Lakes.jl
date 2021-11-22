@@ -55,7 +55,7 @@ mutable struct Lake
               args.fickian_x,args.fickian_y,args.velocity_x,args.velocity_y,
               args.lambdak)  
   =#
-  Lake(ma,t,x,y,d_x,d_y,v_x,v_y,k_d) = new(float(ma),float(t),float(x),float(y),float(d_x),float(d_y),float(v_x),float(v_y),float(k_d))
+  Lake( ma, t, x, y, d_x, d_y, v_x, v_y, k_d ) = new( ma, t, x, y, d_x, d_y, v_x, v_y, k_d )
 end
 
 

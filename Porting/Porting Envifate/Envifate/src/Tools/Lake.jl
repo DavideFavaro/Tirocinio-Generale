@@ -1,8 +1,7 @@
 
-module DoLake
+module Lake
 
 #=
-
 # -*- coding: utf-8 -*-
 """
 /***************************************************************************
@@ -25,7 +24,7 @@ module DoLake
  *                                                                         *
  ***************************************************************************/
 """
-
+=#
 #= imports
     from __future__ import print_function
 
@@ -82,16 +81,16 @@ export Dialog, #struct
        scegli_file, about, run_lake #functions
 
 
-using ArchGDAL
+import ArchGDAL as agd
+using Dates
 using Sys
 
 include("DoSettings.jl")
 include("../Library/Lakes.jl")
 include("../Library/Functions.jl")
 
-
+#=
 mutable struct Dialog(EnviDialog)
-
     def __init__(self, iface):
         QDialog.__init__(self, iface.mainWindow())
         self.iface = iface
@@ -208,149 +207,138 @@ mutable struct Dialog(EnviDialog)
 
         self.list_srid=[3003,3004,32632,32633,3857,4326]
 end
+=#
+#=
+    function esporta_output(dialog::Dialog)
+        resultmodel = dialog.console.toPlainText()
+        name = QFileDialog.getSaveFileName( dialog, "Save File" )
+        file = open(name[0],'w')
+        file.write(resultmodel)
+        file.close()
+    end
 
+    function reset_output(dialog::Dialog)
+        ret = QMessageBox.warning( dialog, "Attenzione", "Vuoi davvero eliminare i risultati del modello?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No )
+        if ret == QMessageBox.Yes
+            dialog.console.clear()
+        else
+            return false
+        end
+    end
 
+    function help()
+        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
+        #QMessageBox.about(self.dlg,"Credits", self.credits )
+        path = "$(@__DIR__)\\..\\tutorial\\manuale_envifate_laghi.pdf"
+        cmd = Sys.iswindows() ? "start" : Sys.islinux() ? "xdg-open" : "open"
+        run(`$cmd $path`)
+    end
 
+    function run1()
+        # fix_print_with_import
+        print("run effettuato")
+    end
 
-function esporta_output(dialog::Dialog)
-    resultmodel = dialog.console.toPlainText()
-    name = QFileDialog.getSaveFileName( dialog, "Save File" )
-    file = open(name[0],'w')
-    file.write(resultmodel)
-    file.close()
-end
+    function popolafields( dialog::Dialog, combo_in, combo_out )
+        vect_source_text = combo_in.currentText()
+        if !isempty(vect_source_text)
+            #vfields = self.allLayers[mainvect].pendingFields()
+            mainvect = dialog.registry.mapLayersByName( vect_source_text )[0]
+            vfields = mainvect.pendingFields()
+            combo_out.addItem("No field")
+            for field in vfields
+                combo_out.addItem(field.name())
+            end
+        end
+    end
 
+    function configuration(dialog::Dialog)
+        d = do_setting.Dialog(dialog.iface)
+        d.show()
+        d.exec_()
+    end
 
-function reset_output(dialog::Dialog)
-    ret = QMessageBox.warning( dialog, "Attenzione", "Vuoi davvero eliminare i risultati del modello?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No )
-    if ret == QMessageBox.Yes
+    function popolacombo(dialog::Dialog)
+        dialog.combo_source.clear()
+        dialog.combo_maindirwind.clear()
+        dialog.combo_bound.clear()
+        dialog.line_output.clear()
+        dialog.progressBar.setValue(0)
+
+        dialog.allLayers = dialog.canvas.layers()
+        dialog.listalayers = Dict()
+        #elementovuoto = "No required"
+        for i in dialog.allLayers
+            if i.type() == QgsMapLayer.VectorLayer
+                dialog.listalayers[ i.name() ] = i
+                dialog.combo_source.addItem( string( i.name() ) )
+                dialog.combo_bound.addItem( string( i.name() ) )
+            end
+        end
+
+        #self.popolafields(self.combo_source,self.combo_source_field)
+
+        dialog.combo_maindirwind.addItem("N")
+        dialog.combo_maindirwind.addItem("NE")
+        dialog.combo_maindirwind.addItem("E")
+        dialog.combo_maindirwind.addItem("SW")
+        dialog.combo_maindirwind.addItem("S")
+        dialog.combo_maindirwind.addItem("SW")
+        dialog.combo_maindirwind.addItem("W")
+        dialog.combo_maindirwind.addItem("NW")
+    end
+
+    function reset_fields(dialog::Dialog)
         dialog.console.clear()
-    else
-        return false
-    end
-end
 
-
-function help()
-    #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-    #QMessageBox.about(self.dlg,"Credits", self.credits )
-    path = "$(@__DIR__)\\..\\tutorial\\manuale_envifate_laghi.pdf"
-    cmd = Sys.iswindows() ? "start" : Sys.islinux() ? "xdg-open" : "open"
-    run(`$cmd $path`)
-end
-
-
-function run1()
-    # fix_print_with_import
-    print("run effettuato")
-end
-
-
-function popolafields( dialog::Dialog, combo_in, combo_out )
-    vect_source_text = combo_in.currentText()
-    if !isempty(vect_source_text)
-        #vfields = self.allLayers[mainvect].pendingFields()
-        mainvect = dialog.registry.mapLayersByName( vect_source_text )[0]
-        vfields = mainvect.pendingFields()
-        combo_out.addItem("No field")
-        for field in vfields
-            combo_out.addItem(field.name())
+        for i in range(3, 7, step=1 )
+            dialog.tableWidget.setItem( i , 0, QTableWidgetItem("") )
         end
+
+        dialog.popolacombo()
+
+        ##### da eliminare #####
+        # self.line_speed.setText("4")
+        # self.line_flickianx.setText("1000")
+        # self.line_flickiany.setText("1000")
+        # self.line_conc.setText("2000")
+        # self.line_lambda.setText("0")
+        # self.spintime.setValue(20)
+        ##### fine da eliminare #####
     end
-end
 
-
-function configuration(dialog::Dialog)
-    d = do_setting.Dialog(dialog.iface)
-    d.show()
-    d.exec_()
-end
-
-
-function popolacombo(dialog::Dialog)
-    dialog.combo_source.clear()
-    dialog.combo_maindirwind.clear()
-    dialog.combo_bound.clear()
-    dialog.line_output.clear()
-    dialog.progressBar.setValue(0)
-
-    dialog.allLayers = dialog.canvas.layers()
-    dialog.listalayers = Dict()
-    #elementovuoto = "No required"
-    for i in dialog.allLayers
-        if i.type() == QgsMapLayer.VectorLayer
-            dialog.listalayers[ i.name() ] = i
-            dialog.combo_source.addItem( string( i.name() ) )
-            dialog.combo_bound.addItem( string( i.name() ) )
+    function scegli_file( dialog::Dialog, tipofile )
+        if tipofile == "sqlite"
+            dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'sqlite3 files (*.sqlite);;all files (*.*)' )
+            dialog.dlg_conf.pathtodb.setText(dialog.fname)
         end
+        if tipofile == "csv"
+            dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'csv files (*.csv);;all files (*.*)' )
+            dialog.dlg_conf.path_to_kmean.setText(dialog.fname)
+        end
+        if tipofile == "tif"
+            dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'GeoTiff files (*.tif);;all files (*.*)' )
+            dialog.dlg_reclass.output_raster_class.setText(dialog.fname)
+        end
+        if tipofile == "tutti"
+            dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'all files (*.*)' )
+            dialog.dlg_reclass.input_reclass.setText(dialog.fname)
+        end
+        if tipofile == "salvaraster"
+            dialog.fname = QFileDialog.getSaveFileName( nothing, 'Save file', '/home', 'GeoTiff files (*.tif);;all files (*.*)' )
+            dialog.line_output.setText(dialog.fname[0])
+        end
+        # if self.tipofile=="salvacsv":
+        #     self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','csv files (*.csv);;all files (*.*)')
+        #     self.dlg.lineEdit_csv.setText(self.fname)
+        #end
     end
 
-    #self.popolafields(self.combo_source,self.combo_source_field)
-
-    dialog.combo_maindirwind.addItem("N")
-    dialog.combo_maindirwind.addItem("NE")
-    dialog.combo_maindirwind.addItem("E")
-    dialog.combo_maindirwind.addItem("SW")
-    dialog.combo_maindirwind.addItem("S")
-    dialog.combo_maindirwind.addItem("SW")
-    dialog.combo_maindirwind.addItem("W")
-    dialog.combo_maindirwind.addItem("NW")
-end
-
-
-function reset_fields(dialog::Dialog)
-    dialog.console.clear()
-
-    for i in range(3, 7, step=1 )
-        dialog.tableWidget.setItem( i , 0, QTableWidgetItem("") )
+    function about(dialog::Dialog)
+        QMessageBox.about(dialog, "Credits EnviFate",u"""<p>EnviFate: Open source tool for environmental risk analysis<br />Release 1.0<br />13-1-2017<br />License: GPL v. 3<br /><a href='https://bitbucket.org/fragit/envifate'>Home page plugin</a></p><hr><p>Lavoro svolto nell’ambito del  Progetto  di   ricerca   scientifica  “Definizione  di   metodi   standard     e  di strumenti applicativi   informatici per   il calcolo degli effetti dei fattori di perturbazione   ai sensi della decisione  2011/484/Ue,  da impiegarsi  nell’ambito  della valutazione di incidenza” finanziato dalla Regione Veneto. Partner principale è il DICAM, Dipartimento di Ingegneria Civile Ambientale e Meccanica dell’Università di Trento (Italia).</p><hr><p>Autori: Francesco Geri, Marco Ciolli</p><p>Universita' di Trento, Trento - Dipartimento di Ingegneria Civile Ambientale e Meccanica (DICAM) <a href="http://www.dicam.unitn.it/">www.dicam.unitn.it/</a></p><hr><p>Consulenti: Paolo Zatelli, Oscar Cainelli</p>""")
     end
-
-    dialog.popolacombo()
-
-    ##### da eliminare #####
-    # self.line_speed.setText("4")
-    # self.line_flickianx.setText("1000")
-    # self.line_flickiany.setText("1000")
-    # self.line_conc.setText("2000")
-    # self.line_lambda.setText("0")
-    # self.spintime.setValue(20)
-    ##### fine da eliminare #####
-end
-
-
-function scegli_file( dialog::Dialog, tipofile )
-    if tipofile == "sqlite"
-        dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'sqlite3 files (*.sqlite);;all files (*.*)' )
-        dialog.dlg_conf.pathtodb.setText(dialog.fname)
-    end
-    if tipofile == "csv"
-        dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'csv files (*.csv);;all files (*.*)' )
-        dialog.dlg_conf.path_to_kmean.setText(dialog.fname)
-    end
-    if tipofile == "tif"
-        dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'GeoTiff files (*.tif);;all files (*.*)' )
-        dialog.dlg_reclass.output_raster_class.setText(dialog.fname)
-    end
-    if tipofile == "tutti"
-        dialog.fname = QFileDialog.getOpenFileName( nothing, 'Open file', '/home', 'all files (*.*)' )
-        dialog.dlg_reclass.input_reclass.setText(dialog.fname)
-    end
-    if tipofile == "salvaraster"
-        dialog.fname = QFileDialog.getSaveFileName( nothing, 'Save file', '/home', 'GeoTiff files (*.tif);;all files (*.*)' )
-        dialog.line_output.setText(dialog.fname[0])
-    end
-    # if self.tipofile=="salvacsv":
-    #     self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','csv files (*.csv);;all files (*.*)')
-    #     self.dlg.lineEdit_csv.setText(self.fname)
-    #end
-end
-
-
-function about(dialog::Dialog)
-    QMessageBox.about(dialog, "Credits EnviFate",u"""<p>EnviFate: Open source tool for environmental risk analysis<br />Release 1.0<br />13-1-2017<br />License: GPL v. 3<br /><a href='https://bitbucket.org/fragit/envifate'>Home page plugin</a></p><hr><p>Lavoro svolto nell’ambito del  Progetto  di   ricerca   scientifica  “Definizione  di   metodi   standard     e  di strumenti applicativi   informatici per   il calcolo degli effetti dei fattori di perturbazione   ai sensi della decisione  2011/484/Ue,  da impiegarsi  nell’ambito  della valutazione di incidenza” finanziato dalla Regione Veneto. Partner principale è il DICAM, Dipartimento di Ingegneria Civile Ambientale e Meccanica dell’Università di Trento (Italia).</p><hr><p>Autori: Francesco Geri, Marco Ciolli</p><p>Universita' di Trento, Trento - Dipartimento di Ingegneria Civile Ambientale e Meccanica (DICAM) <a href="http://www.dicam.unitn.it/">www.dicam.unitn.it/</a></p><hr><p>Consulenti: Paolo Zatelli, Oscar Cainelli</p>""")
-end
-
-
+=#
+#=
 function run_lake(dialog::Dialog)
 
     dialog.text_line_conc = string( dialog.tableWidget.item(3,0).text() )
@@ -599,4 +587,147 @@ function run_lake(dialog::Dialog)
     dialog.label_status.setStyleSheet('color : green; font-weight:bold')
 end
 =#
+
+
+function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
+                   fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
+    srid = [ 3003, 3004, 32632, 32633, 3857, 4326 ]
+    classiwind = Dict(
+        "N" => 0,
+        "NE" => 45,
+        "E" => 90,
+        "SE" => 135,
+        "S" => 180,
+        "SW" => 225,
+        "W" => 270,
+        "NW" => 315
+    )
+    classiwind2 = Dict(
+        0 => 180,
+        45 => 225,
+        90 => 270,
+        135 => 315,
+        180 => 0,
+        225 => 45,
+        270 => 90,
+        315 => 135
+    )
+
+    hours *= 3600
+
+    if agd.getspatialref(area) != agd.getspatialref(source)
+        throw(DomainError("Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." ))
+    end
+
+    refsys = agd.getspatialref(source)
+    velocity_x = √( round( flow_mean_speed * cos(deg2rad(xw)), digits=3 )^2 )
+    velocity_y = √( round( flow_mean_speed * sin(deg2rad(xw)), digits=3 )^2 )
+
+
+"""
+    path_layer = dialog.areastudio.dataProvider().dataSourceUri()
+    path = split( path_layer, "|" )
+    source_ds = ogr.Open(path[0])
+    area_layer = source_ds.GetLayer()
+
+    x_min, y_min, x_max, y_max = round.( Int64, [ area_layer.GetExtent()[1], area_layer.GetExtent()[3], area_layer.GetExtent()[2], area_layer.GetExtent()[4] ] )
+"""
+
+    mem_driver = ArchGDAL.getdriver("MEM")
+    valNoData = -9999
+
+    # Create the destination data source
+    x_res = ( x_max - x_min ) / resolution
+    y_res = ( y_max - y_min ) / resolution
+
+    target_ds = agd.getdriver("GTiff")
+    agd.create( path_output, mem_driver, round( Int64, x_res ), round( Int64, y_res ), 1, ArchGDAL.GDAL.GDT_Float32 )
+    agd.setgeotransform!( target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ] )
+    projectionfrom = agd.getproj(target_ds)
+
+    agd.setproj!( target_ds, agd.importEPSG(parse( Int64, dialog.refsys )) )
+
+    # geotransform = getgeotransform(target_ds)
+    target_ds.SetMetadata(
+        Dict( 
+            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+            "modulo" => "Dispersione in laghi e bacini",
+            "descrizione" => "Simulazione di dispersione inquinante all\'interno di un corpo idrico superficiale fermo",
+            "srs" => refsys,
+            "data" => today()
+        )
+    )
+
+    band1 = agd.getband(target_ds, 1)
+    agd.setnodatavalue!( band1, convert(Float64, valNoData) )
+    band = agd.read(band1)
+    fill!(band, valNoData)
+    xsize = agd.width(band1)
+    ysize = agd.height(band1)
+
+
+"""
+    feature = next(dialog.source.getFeatures())
+    geom = feature.geometry().asPoint()
+    x_source = geom[0]
+    y_source = geom[1]
+
+    polygons = [ feature for feature in dialog.areastudio.getFeatures() ]
+"""
+
+
+    rows = ysize - 1
+    cols = xsize - 1
+
+    for row in 1:rows
+        for col in 1:cols
+            x, y =@. [col, row] * resolution + [x_min, y_min] + (resolution/2)
+
+            punto_controllo = QgsPointXY(x,y)
+
+            for pol in polygons
+                poly = pol.geometry()
+                if poly.contains(punto_controllo)
+                # if geom_area.contains(punto_controllo):
+
+                    Δx = x - x_source
+                    Δy = y - y_source
+                    true_x = Δx * cos(deg2rad(xw)) - Δy * sin(deg2rad(xw))
+                    true_y = Δx * sin(deg2rad(xw)) + Δy * cos(deg2rad(xw))
+
+                    element = Lakes.Lake( pollutant_mass, hours, true_x, true_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+
+                    cfinal = calc_concentration(element)
+
+                    outData[row,col] = cfinal
+                else
+                    outData[row,col] = 0
+                end
+            end
+        end
+    end
+
+    outData_raster = outData[::-1]
+    band.WriteArray(outData_raster)
+    astats = band.GetStatistics(0, 1)
+
+    band = nothing
+    target_ds = nothing
+
+    base_raster_name = basename(path_output)
+    raster_name = splitext(base_raster_name)[0]
+    dialog.iface.addRasterLayer( dialog.path_output, raster_name )
+
+    layer = nothing
+    for lyr in collect( QgsProject.instance().mapLayers().values() )
+        if lyr.name() == raster_name
+            layer = lyr
+        end
+    end
+
+    functions.applystyle( layer, "gr", 0.5 )
+end
+
+
+
 end # module
