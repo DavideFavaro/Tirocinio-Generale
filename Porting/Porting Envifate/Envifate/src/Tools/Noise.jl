@@ -29,7 +29,7 @@ repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
 # Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)" 
 rotate_x( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
 rotate_y( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
-rotate_point( xp, yp, xc, yc, θ ) = ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
+rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
 
 """
     transmission_loss( r::Real )
@@ -39,8 +39,6 @@ Compute the transmission loss of a noise over `r` distance
 function transmission_loss( r::Real )
     return 20 * log10(r)
 end
-
-
 
 function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity::Real, temperature_k::Real, frequency::Real )
     # Calculate atmospheric absorption coefficient using ANSI S1.26-1995 standard
@@ -96,8 +94,6 @@ function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity:
 
     return α * r / 100
 end
-
-
 
 function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Vector{Tuple{Int64, Float64}}
     if length(profile) <= 1
@@ -1002,18 +998,6 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     return attenuations
 end
 
-
-
-#=
-atten = onCut( distances_profiles[5], heights_profiles[5], repeat!([1001], length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-atten = onCut( distances_profiles[5], heights_profiles[5], zeros(length(heights_profiles[5])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-atten = onCut( distances_profiles[1], heights_profiles[1], zeros(length(heights_profiles[1])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-atten = onCut( distances_profiles[603], heights_profiles[603], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-atten = onCut( distances_profiles[1001], heights_profiles[1001], zeros(length(heights_profiles[603])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-=#
-
-
-
 # Taken from "https://www.geeksforgeeks.org/dda-line-generation-algorithm-computer-graphics/"
 function DDA( map, x0::Number, y0::Number, xn::Number, yn::Number )
     Δx = xn - x0
@@ -1121,7 +1105,6 @@ x1, y1 = GeoArrays.coords( dtm, [1,1] )
 xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
 # Dimensioni in metri di una cella
 Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
-
 dB = 110 - 32
 r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
 h0 = dtm[r0, c0][1]
@@ -1146,7 +1129,7 @@ coords_profiles = [
     [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:-1:-cell_num ],
     [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:cell_num ],
     [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:-1:-cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:cell_num ],
+    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:cell_num ]
 ]
 
 row_begin = r0 - cell_num
@@ -1154,110 +1137,34 @@ row_end = r0 + cell_num
 col_begin = c0 - cell_num
 col_end = c0 + cell_num
 
-
-#= CREAZIONE PROFILI SU DUE QUADRANTI
-    # Upper side of the square, plus the halves of left and right side above x axis
-    top_idxs = [ (row_begin, col) for col in  col_begin:col_end ]
-    left_idxs = [ (row, col_begin) for row in row_begin+1:r0-1 ]
-    right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
-
-    # Vector with the indexis of the borders of the area of effect above the x axis
-    endpoints = vcat( right_idxs, top_idxs, left_idxs )
-
-
-    # Rotazioni:
-     #  xa₂ = x0 + (xa - x0)cos(θ) - (ya - y0)sin(θ)
-     #  ya₂ = y0 + (xa - x0)sin(θ) - (ya - y0)cos(θ)
-
-    # TUTTI GLI ARRAY TRANNE QUELLI MESSI MANUALMENTE HANNO UN VALORE IN MENO
-    # For each point compute the rasterization of the line that connects it to its symmetrical point using the center (r0 c0) as reference
-    for point in endpoints
-        # If the point is on the y axis or on the diagonals skip ( the points cannot be on the x axis by construction of the side indexis vectors )
-        if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
-            continue
-        end
-        # Compute profile from center to point
-        heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
-        push!( heights_profiles, heights )
-        push!( coords_profiles, coords )
-        # Compute symmetrical profile
-        rm, cm = 2(r0, c0) - point
-        heights, coords = DDA( dtm, r0, c0, rm, cm )
-        push!( heights_profiles, heights )
-        push!( coords_profiles, coords )
-    end
-=#
-
-
 top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
 right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
 # Vector containing the indexis of the points on first quadrant of the border of the area of interest
 endpoints = vcat( top_idxs, right_idxs )
 # For every aforementioned points compute the profile ranging from them and their rotations to the center point
+
+attenuations_points = []
 for point in endpoints
     if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
         continue
     end
-    # Compute profile from center to point
-    heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
-    push!( heights_profiles, heights )
-    push!( coords_profiles, coords )
-    # Compute the profiles for the three points obtained by rotating the starting point by 90, 180 and 270 degrees respectively
-    for α in [90, 180, 270]
+    for α in [0, 90, 180, 270]
         rm, cm = rotate_point( point[1], point[2], r0, c0, α )
         heights, coords = DDA( dtm, r0, c0, rm, cm )
-        push!( heights_profiles, heights )
-        push!( coords_profiles, coords )
+        dists = map( p -> √( ( p[1] - x0 )^2 + ( p[2] - y0 )^2 ), coords )
+        atten_point = []
+        for j in 2:length(heights)
+            atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )
+            x, y = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
+            push!( atten_point, (
+                [x, y],
+                [coords[j]...],
+                atten
+            ) )
+        end
+        push!( attenuations_points, atten_point )
     end
 end
-
-distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
-
-
-#=
-attenuations = []
-for i in 1:length(heights_profiles)
-    atten = onCut( distances_profiles[i], heights_profiles[i], zeros(length(heights_profiles[i])), dtm[r0,c0][1], heights_profiles[1][end], 1, [dB] )
-    push!( attenuations, atten )
-end
-=#
-attenuations = []
-for i in 1:length(heights_profiles)
-    attens = []
-    for j in 2:length(heights_profiles[i])
-        atten = onCut( distances_profiles[i][1:j], heights_profiles[i][1:j], zeros(length(heights_profiles[i][1:j])), h0, heights_profiles[1][j], 1, [dB] )
-        push!( attens, atten )
-    end
-    push!( attenuations, attens )
-end
-
-points = []
-for ( profile, results ) in zip( coords_profiles, attenuations )
-    pnts = [ (
-                .-( GeoArrays.indices(dtm, [coords...]), [row_begin, col_begin] )...,
-                coords[1],
-                coords[2],
-                atten[1]
-             ) for (coords, atten) in zip(profile, results) ]
-    push!( points, pnts )
-end
-
-
-
-
-attenuations = []
-for point in endpoints
-    if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
-        continue
-    end
-    heights, coords = DDA( dtm, r0, c0, point[1], point[2] )
-    dists = map( point -> √( ( point[1] - x0 )^2 + ( point[2] - y0 )^2 ), coords )
-    attens = [ onCut(dists[1:j], heights[1:j], zeroes(length(heights[1:j])), h0, heights[j], 1, [db] ) for j in 2:length(heights) ]
-    end
-end
-
-
-
 
 mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
 for ( profile, results ) in zip( coords_profiles, attenuations )
@@ -1265,6 +1172,26 @@ for ( profile, results ) in zip( coords_profiles, attenuations )
         row, col = Int64.( GeoArrays.indices(dtm, [coords...]) .- [row_begin, col_begin] )
         if ismissing(mat[row, col]) || mat[row, col][3]  < atten[1]
             mat[row, col] = ( coords[1], coords[2], atten[1] )
+        end
+    end
+end
+
+
+
+
+
+# DA SISTEMARE
+mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
+for points in attenuations_points
+    for point in points
+        if ismissing(mat[point[1]...])
+            mat[point[1]...] = ( point[2][1], point[2][2],  point[3][1] )
+        else
+            if mat[point[1]...][3] != point[3][1]
+                println("Attennuazione diversa per lo stesso punto")
+                println("$(mat[point[1]...]) e $point\n")
+                mat[point[1]...][3] = mat[point[1]...][3] > point[3][1] ? mat[point[1]...][3] : point[3][1]
+            end
         end
     end
 end
@@ -1283,20 +1210,65 @@ end
 
 # === VIEWSHED ===========================================================================================================================
 
-using Plots
+profile1 = [
+    (0,12),
+    (25,12),
+    (50,8),
+    (75,10),
+    (100,13),
+    (125,11),
+    (150,15),
+    (175,14),
+    (200,23)
+]
+profile2 = [
+    (0,500),
+    (25,12),
+    (50,8),
+    (75,10),
+    (100,9),
+    (125,11),
+    (150,15),
+    (175,14),
+    (200,23)
+]
+profile3 = [
+    (0,12),
+    (25,12),
+    (50,8),
+    (75,10),
+    (100,16),
+    (125,11),
+    (150,500),
+    (175,14),
+    (200,23)
+]
+profile = profile3
 
-plot( profile[1], seriestype=:scatter )
-plot!( profile[2], seriestype=:scatter )
-slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
-fun(x) = slope * ( x + profile[2][1] ) + profile[2][2]
-plot!( fun )
-for i in 2:length(profile)
-    plot!( profile[i], seriestype=:scatter )
-    slope = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
-    fun(x) = slope * ( x + profile[i][1] ) + profile[i][2]
-    plot!( fun )
+visible = [ profile[1], profile[2] ]
+vali = abs( ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] ) )
+for i in 3:length(profile)
+    println("vali: $vali")
+    val = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
+    print("$(profile[i]): $val")
+    if val >= abs(vali)
+        print("    PUSH")
+        push!( visible, profile[i] )
+    end
+    println("\n")
+    vali = vali < 0 ? vali+val : vali-val
 end
-current()
+visible
+
+
+
+
+
+
+
+
+
+
 
 
 

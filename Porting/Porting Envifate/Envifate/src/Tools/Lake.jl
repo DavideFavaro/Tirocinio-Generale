@@ -1,9 +1,7 @@
+module Lakes
 
-module Lake
-
-#=
 # -*- coding: utf-8 -*-
-"""
+#=
 /***************************************************************************
  OpenRisk
                                  A QGIS plugin
@@ -23,71 +21,35 @@ module Lake
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-"""
 =#
-#= imports
-    from __future__ import print_function
-
-    from builtins import str
-    from builtins import range
-    from qgis.PyQt import QtCore, QtGui
-    from PyQt5.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QObject, pyqtSignal
-    from PyQt5.QtGui import QIcon
-    from PyQt5.QtWidgets import QAction, QDialog, QFormLayout, QMenu, QComboBox, QTableWidgetItem, QHBoxLayout, QLineEdit, QPushButton, QWidget, QSpinBox, QTableWidgetItem, QMessageBox, QFileDialog
-
-
-    import sys
-
-    # Initialize Qt resources from file resources.py
-    #import resources
-
-
-    # Import the code for the dialog
-
-    #from open_risk_dialog import OpenRiskDialog
-    import os.path
-    try:
-    import sqlite3
-    except:
-    # fix_print_with_import
-    print("librerie per la connessione al database sqlite non trovate")
-
-    import qgis
-    from qgis.core import *
-    from qgis.gui import *
-    from qgis.utils import iface
-
-    import numpy as np
-    import math
-    import time
-    from osgeo import gdal,ogr,osr
-    import platform
-
-    import pdb
-
-    from envifate_dialog import EnviDialog
-
-    from configuration_dialog import ConfigurationDialog
-
-    sys.path.append( os.path.dirname(__file__)+"/../library" )
-
-    import functions, lake, do_setting
-=#
-
-
-export Dialog, #struct
-       esporta_output, reset_output, help, run1,
-       popolafields, configuration, popolacombo, reset_fields,
-       scegli_file, about, run_lake #functions
-
 
 import ArchGDAL as agd
+using ArgParse
 using Dates
 using Sys
 
 include("DoSettings.jl")
 include("../Library/Lakes.jl")
 include("../Library/Functions.jl")
+
+export run_lake
+
+mutable struct Lake
+    """docstring for element"""
+    concentration::Float64
+    time::Time
+    distance_x::Float64
+    distance_y::Float64
+    fickian_x::Float64
+    fickian_y::Float64
+    velocity_x::Float64
+    velocity_y::Float64
+    λk::Float64
+
+    C::Float64
+
+    Lake( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk ) = new( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+end
 
 #=
 mutable struct Dialog(EnviDialog)
@@ -589,6 +551,33 @@ end
 =#
 
 
+function calc_concentration!( l::Lake )
+    #c1 = (l.x - (l.v_x * l.t))^2 / ( 4 * l.d_x * l.t )
+    #c2 = (l.y - (l.v_y * l.t))^2 / ( 4 * l.d_y * l.t )
+  
+    c1_1 = l.distance_x - ( l.velocity_x * l.time )
+    c1_2 = c1_1^2
+    c1_3 = c1_2 / ( 4 * l.fickian_x * l.time )
+  
+    c2_1 = l.distance_y - ( l.velocity_y * l.time )
+    c2_2 = c2_1^2
+    c2_3 = c2_2 / ( 4 * l.fickian_y * l.time )
+  
+    #c3 = exp( -(c1 + c2) )
+    c3_2 = exp( -(c1_3 + c2_3) )
+    c3_1 = exp( -l.λk * l.time )
+  
+    #c4 = c3 * c3_1
+    c4 = c3_2 * c3_1
+  
+    c5 = l.ma / ( 4π * l.time * √(l.fickian_x * l.fickian_y) )
+  
+    #import ipdb; ipdb.set_trace()  
+    l.C = c4 * c5
+    return l.C
+  end
+
+
 function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
                    fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
     srid = [ 3003, 3004, 32632, 32633, 3857, 4326 ]
@@ -624,15 +613,15 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
     velocity_y = √( round( flow_mean_speed * sin(deg2rad(xw)), digits=3 )^2 )
 
 
-"""
+ """
     path_layer = dialog.areastudio.dataProvider().dataSourceUri()
     path = split( path_layer, "|" )
     source_ds = ogr.Open(path[0])
     area_layer = source_ds.GetLayer()
 
     x_min, y_min, x_max, y_max = round.( Int64, [ area_layer.GetExtent()[1], area_layer.GetExtent()[3], area_layer.GetExtent()[2], area_layer.GetExtent()[4] ] )
-"""
-
+ """
+ # DOVE VIENE USATA QUESTA VARIABILE?
     mem_driver = ArchGDAL.getdriver("MEM")
     valNoData = -9999
 
@@ -640,12 +629,12 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
     x_res = ( x_max - x_min ) / resolution
     y_res = ( y_max - y_min ) / resolution
 
-    target_ds = agd.getdriver("GTiff")
-    agd.create( path_output, mem_driver, round( Int64, x_res ), round( Int64, y_res ), 1, ArchGDAL.GDAL.GDT_Float32 )
+    gtiff_driver = agd.getdriver("GTiff")
+    target_ds = agd.create( path_output, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
     agd.setgeotransform!( target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ] )
+ # DOVE VIENE USATA QUESTA VARIABILE?
     projectionfrom = agd.getproj(target_ds)
-
-    agd.setproj!( target_ds, agd.importEPSG(parse( Int64, dialog.refsys )) )
+    agd.setproj!( target_ds, agd.importEPSG(agd.fromWKT(refsys)) )
 
     # geotransform = getgeotransform(target_ds)
     target_ds.SetMetadata(

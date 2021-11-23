@@ -8,65 +8,40 @@ import DBInterface as dbi
 import SQLite as sql
 
 
-function substance_extract( id_s, fields, dbloc = "" )
+function substance_extract( substance_id, fields, dbloc = "" )
     #estrazione valori sostanze
     db = sql.DB(dbloc*"substance.db")
-    sql_fields = ""
-    i = 0
-    for (x,i) in zip(fields, 1:length(fields))
-        i++
-        sql_fields *= x
-        if i < length(fields)
-            sql_fields *= ","
-        end
-    end
+    sql_fields = join( fields, "," )
     query_substance = sql.Stmt( db, "SELECT ? FROM substance WHERE id = ?AAA" )
-    sql.bind!( statement, [ sql_fields, id_s ] )
+    sql.bind!( query_substance, [ sql_fields, substance_id ] )
     results = dbi.execute( query_substance )
     res_fields = [ x for x in results ]
     return res_fields
 end
 
 
-function texture_extract( texture, fields, dbloc = "" )
+function texture_extract( texture_name, fields, dbloc = "" )
     #estrazione valori sostanze
     db = sql.DB(dbloc*"substance.db")
-    sql_fields = ""
-    i = 0
-    for x in fields
-        i++
-        sql_fields *= x
-        if i < length(fields)
-            sql_fields *= ","
-        end
-    end
+    sql_fields = join( fields, "," )
     query_texture = sql.Stmt( db, "SELECT ? FROM texture WHERE nome LIKE ?" )
-    sql.bind!( query_texture, [ sql_fields, texture ] )
+    sql.bind!( query_texture, [ sql_fields, texture_name ] )
     results = dbi.execute( query_texture ) 
     res_fields = [ x  for x in results ]
     return res_fields
 end
 
-
-function air_extract( c_stability, outdoor, dbloc = nothing )
-    if isnothing(dbloc)
-		dbloc = dirname(abspath(__file__))*"\\"
-    end
-	#print dirname(abspath(__file__))
+function air_extract( stability_class, outdoor, dbloc::AbstractString=*( @__DIR__, "\\") )
     db = sql.DB(dbloc*"substance.db")
     query_texture = sql.Stmt( db, "SELECT sigmay1, sigmay2, sigmayexp, sigmaz1, sigmaz2, sigmazexp FROM air_stability WHERE class LIKE ?NNN AND outdoor LIKE ?NNN" )
-    sql.bind!( query_texture, [ c_stability, outdoor ] )
+    sql.bind!( query_texture, [ stability_class, outdoor ] )
     results = dbi.execute( query_texture )
     res_fields = [ x for x in results ]
     return res_fields
 end
 
 
-function cn_extract( cnl, soil, dbloc = nothing )
-	if isnothing(dbloc)
-		dbloc = dirname(abspath(__file__))*"\\"
-    end
-	#print dirname(abspath(__file__))
+function cn_extract( cnl, soil, dbloc::AbstractString=*( @__DIR__, "\\") )
     db = sql.DB(dbloc*"substance.db")
     classecn = "cn_"*String(cnl)
     query_cn = sql.Stmt( db, "SELECT ? FROM cn WHERE id = ?AAA" )
@@ -77,24 +52,16 @@ function cn_extract( cnl, soil, dbloc = nothing )
 end
 
 
-function cn_list_extract( dbloc = nothing )
-    if isnothing(dbloc)
-		dbloc = dirname(abspath(__file__))*"\\"
-	#print dirname(abspath(__file__))
+function cn_list_extract( dbloc::AbstractString=*( @__DIR__, "\\") )
 	db = sql.DB(dbloc*"substance.db")
-
     query_cn = sql.Stmt( db, "SELECT * FROM cn" )
     results = dbi.execute(query_cn)
-
-
 #    listaclc = Dict()
 #    for row in results
 #        lista_soil = [ x for x in row ]
 #        listaclc[ row[5] ] = lista_soil
 #    end
-
     listaclc = Dict( row[5] => [ x for x  in row ] for row in results )
-	
     return listaclc
 end
 

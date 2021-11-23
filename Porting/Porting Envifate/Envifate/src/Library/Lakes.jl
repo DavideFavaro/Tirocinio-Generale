@@ -67,27 +67,21 @@ function calc_concentration!( l::Lake )
   c1_2 = c1_1^2
   c1_3 = c1_2 / ( 4 * l.d_x * l.t )
 
-
   c2_1 = l.y - ( l.v_y * l.t )
   c2_2 = c2_1^2
   c2_3 = c2_2 / ( 4 * l.d_y * l.t )
 
   #c3 = exp( -(c1 + c2) )
-
   c3_2 = exp( -(c1_3 + c2_3) )
-
   c3_1 = exp( -l.k_d * l.t )
 
   #c4 = c3 * c3_1
   c4 = c3_2 * c3_1
 
-
   c5 = l.ma / ( 4 * π * l.t * √(l.d_x * l.d_y) )
 
-  #import ipdb; ipdb.set_trace()
-  
+  #import ipdb; ipdb.set_trace()  
   l.C = c4 * c5
-
   return l.C
 end
 
