@@ -81,12 +81,15 @@ module DiluitionAttenuationfactor
 
     import functions, leaching, daf, do_setting
 =#
-
+using ArchGDAL
 import ArchGDAL as agd
 using Dates
 
 include("../Library/Daf.jl")
 include("../Library/Leaching.jl")
+
+
+Base.getindex( point::ArchGDAL.IGeometry{ArchGDAL.wkbPoint}, index::Int64 ) = index == 1 ? agd.getx(point, 0) : index == 2 ? agd.gety(point, 0) : index == 3 ? agd.getz(point, 0) : throw(BoundsError(point, index))
 
 
 Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
@@ -126,15 +129,15 @@ classiwind2 = Dict(
 )
 
 mutable struct DAF
-    c0
+    secondary_source_concentration
     x
     y
     α_x::Float64
     α_y::Float64
-    λ1
-    darcy::Float64
+    decay_coeff
+    darcy_velocity::Float64
     kd
-    soild::Float64
+    soil_density::Float64
     tera_e
     s_w
     T
@@ -143,7 +146,7 @@ mutable struct DAF
     DAF
     DAF_tot
   
-    ClassDaf(c0,x,y,α_x,α_y,λ1,darcy,kd,soild,tera_e,s_w,T) = new(c0,x,y,α_x,α_y,λ1,darcy,kd,soild,tera_e,s_w,T)
+    ClassDaf(secondary_source_concentration,x,y,α_x,α_y,decay_coeff,darcy_velocity,kd,soil_density,tera_e,s_w,T) = new(secondary_source_concentration,x,y,α_x,α_y,decay_coeff,darcy_velocity,kd,soil_density,tera_e,s_w,T)
 end
 
 mutable struct Leach
@@ -151,21 +154,21 @@ mutable struct Leach
     tera_w
     tera_a
     kd
-    ief::Float64
-    soild::Float64
-    sourcethick::Float64
+    effective_infiltration::Float64
+    soil_density::Float64
+    source_thickness::Float64
     aquifer_depth::Float64
-    darcy::Float64
-    Δgw::Float64
+    darcy_velocity::Float64
+    mixed_zone_depth::Float64
     W::Float64
   
     kw
     koc
     ldf
     sam
-    LF
+    leaching_factor
   
-    Leach(h,tera_w,tera_a,kd,ief,ro_s,dz,lf,v_e,Δgw,W) = new(h,tera_w,tera_a,kd,ief,ro_s,dz,lf,v_e,Δgw,W)
+    Leach(h,tera_w,tera_a,kd,effective_infiltration,ro_s,dz,lf,v_e,mixed_zone_depth,W) = new(h,tera_w,tera_a,kd,effective_infiltration,ro_s,dz,lf,v_e,mixed_zone_depth,W)
 end
 
 
@@ -193,7 +196,7 @@ function calc_DAF_ispra!(c::DAF)
     end
   
     R = 1 + ( c.kd * ( c.ro_s / c.tera_e ) )
-    daf1 = 0.50ℯ^( ( c.x / 2c.α_x ) * ( 1 - √( 1 + ( ( 4c.λ1 * c.α_x * R ) / c.v_e ) ) ) )
+    daf1 = 0.50ℯ^( ( c.x / 2c.α_x ) * ( 1 - √( 1 + ( ( 4c.decay_coeff * c.α_x * R ) / c.v_e ) ) ) )
     #daf1 = exp( ( c.x / ( 2c.α_x ) ) )
     #daf2 = erf( c.s_w / ( 4√( c.α_y * c.x ) ) )
     daf21 = erf( ( c.y + 0.5c.s_w ) / ( 2√( c.α_y * c.x ) ) )
@@ -213,7 +216,7 @@ function calc_DAF_ispra2!(c::DAF)
       c.α_y = c.α_x / 3
     end
     
-    #daf1 = ( c.x / 2c.α_x ) * ( 1 - √( 1 + ( ( 4c.λ1 * c.α_x * c.R ) / c.v_e ) ) )
+    #daf1 = ( c.x / 2c.α_x ) * ( 1 - √( 1 + ( ( 4c.decay_coeff * c.α_x * c.R ) / c.v_e ) ) )
     daf1 = exp( c.x / ( 2c.α_x ) * 0 )
     #daf1e = exp(daf1)
     daf2 = erf( c.s_w / ( 4√( c.α_y * c.x ) ) )
@@ -232,7 +235,7 @@ function calc_DAF!(c::DAF)
   
     dx = c.α_x * c.v_e
     dy = c.α_y * c.v_e
-    daf_a = c.c0 / ( 4c.tera_e * π * c.T * √(dx * dy) )
+    daf_a = c.secondary_source_concentration / ( 4c.tera_e * π * c.T * √(dx * dy) )
     daf_b = ℯ^( -( ( (( c.x - (c.v_e * c.T) )^2) / (4dx * c.T) ) + ((c.y^2) / ( 4dy *c.T )) ) )   
     c.DAF = daf_a * daf_b
   
@@ -245,7 +248,7 @@ function calc_DAF_uni!(c::DAF)
     end
   
     dx = c.α_x * c.v_e
-    daf_a = c.c0 / ( 2c.tera_e * √( 4dx * π * c.T ) ) 
+    daf_a = c.secondary_source_concentration / ( 2c.tera_e * √( 4dx * π * c.T ) ) 
     daf_b = ℯ^( -(( ((c.x - (c.v_e * c.T))^2) / ( 4dx * c.T ) )) )
     c.DAF = daf_a * daf_b
   
@@ -264,7 +267,7 @@ function calc_DAF_c!(c::DAF)
     dx = c.α_x * c.v_e
     dy = c.α_x * c.v_e
     r = √( (c.x^2) + ( (c.y^2) * ( dx / dy) ) )
-    daf_a = c.c0 / ( 4c.tera_e * √(π) * √( c.v_e * r ) * √(dy) )
+    daf_a = c.secondary_source_concentration / ( 4c.tera_e * √(π) * √( c.v_e * r ) * √(dy) )
     daf_b = ℯ^( ( ( c.x - r ) * c.v_e ) / ( 2 * dx ) ) 
     c.DAF = daf_a * daf_b
   
@@ -277,13 +280,13 @@ end
 function calc_kw!( l::Leach )
     l.koc = l.kd
     l.kd = 0.01l.koc
-    l.kw = l.soild / ( l.tera_w + ( l.kd * l.soild ) + ( l.h * l.tera_a ) )
+    l.kw = l.soil_density / ( l.tera_w + ( l.kd * l.soil_density ) + ( l.h * l.tera_a ) )
     return l.kw
 end
 
 function calc_ldf!( l::Leach )
-    v_darcy = l.darcy * 100.0 * 86400.0 * 365.0
-    l.ldf = 1 + ( v_darcy * ( l.Δgw / ( l.ief * l.W ) ) )
+    darcy = l.darcy_velocity * 100.0 * 86400.0 * 365.0
+    l.ldf = 1 + ( darcy * ( l.mixed_zone_depth / ( l.effective_infiltration * l.W ) ) )
     return l.ldf
 end
 
@@ -293,14 +296,16 @@ function calc_sam!( l::Leach )
 end
   
 function calc_LF!( l::Leach )
-    l.LF = ( l.kw * l.sam ) / l.ldf
-    return l.LF
+    l.leaching_factor = ( l.kw * l.sam ) / l.ldf
+    return l.leaching_factor
 end
 
 
 #------------------------------------------------ TESTING------------------------------------------------------------------------------
 
 import ArchGDAL as agd
+
+# Raster
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.read(dtm_file)
@@ -310,56 +315,72 @@ agd.getgeotransform(dtm)
 band = agd.getband(dtm, 1)
 band1 = agd.read(band)
 
+
+# Vector
+
+
+cmn_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
+cmn = agd.read(cmn_file)
+
+cmn_layer = agd.getlayer(cmn, 0)
+
+agd.envelope(cmn_layer)
+
+
+sts_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\Stazioni_Veneto\\Stazioni_Veneto.shp"
+sts = agd.read(sts_file)
+
+sts_layer = collect(agd.getlayer(sts, 0))
+
+
+
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 
-function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfalda, p,  texture, resolution::Int64, time::Int64=1, sw::Real=10000.0, soild::Real=1.70,
-                sourcethick::Int64=1, darcy::Real=0.000025, Δgw::Int64=1, λ1::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )
+function leach( source, area, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Int64, time::Int64=1,
+                orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Int64=1, darcy_velocity::Real=0.000025, mixed_zone_depth::Int64=1,
+                decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )
     if algorithm ∉ [:fickian, :domenico]
         throw(DomainError(algorithm, "`algorithm` must either be `:fickian` or `:domenico`"))
     end
+
     if option ∉ [:pulse, :continuous]
         throw(DomainError(option, "`option` must either be `:continuous` or `:pulse`"))
     end
 
-    x_w = azimut = dirfalda - 90
+    if agd.geomdim(source) != 1
+        throw(DomainError(source, "`source` must be a point"))
+    end
 
-    # attenzione in realtà la massa è in grammi non in kg: correggere anche sopra alla linea 356
-    #ef.C=ef.C_kg*1000
-
-
- """
-    # wkbType: 1:point, 6:multipolygon, 2: Linestring
-
-    if ef.source.wkbType()!=1:
-        QMessageBox.warning(ef,"Warning", "La sorgente deve avere geometria puntuale" )
-        return
-
-    ef.areastudio=ef.listalayers[ef.text_area]
-
-
-    if ef.areastudio.wkbType()!=6:
-        QMessageBox.warning(ef,"Warning", u"L'area di studio deve avere geometria poligonale" )
-        return
- """
+    if agd.geomdim(area) != 2
+        throw(DomainError(source, "`area` must be a polygon"))
+    end
 
     if agd.getspatialref(area) != agd.getspatialref(source)
         throw(DomainError("Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." ))
     end
-    refsys = agd.getspatialref(source)
 
-    for (substance, concentration) in zip(contaminants, conc)
+    # attenzione in realtà la massa è in grammi non in kg: correggere anche sopra alla linea 356
+    #ef.C=ef.C_kg*1000
+
+    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
+
+    azimut = acquifer_flow_direction - 90
+
+    for (substance, concentration) in zip(contaminants, concentrations)
         if output_path == ""
             output_path = ".\\output_model_$sostanza.tiff"
         end
 
-        res_fields = Functions.substance_extract( substance, ["c_henry", "koc_kd"], *( @__DIR__, "/../library/" ) )
-        h, kd = res_fields
-     # CHE `texture` STA USANDO? QUELLO PASSATO COME PARAMETRO? SE SI IL CALCOLO SI POTREBBE PORTARE FUORI DAL `for`
-        res_texture = Functions.texture_extract( texture, ["tot_por", "c_water_avg", "ief", "por_eff", "grain"], *( @__DIR__, "/../library/" ) )
-        tera_a, tera_w, ief, tera_e, grain = res_texture
-     # DA DOVE SALTA FUORI `pioggia`
-        ief *= (pioggia/10.2)^2
+        h, kd = Functions.substance_extract( substance, ["c_henry", "koc_kd"], *( @__DIR__, "/../library/" ) )
+        if isempty(h) && isempty(kd)
+            throw(DomainError("Analysis error, check input parameters"))
+        end
+        tera_a, tera_w, effective_infiltration, tera_e, grain = Functions.texture_extract( texture, ["tot_por", "c_water_avg", "effective_infiltration", "por_eff", "grain"], *( @__DIR__, "/../library/" ) )
+        if all(isempty.([tera_a, tera_w, effective_infiltration, tera_e, grain]))
+            throw(DomainError("Analysis error, check input parameters"))
+        end
+        effective_infiltration *= (mean_rainfall/10.2)^2
 
      """ PRINT DI COSE
         messaggio="Inizio elaborazione Acquifero Envifate\n"
@@ -376,12 +397,12 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
         messaggio+="Spessore sorgente: "+str(ef.dz)+"\n"
         messaggio+=u"Velocità Darcy: "+str(ef.ve)+"\n"
         messaggio+=u"Profondità mixed zone: "+str(ef.dgw)+"\n"
-        messaggio+=u"Estensione orizzontale: "+str(ef.sw)+"\n"
+        messaggio+=u"Estensione orizzontale: "+str(ef.orthogonal_extension)+"\n"
         messaggio+="Coefficiente di decadimento: "+str(ef.lambda1)+"\n"
         messaggio+=u"Profondità acquifero: "+str(ef.lf)+"\n"
 
-        messaggio+=u"Precipitazione media annua: "+str(ef.pioggia)+"\n"
-        messaggio+=u"Direzione corrente falda: "+str(ef.dirfalda)+"\n"
+        messaggio+=u"Precipitazione media annua: "+str(ef.mean_rainfall)+"\n"
+        messaggio+=u"Direzione corrente falda: "+str(ef.acquifer_flow_direction)+"\n"
         messaggio+="Risoluzione: "+str(ef.res)+"\n\n"
         messaggio+="Nome mappa prodotta: "+str(os.path.basename(ef.path_output+str(sostanza)))+"\n\n"
         messaggio+="ALGORITMI UTILIZZATI: \n"
@@ -390,44 +411,21 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
         messaggio+="---------------------------\n\n"
      """
 
-     """ CHECK SUI VALORI DI `res_fields` E `res_texture`
-        #controllo se i valori sono presenti
-        if '' in res_fields or '' in res_texture:
-            messaggio="Analisi non effettuata - modificare i parametri"
-            ef.console.appendPlainText(messaggio)
-            return
-     """
-        #                                            ro,    dz,          lf,            ve,    dgw
-        element = Leach( h, tera_w, tera_a, kd, ief, soild, sourcethick, aquifer_depth, darcy, Δgw, sw ) 
-        kw = calc_kw!(element)
-        ldf = calc_ldf!(element)
-        sam = calc_sam!(element)
-        LF = calc_LF!(element)
+        #                                       ief,                    ro,           dz,               lf,            ve,             dgw               sw
+        element = Leach( h, tera_w, tera_a, kd, effective_infiltration, soil_density, source_thickness, aquifer_depth, darcy_velocity, mixed_zone_depth, orthogonal_extension ) 
+        calc_kw!(element)
+        calc_ldf!(element)
+        calc_sam!(element)
+        leaching_factor = calc_LF!(element)
+        secondary_source_concentration = concentration * leaching_factor
 
-     """ PRINT DI COSE
-        risultato="RISULTATI INTERMEDI:\n\n"
-        risultato+="kw = %f \n" % ef.kw
-
-        risultato+="ldf = %f \n" % ef.ldf
-
-        #risultato+="sam = %f \n" % ef.sam
-     """
-        c0 = concentration * LF
-     """ PRINT DI COSE
-        risultato+="fattore di lisciviazione : %f \n" % ef.LF
-        risultato+="concentrazione sorgente secondaria : %f mg/l \n" % ef.c0
-     """
-
-     # NON SO COME FARE LA STESSA OPERAZIONE SUVETTORIALI CON ArchGDAL
-        path_layer = area.dataProvider().dataSourceUri()
-        path = path_layer.split("|")
-        source_ds = ogr.Open(path[0])
-        area_layer = source_ds.GetLayer()
-        x_min, y_min, x_max, y_max = round.( Int64, area_layer.GetExtent() )
-
-     # DOVE VIENE USATA QUESTA VARIABILE?
-        mem_driver = agd.getdriver("MEM")
+        area_layer = agd.getlayer(area, 0)
         valNoData = -9999
+
+
+        x_min, y_min, x_max, y_max = agd.envelope( area_layer )
+
+
 
         # Create the destination data source
         x_res = (x_max - x_min) / resolution
@@ -436,9 +434,7 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
         gtiff_driver = agd.getdriver("GTiff")
         target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
         agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
-     # DOVE VIENE USATA QUESTA VARIABILE?
-        projectionfrom = agd.getproj(target_ds)
-        agd.setproj!( target_ds, agd.importEPSG(agd.fromWKT(refsys)) )
+        agd.setproj!( target_ds, refsys )
      """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
         target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
                                 'modulo':'Dispersione in falda',
@@ -448,50 +444,42 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
      """
         band1 = agd.getband(target_ds, 1)
         agd.setnodatavalue!( band1, Float64(valNoData) )
-        band = agd.read(band)
+        band = agd.read(band1)
         fill!(band, valNoData)
         xsize = agd.width(band)
         ysize = agd.height(band)
         # outData = deepcopy(band)
         outData = band
-     """ OPERAZIONI SUL VETTORIALE `area`
-        polygons = [feature for feature in ef.areastudio.getFeatures()]
 
-        feature = next(ef.source.getFeatures())
-        geom = feature.geometry().asPoint()
-        x_source=geom[0]
-        y_source=geom[1]
-     """
+        polygons = collect(agd.getfeature(area))
+        feature = collect(agd.getfeature(source))
+        geom = agd.getgeom(feature)
+        x_source = agd.getx(geom, 0)
+        y_source = agd.gety(geom, 0)
 
-        #   original_point = QgsPoint(x_source,y_source)
-        original_point = ( x_source, y_source )
+        original_point = agd.createpoint( x_source, y_source )
         list_result = []
-        sw /= 1000
+        orthogonal_extension /= 1000
         
-        # DA DOVE SI OTTIENE `max`
         for length in resolution:resolution:1000
-            cosa = sin(deg2rad(azimut))
-            cosb = cos(deg2rad(azimut))
+            sina = sin(deg2rad(azimut))
+            cosa = cos(deg2rad(azimut))
 
          # DOVE VIENE USATA?
-            #   end_point = QgsPoint(original_point.x()+(length*cosa), original_point.y()+(length*cosb))
-            end_point = original_point + length * (cosa, cosb)
+            #   end_point = QgsPoint(original_point.x()+(length*sina), original_point.y()+(length*cosa))
+            end_point = agd.createpoint( (x_source, y_source) + length * (sina, cosa) )
 
-            calcolo_daf = DAF( c0, 100length, 0, 0, 0, λ1, darcy, kd, soild, tera_e, 1, time )
-            cfinal_p = c0 * calc_DAF_ispra!(calcolo_daf)
+            calcolo_daf = DAF( secondary_source_concentration, 100length, 0, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, 1, time )
+            cfinal_p = secondary_source_concentration * calc_DAF_ispra!(calcolo_daf)
             push!( list_result, cfinal_p )
         end
 
         for row in 1:ysize
             for col in 1:xsize
                 x, y = (col, row) * resolution + (x_min, y_min) + (resolution/2)
-                punto_controllo = ( x, y )
-
-                """ -- QUESTA PARTE NON E' ANCORA SISTEMATA -- """
-                for pol in polygons:
-                    poly = pol.geometry()
-                    if poly.contains(punto_controllo):
-                """ ------------------------------------------ """
+                control_point = agd.createpoint( x, y )
+                for polygon in polygons
+                    if agd.within( control_point, agd.getgeom(polygon) )
                         Δx = x - x_source
                         Δy = y - y_source
                         dist = √( Δy^2 + Δx^2 )
@@ -499,7 +487,7 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
                         yvero = Δx * sin(deg2rad(azimut)) + Δy * cos(deg2rad(azimut))
 
                         if xvero > 0
-                            element_daf = DAF( c0, xvero, yvero, 0, 0, λ1, darcy, kd, soild, tera_e, sw, time )
+                            element_daf = DAF( secondary_source_concentration, xvero, yvero, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time )
                             if algorithm == :fickian
                                 if opzione == :pulse
                                     cfinal = calc_DAF!(element_daf)
@@ -507,7 +495,7 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
                                     cfinal = calc_DAF_c!(element_daf)
                                 end
                             else
-                                cfinal = c0 * calc_DAF_ispra!(element_daf)
+                                cfinal = secondary_source_concentration * calc_DAF_ispra!(element_daf)
                             end
                             outData[row, col] = cfinal
                         else
@@ -516,6 +504,9 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
                     end
                 end
             end
+
+            agd.write!( target_ds, outData, 1 )
+
             #   outData_raster = outData [::-1]
             #   band.WriteArray(outData_raster)
             #   astats=band.GetStatistics(0, 1)
@@ -541,13 +532,13 @@ function leach( source, area, contaminants, conc, aquifer_depth, dirwind, dirfal
         messaggio+="---------------------------------\n\n"
         messaggio+="ANALISI STATSTICHE DI BASE\nvalore minimo: "+str(astats[0])+"\n"+"valore massimo: "+str(astats[1])+"\n"+"valore medio: "+str(astats[2])+"\n"+"deviazione standard: "+str(astats[3])
      """
+    end
     if ef.multiplesubstance_control==False:
         ax1f1 = ef.figure.add_subplot(111)
         ax1f1.plot(ef.list_result)
+    end
+end
 
-        ef.canvas_mat.draw()
 
-        ef.label_status.setText("In attesa di dati")
-        ef.label_status.setStyleSheet('color : green; font-weight:bold')
 
 end # module
