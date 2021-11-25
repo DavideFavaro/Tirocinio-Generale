@@ -28,8 +28,6 @@ using ArgParse
 using Dates
 using Sys
 
-include("DoSettings.jl")
-include("../Library/Lakes.jl")
 include("../Library/Functions.jl")
 
 export run_lake
@@ -50,6 +48,32 @@ mutable struct Lake
 
     Lake( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk ) = new( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
 end
+
+
+# QUESTI SI POSSONO SPOSTARE SU UN FILE A PARTE 
+srid = [ 3003, 3004, 32632, 32633, 3857, 4326 ]
+classiwind = Dict(
+    "N" => 0,
+    "NE" => 45,
+    "E" => 90,
+    "SE" => 135,
+    "S" => 180,
+    "SW" => 225,
+    "W" => 270,
+    "NW" => 315
+)
+classiwind2 = Dict(
+    0 => 180,
+    45 => 225,
+    90 => 270,
+    135 => 315,
+    180 => 0,
+    225 => 45,
+    270 => 90,
+    315 => 135
+)
+
+
 
 #=
 mutable struct Dialog(EnviDialog)
@@ -575,40 +599,19 @@ function calc_concentration!( l::Lake )
     #import ipdb; ipdb.set_trace()  
     l.C = c4 * c5
     return l.C
-  end
+end
 
 
 function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
                    fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
-    srid = [ 3003, 3004, 32632, 32633, 3857, 4326 ]
-    classiwind = Dict(
-        "N" => 0,
-        "NE" => 45,
-        "E" => 90,
-        "SE" => 135,
-        "S" => 180,
-        "SW" => 225,
-        "W" => 270,
-        "NW" => 315
-    )
-    classiwind2 = Dict(
-        0 => 180,
-        45 => 225,
-        90 => 270,
-        135 => 315,
-        180 => 0,
-        225 => 45,
-        270 => 90,
-        315 => 135
-    )
-
-    hours *= 3600
 
     if agd.getspatialref(area) != agd.getspatialref(source)
-        throw(DomainError("Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." ))
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
 
-    refsys = agd.getspatialref(source)
+
+    hours *= 3600
+    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
     velocity_x = √( round( flow_mean_speed * cos(deg2rad(xw)), digits=3 )^2 )
     velocity_y = √( round( flow_mean_speed * sin(deg2rad(xw)), digits=3 )^2 )
 
@@ -621,8 +624,9 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
 
     x_min, y_min, x_max, y_max = round.( Int64, [ area_layer.GetExtent()[1], area_layer.GetExtent()[3], area_layer.GetExtent()[2], area_layer.GetExtent()[4] ] )
  """
- # DOVE VIENE USATA QUESTA VARIABILE?
-    mem_driver = ArchGDAL.getdriver("MEM")
+    area_layer = agd.getlayer(area, 0)
+ # NON FUNZIONANTE / DA ELIMINARE
+    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
     valNoData = -9999
 
     # Create the destination data source
@@ -632,11 +636,8 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
     gtiff_driver = agd.getdriver("GTiff")
     target_ds = agd.create( path_output, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
     agd.setgeotransform!( target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ] )
- # DOVE VIENE USATA QUESTA VARIABILE?
-    projectionfrom = agd.getproj(target_ds)
-    agd.setproj!( target_ds, agd.importEPSG(agd.fromWKT(refsys)) )
-
-    # geotransform = getgeotransform(target_ds)
+    agd.setproj!(target_ds, refsys)
+ """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
     target_ds.SetMetadata(
         Dict( 
             "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
@@ -646,39 +647,29 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
             "data" => today()
         )
     )
-
+ """
     band1 = agd.getband(target_ds, 1)
     agd.setnodatavalue!( band1, convert(Float64, valNoData) )
     band = agd.read(band1)
-    fill!(band, valNoData)
+    agd.fillraster!(band, valNoData)
     xsize = agd.width(band1)
     ysize = agd.height(band1)
 
-
-"""
-    feature = next(dialog.source.getFeatures())
-    geom = feature.geometry().asPoint()
-    x_source = geom[0]
-    y_source = geom[1]
-
-    polygons = [ feature for feature in dialog.areastudio.getFeatures() ]
-"""
-
+    polygons = collect(agd.getfeature(area))
+    feature = collect(agd.getfeature(source))
+    geom = agd.getgeom(feature[1])
+    x_source = agd.getx(geom, 0)
+    y_source = agd.gety(geom, 0)
 
     rows = ysize - 1
     cols = xsize - 1
 
     for row in 1:rows
         for col in 1:cols
-            x, y =@. [col, row] * resolution + [x_min, y_min] + (resolution/2)
-
-            punto_controllo = QgsPointXY(x,y)
-
-            for pol in polygons
-                poly = pol.geometry()
-                if poly.contains(punto_controllo)
-                # if geom_area.contains(punto_controllo):
-
+            x, y = (col, row) * resolution + (x_min, y_min) .+ (resolution/2)
+            control_point = agd.createpoint(x,y)
+            for polygon in polygons
+                if agd.within( control_point, agd.getgeom(polygon) )
                     Δx = x - x_source
                     Δy = y - y_source
                     true_x = Δx * cos(deg2rad(xw)) - Δy * sin(deg2rad(xw))
@@ -696,6 +687,9 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
         end
     end
 
+
+
+    
     outData_raster = outData[::-1]
     band.WriteArray(outData_raster)
     astats = band.GetStatistics(0, 1)

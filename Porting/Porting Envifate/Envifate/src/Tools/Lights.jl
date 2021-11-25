@@ -23,172 +23,6 @@ module Lights
  ***************************************************************************/
 =#
 #=
-    from __future__ import print_function
-
-    from builtins import str
-    from builtins import range
-    from qgis.PyQt import QtCore, QtGui
-    from PyQt5.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QObject, pyqtSignal, pyqtRemoveInputHook
-    from PyQt5.QtGui import QIcon
-    from PyQt5.QtWidgets import QAction, QDialog, QFormLayout, QMenu, QComboBox, QTableWidgetItem, QHBoxLayout, QLineEdit, QPushButton, QWidget, QSpinBox, QTableWidgetItem, QMessageBox, QFileDialog
-
-
-    import sys
-
-    # Initialize Qt resources from file resources.py
-    #import resources
-
-
-    # Import the code for the dialog
-
-    #from open_risk_dialog import OpenRiskDialog
-    import os.path
-    try:
-      import sqlite3
-    except:
-      # fix_print_with_import
-      print("librerie per la connessione al database sqlite non trovate")
-
-    import qgis
-    from qgis.core import *
-    from qgis.gui import *
-    from qgis.utils import iface
-
-    import numpy as np
-    import math
-    import time
-    from osgeo import gdal,ogr,osr
-    import platform
-
-    import processing
-    from processing.core.Processing import Processing
-    Processing.initialize()
-
-    import datetime
-
-    import pdb
-
-    from envifate_dialog import EnviDialog
-
-    from configuration_dialog import ConfigurationDialog
-
-    sys.path.append( os.path.dirname(__file__)+"/../library" )
-
-    import functions, lake, do_setting
-=#
-#= 
-class Dialog(EnviDialog):
-
-    def __init__(self, iface):
-        QDialog.__init__(self, iface.mainWindow())
-        self.iface = iface
-        self.canvas=self.iface.mapCanvas()
-        #self.registry = QgsMapLayerRegistry.instance()
-        self.msgBar = self.iface.messageBar()
-        # Set up the user interface from Designer.
-        self.setupUi(self)
-
-        self.tabWidget.setCurrentIndex(0)
-        self.tabWidget.removeTab(2)
-
-        self.tab_2.setEnabled(False)
-
-        self.label_title.setText("Analisi inquinamento luminoso")
-        self.label_title.setStyleSheet('background-color : qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #e5e94c, stop:1 rgba(0, 0, 0, 0)); color : black')
-        self.tableWidget.setRowCount(9)
-        self.tableWidget.horizontalHeader().setStretchLastSection(True)
-        #self.tableWidget.horizontalHeaderItem(0).setText("newHeader")
-        self.combo_bound = QComboBox()
-        self.combo_source = QComboBox()
-        self.combo_dem = QComboBox()
-        self.tableWidget.setCellWidget(0,0, self.combo_source)
-        self.tableWidget.setCellWidget(1,0, self.combo_bound)
-        self.tableWidget.setCellWidget(2,0, self.combo_dem)
-
-        self.tableWidget.setItem(3 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(4 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(5 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(6 , 0, QTableWidgetItem(""))
-
-
-
-        hbox = QHBoxLayout()
-        hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(0)
-        self.line_output = QLineEdit()
-        self.line_output.setFixedHeight(25)
-        self.saveButton = QPushButton("Scegli")
-        self.saveButton.setFixedHeight(25)
-        hbox.addWidget(self.line_output)
-        hbox.addWidget(self.saveButton)
-        cellWidget = QWidget()
-        cellWidget.setLayout(hbox)
-
-
-        self.tableWidget.setCellWidget(7,0, cellWidget)
-
-        self.spintime=QSpinBox()
-        self.spinRes=QSpinBox()
-
-        self.tableWidget.setCellWidget(8,0, self.spinRes)
-
-        self.spinRes.setValue(25)
-        self.spintime.setValue(10)
-
-
-        self.tableWidget.resizeRowsToContents();
-
-        # rowPosition = self.tableWidget.rowCount()
-        # self.tableWidget.insertRow(rowPosition)
-        # self.tableWidget.setItem(rowPosition , 0, QtGui.QTableWidgetItem("text1"))
-        self.tableWidget.setVerticalHeaderLabels((u'Vettoriale sorgente*', u'Vettoriale confine*', u'DEM*',
-                                                  u'Altezza sorgente (m)',u'Altezza osservatore (m)',
-                                                  u'Coeff. di rarefrazione',u'Memoria',u'Output file',u'Risoluzione'))
-
-
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
-
-        self.clear_out_button.clicked.connect(self.reset_output)
-        self.save_out_button.clicked.connect(self.esporta_output)
-
-        # self.web = QWebView()
-        # self.web.load(QUrl("https://grass.osgeo.org/grass70/manuals/addons/r.green.biomassfor.theoretical.html"))
-        # self.web_layout.addWidget(self.web)
-
-        self.popolacombo()
-
-        self.saveButton.clicked.connect(lambda: self.scegli_file("salvaraster"))
-        self.reset_field_button.clicked.connect(self.reset_fields)
-        self.buttonBox.accepted.connect(self.run_light)
-        self.actionManuale.triggered.connect(self.help)
-        self.actionCredits.triggered.connect(self.about)
-        self.actionSetting.triggered.connect(self.configuration)
-
-
-        #pyqtRemoveInputHook()
-        #pdb.set_trace()
-        self.tabWidget.removeTab(1)
-=#
-#=
-    def esporta_output(self):
-        resultmodel=self.console.toPlainText()
-        name = QFileDialog.getSaveFileName(self, 'Save File')
-        file = open(name[0],'w')
-        file.write(resultmodel)
-        file.close()
-
-
-
-    def reset_output(self):
-        ret = QMessageBox.warning(self,"Attenzione", "Vuoi davvero eliminare i risultati del modello?",QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if ret== QMessageBox.Yes:
-            self.console.clear()
-        else:
-            return False
-
-
     def help(self):
         #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
         #QMessageBox.about(self.dlg,"Credits", self.credits )
@@ -198,96 +32,8 @@ class Dialog(EnviDialog):
             os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_inquinamento_luminoso.pdf")
         else:
             os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_inquinamento_luminoso.pdf")
-
-
-    def run1(self):
-        # fix_print_with_import
-        print("run effettuato")
-
-    def popolafields(self,combo_in,combo_out):
-        vect_source_text=combo_in.currentText()
-        if vect_source_text!="":
-            #vfields = self.allLayers[mainvect].pendingFields()
-            mainvect = self.registry.mapLayersByName( vect_source_text )[0]
-            vfields = mainvect.pendingFields()
-            combo_out.addItem("No field")
-            for field in vfields:
-                combo_out.addItem(field.name())
-
-    def configuration(self):
-        d = do_setting.Dialog(self.iface)
-        d.show()
-        d.exec_()
-
-    def popolacombo(self):
-        self.combo_source.clear()
-        self.combo_dem.clear()
-        self.combo_bound.clear()
-        self.line_output.clear()
-        self.progressBar.setValue(0)
-
-
-        self.allLayers = self.canvas.layers()
-        self.listalayers=dict()
-        #elementovuoto="No required"
-        for i in self.allLayers:
-            if i.type() == QgsMapLayer.VectorLayer:
-                self.listalayers[i.name()]=i
-                self.combo_source.addItem(str(i.name()))
-                self.combo_bound.addItem(str(i.name()))
-            if i.type()==QgsMapLayer.RasterLayer:
-                self.listalayers[i.name()]=i
-                self.combo_dem.addItem(str(i.name()))
-
-
-
-
-
-    def reset_fields(self):
-        self.console.clear()
-
-
-        for i in range(3,6):
-            self.tableWidget.setItem(i , 0, QTableWidgetItem(""))
-
-        self.popolacombo()
-
-        ##### da eliminare #####
-        # self.line_speed.setText("4")
-        # self.line_flickianx.setText("1000")
-        # self.line_flickiany.setText("1000")
-        # self.line_conc.setText("2000")
-        # self.line_lambda.setText("0")
-        # self.spintime.setValue(20)
-
-
-        ##### fine da eliminare #####
-
-
-    def scegli_file(self,tipofile):
-        if tipofile=="sqlite":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','sqlite3 files (*.sqlite);;all files (*.*)')
-            self.dlg_conf.pathtodb.setText(self.fname)
-        if tipofile=="csv":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','csv files (*.csv);;all files (*.*)')
-            self.dlg_conf.path_to_kmean.setText(self.fname)
-        if tipofile=="tif":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.dlg_reclass.output_raster_class.setText(self.fname)
-        if tipofile=="tutti":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','all files (*.*)')
-            self.dlg_reclass.input_reclass.setText(self.fname)
-        if tipofile=="salvaraster":
-            self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.line_output.setText(self.fname[0])
-        # if self.tipofile=="salvacsv":
-        #     self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','csv files (*.csv);;all files (*.*)')
-        #     self.dlg.lineEdit_csv.setText(self.fname)
-
-
-    def about(self):
-        QMessageBox.about(self, "Credits EnviFate",u"""<p>EnviFate: Open source tool for environmental risk analysis<br />Release 1.0<br />13-1-2017<br />License: GPL v. 3<br /><a href='https://bitbucket.org/fragit/envifate'>Home page plugin</a></p><hr><p>Lavoro svolto nell’ambito del  Progetto  di   ricerca   scientifica  “Definizione  di   metodi   standard     e  di strumenti applicativi   informatici per   il calcolo degli effetti dei fattori di perturbazione   ai sensi della decisione  2011/484/Ue,  da impiegarsi  nell’ambito  della valutazione di incidenza” finanziato dalla Regione Veneto. Partner principale è il DICAM, Dipartimento di Ingegneria Civile Ambientale e Meccanica dell’Università di Trento (Italia).</p><hr><p>Autori: Francesco Geri, Marco Ciolli</p><p>Universita' di Trento, Trento - Dipartimento di Ingegneria Civile Ambientale e Meccanica (DICAM) <a href="http://www.dicam.unitn.it/">www.dicam.unitn.it/</a></p><hr><p>Consulenti: Paolo Zatelli, Oscar Cainelli</p>""")
 =#
+
 #=
 def run_light(self):
 
@@ -590,43 +336,30 @@ def run_light(self):
 
 =#
 
-function run_light( source, boundary, resolution::Int64, src_h::Real=0.0, obsrv_h::Real=1.75, rarefraction::Real=0.14286, processing_memory::Int64=500, output_path::AbstractString=".\\light_intensity.tiff"  )
-#=
-    # wkbType: 1:point, 6:multipolygon, 2: Linestring
+function run_light( dem, source, area, resolution::Integer, srource_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286, processing_memory::Integer=500, output_path::AbstractString=".\\light_intensity.tiff"  )
 
-    self.dem=self.listalayers[self.text_dem]
-
+ """ CONTROLLO SUL RASTER dem
     if not self.dem.isValid():
         QMessageBox.warning(self,"Warning", "The dem file is not valid" )
         return
+ """
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
 
-    self.source=self.listalayers[self.text_vector]
-
-    if self.source.wkbType()!=1:
-        QMessageBox.warning(self,"Warning", "The source file must have point geometry" )
-        return
-
-    self.areastudio=self.listalayers[self.text_area]
-
-
-    if self.areastudio.wkbType()!=6:
-        QMessageBox.warning(self,"Warning", "The boundaries file must have polygon geometry" )
-        return
-
-    self.path_output=self.line_output.text()
-    if self.path_output=="":
-        self.path_output=os.path.dirname(__file__)+"/light_intensity.tif"
+    if agd.geomdim(area) != 2
+        throw(DomainError(source, "`area` must be a polygon"))
+    end
 
 
-    if self.areastudio.crs().authid()!=self.source.crs().authid() or self.dem.crs().authid()!=self.source.crs().authid():
-        QMessageBox.warning(self,"Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." )
-        return
+    if agd.getspatialref(area) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+    end
 
-    self.refsys=self.source.crs().authid().split(':')[1]
+    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
-
+ """ PRINT DI COSE
     #recupero dati database
-
     messaggio="Inizio elaborazione analisi inquinamento luminoso\n"
     messaggio+="---------------------------\n\n"
     messaggio+="FILE DI INPUT:\n"
@@ -642,50 +375,42 @@ function run_light( source, boundary, resolution::Int64, src_h::Real=0.0, obsrv_
     messaggio+='ALGORITMO UTILIZZATO: decadimento dell\'onda luminosa in funzione della distanza; analisi di intervisibilità r.viewshed\n\n'
     messaggio+="---------------------------\n\n"
     self.console.appendPlainText(messaggio)
-=#
+ """
 
-
-
-    path_layer=self.areastudio.dataProvider().dataSourceUri()
-    path=path_layer.split("|")
-    source_ds = ogr.Open(path[0])
-    area_layer = source_ds.GetLayer()
-    x_min, y_min, x_max, y_max = Int64.([ area_layer.GetExtent()[1], area_layer.GetExtent()[3], area_layer.GetExtent()[2], area_layer.GetExtent()[4] ])
-    
-    
-    
-
-    mem_driver = gdal.GetDriverByName('MEM')
+    area_layer = agd.getlayer(area, 0)
+ # NON FUNZIONANTE / DA ELIMINARE
+    x_min, y_min, x_max, y_max = agd.envelope( area_layer )
     valNoData = -9999
 
     # Create the destination data source
-    x_res = (x_max - x_min) / pixel_size
-    y_res = (y_max - y_min) / pixel_size
-
-    target_ds = gdal.GetDriverByName('GTiff').Create(self.path_output, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-    target_ds.SetGeoTransform((x_min, pixel_size, 0, y_max, 0, -pixel_size))
-    projectionfrom = target_ds.GetProjection()
-
-    srs = osr.SpatialReference()
-    srs.ImportFromEPSG(int(self.refsys))
-    target_ds.SetProjection( srs.ExportToWkt() )
-
-    target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
-                           'modulo':'Analisi inquinamento luminoso',
-                           'descrizione':'Simulazione di inquinamento luminoso da sorgente puntuale singola o multipla',
-                           'srs':self.source.crs().authid(),
-                           'data':datetime.datetime.now().strftime("%d-%m-%y")})
-    # geotransform = target_ds.GetGeoTransform()
+    x_res = (x_max - x_min) / resolution
+    y_res = (y_max - y_min) / resolution
 
 
-        band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(float(NoData_value))
-        band.Fill(NoData_value)
-        xsize = band.XSize
-        ysize = band.YSize
+    gtiff_driver = agd.getdriver("GTiff")
+    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
+    agd.setproj!( target_ds, refsys )
+ """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+    target_ds.SetMetadata(
+        Dict(
+            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+            "modulo" => "Analisi inquinamento luminoso",
+            "descrizione" => "Simulazione di inquinamento luminoso da sorgente puntuale singola o multipla",
+            "srs" => refsys,
+            "data" => today()
+        )
+    )
+ """
+    band1 = agd.getband(target_ds, 1)
+    agd.setnodatavalue!( band1, Float64(valNoData) )
+    agd.fillraster!(band1, valNoData)
+    xsize = agd.width(band1)
+    ysize = agd.height(band1)
+    band = agd.read(band1)
+    # outData = deepcopy(band)
+    outData = band
 
-
-        outData = np.array(band.ReadAsArray(0, 0, xsize,ysize).astype(np.float))
 
 
         nfeature=0

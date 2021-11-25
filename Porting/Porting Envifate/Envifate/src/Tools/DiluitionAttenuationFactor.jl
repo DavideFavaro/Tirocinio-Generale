@@ -348,7 +348,7 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         throw(DomainError(option, "`option` must either be `:continuous` or `:pulse`"))
     end
 
-    if agd.geomdim(source) != 1
+    if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
@@ -357,7 +357,7 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
     end
 
     if agd.getspatialref(area) != agd.getspatialref(source)
-        throw(DomainError("Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." ))
+        throw(DomainError("The reference systems are not uniform. Aborting analysis." ))
     end
 
     # attenzione in realtà la massa è in grammi non in kg: correggere anche sopra alla linea 356
@@ -382,35 +382,6 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         end
         effective_infiltration *= (mean_rainfall/10.2)^2
 
-     """ PRINT DI COSE
-        messaggio="Inizio elaborazione Acquifero Envifate\n"
-        messaggio+="---------------------------\n\n"
-        messaggio+="FILE DI INPUT:\n"
-        messaggio+="Vettoriale sorgente: "+str(ef.text_vector)+"\n"
-        messaggio+="Vettoriale confine: "+str(ef.text_area)+"\n"
-
-        messaggio+="VARIABILI:\n"
-        messaggio+="Sostanza inquinante: "+str(sostanza)+"\n"
-        messaggio+=u"Concentrazione inquinante: "+str(ef.listaconc[contatore_sostanza])+"\n"
-        messaggio+="Tessitura del suolo: "+str(ef.text_texture)+"\n\n"
-        messaggio+=u"Densità del suolo: "+str(ef.ro)+"\n"
-        messaggio+="Spessore sorgente: "+str(ef.dz)+"\n"
-        messaggio+=u"Velocità Darcy: "+str(ef.ve)+"\n"
-        messaggio+=u"Profondità mixed zone: "+str(ef.dgw)+"\n"
-        messaggio+=u"Estensione orizzontale: "+str(ef.orthogonal_extension)+"\n"
-        messaggio+="Coefficiente di decadimento: "+str(ef.lambda1)+"\n"
-        messaggio+=u"Profondità acquifero: "+str(ef.lf)+"\n"
-
-        messaggio+=u"Precipitazione media annua: "+str(ef.mean_rainfall)+"\n"
-        messaggio+=u"Direzione corrente falda: "+str(ef.acquifer_flow_direction)+"\n"
-        messaggio+="Risoluzione: "+str(ef.res)+"\n\n"
-        messaggio+="Nome mappa prodotta: "+str(os.path.basename(ef.path_output+str(sostanza)))+"\n\n"
-        messaggio+="ALGORITMI UTILIZZATI: \n"
-        messaggio+='Leaching: Calcolo del fattore di Lisciviazione (Agenzia per la Protezione dell’Ambiente. "Criteri metodologici per l\'applicazione dell\'analisi assoluta di rischio ai siti contaminati." (2008).\n\n'
-        messaggio+='DAF: '+str(ef.algoritmo)+' (Domenico P.A. e Schwartz F.W. (1998), Physical and Chemical Hydrogeology, John Wiley and Sons, New York)\n\n'
-        messaggio+="---------------------------\n\n"
-     """
-
         #                                       ief,                    ro,           dz,               lf,            ve,             dgw               sw
         element = Leach( h, tera_w, tera_a, kd, effective_infiltration, soil_density, source_thickness, aquifer_depth, darcy_velocity, mixed_zone_depth, orthogonal_extension ) 
         calc_kw!(element)
@@ -420,12 +391,9 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         secondary_source_concentration = concentration * leaching_factor
 
         area_layer = agd.getlayer(area, 0)
-        valNoData = -9999
-
-
+     # NON FUNZIONANTE / DA ELIMINARE
         x_min, y_min, x_max, y_max = agd.envelope( area_layer )
-
-
+        valNoData = -9999
 
         # Create the destination data source
         x_res = (x_max - x_min) / resolution
@@ -436,16 +404,20 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
         agd.setproj!( target_ds, refsys )
      """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-        target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
-                                'modulo':'Dispersione in falda',
-                                'descrizione':'Simulazione di dispersione inquinante in falda',
-                                'srs':ef.source.crs().authid(),
-                                'data':datetime.datetime.now().strftime("%d-%m-%y")})
+        target_ds.SetMetadata(
+            Dict(
+                "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+                "modulo" => "Dispersione in falda",
+                "descrizione" => "Simulazione di dispersione inquinante in falda",
+                "srs" => refsys,
+                "data" => today()
+            )
+        )
      """
         band1 = agd.getband(target_ds, 1)
         agd.setnodatavalue!( band1, Float64(valNoData) )
         band = agd.read(band1)
-        fill!(band, valNoData)
+        agd.fillraster!(band, valNoData)
         xsize = agd.width(band)
         ysize = agd.height(band)
         # outData = deepcopy(band)
@@ -453,7 +425,7 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
 
         polygons = collect(agd.getfeature(area))
         feature = collect(agd.getfeature(source))
-        geom = agd.getgeom(feature)
+        geom = agd.getgeom(feature[1])
         x_source = agd.getx(geom, 0)
         y_source = agd.gety(geom, 0)
 
@@ -482,7 +454,6 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
                     if agd.within( control_point, agd.getgeom(polygon) )
                         Δx = x - x_source
                         Δy = y - y_source
-                        dist = √( Δy^2 + Δx^2 )
                         xvero = Δx * cos(deg2rad(azimut)) - Δy * sin(deg2rad(azimut))
                         yvero = Δx * sin(deg2rad(azimut)) + Δy * cos(deg2rad(azimut))
 
@@ -505,15 +476,17 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
                 end
             end
 
-            agd.write!( target_ds, outData, 1 )
-
-            #   outData_raster = outData [::-1]
-            #   band.WriteArray(outData_raster)
-            #   astats=band.GetStatistics(0, 1)
             
+         """ NON CAPISCO BENE IL SENSO DI QUESTE OPERAZIONI
+            outData_raster = outData [::-1]
+            band.WriteArray(outData_raster)
+            astats=band.GetStatistics(0, 1)
+         """
+            agd.write!( target_ds, outData, 1 )
             # band = deepcopy(outData)
         end
 
+     """" AGGIUNTA DI UN LAYER AL RASTER FINALE
         band = nothing
         target_ds = nothing
 
@@ -523,8 +496,9 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
 
         contatore_sostanza=0
         ef.list_result=[]
-
      """
+
+     """ PRINT DI COSE
         tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
         messaggio="---------------------------------\n"
         messaggio+="Fine modellazione\n"
@@ -533,10 +507,12 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         messaggio+="ANALISI STATSTICHE DI BASE\nvalore minimo: "+str(astats[0])+"\n"+"valore massimo: "+str(astats[1])+"\n"+"valore medio: "+str(astats[2])+"\n"+"deviazione standard: "+str(astats[3])
      """
     end
+    """ PLOT DEI RISULTATI
     if ef.multiplesubstance_control==False:
         ax1f1 = ef.figure.add_subplot(111)
         ax1f1.plot(ef.list_result)
     end
+    """
 end
 
 
