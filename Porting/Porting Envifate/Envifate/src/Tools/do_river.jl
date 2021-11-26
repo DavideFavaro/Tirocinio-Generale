@@ -46,9 +46,9 @@ mutable struct River
   concentration
 
   # element=river(args.concentration,args.time,args.distance,args.fickian,args.velocity)
-  River( ma, t, x, dl, v, w, k ) = new( float(ma), float(t), float(x), float(dl), float(v), float(w), float(k) )
+  River( ma, t, x, dl, v, w, k ) = new(ma,t,x,dl,v,w,k)
 end
-
+ 
 function calc_concentration!( r::River )   
   c1 = r.x - (r.v * r.t)
   c1_1 = -(c1^2)
@@ -136,6 +136,7 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
     self.console.appendPlainText(messaggio)
  """
 
+    start_sec, end_sec, int_sec = 60( time_start, time_end, time_interval )
     #calcolo ciclo intervallo temporale di analisi
     cicli = ( (end_time - start_time) / time_interval ) + 1
         
@@ -143,7 +144,7 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
     #   feature = next(self.river.getFeatures())
     #   geomfeature = feature.geometry()
     #   features = self.river.getFeatures()
-    features = getgeom.(collect(agd.getfeature(river)))
+    features = agd.getgeom.(collect(agd.getfeature(river)))
 
     src_feature = collect(agd.getfeature(source))
     src_geom = agd.getgeom(src_feature[1])
@@ -181,17 +182,18 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
         list_result=[]
  
         #   start_time = time.time()  
-
-     # NON SO SE VADA ELIMINATO
+        
         if self.outputname == ""
             self.outputname = "concentrazione"
         end
+
+
+
 
         vl = QgsVectorLayer("Point?crs=EPSG:"+self.refsys,self.outputname, "memory")       
         pr = vl.dataProvider()  
         prfield = pr.addAttributes( [ QgsField("distance", QVariant.Int) ] )            
         prfield2 = pr.addAttributes( [ QgsField("vmedia", QVariant.Double) ] )
-
 
         list_vmedia=[]
 
@@ -200,14 +202,14 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
         prlfield=prline.addAttributes( [ QgsField("distance", QVariant.Int) ] )            
         prlfield2=prline.addAttributes( [ QgsField("vmedia", QVariant.Double) ] )
 
-        sec_cicli = sec
+        sec_cicli = start_sec
         checknumcampo = 0
-        while sec_cicli <= sec_end  
+        while sec_cicli <= end_sec  
             checknumcampo += 1
             nomecampo = "conc $(sec_cicli/60)"              
             prfield1 = pr.addAttributes( [ QgsField(nomecampo, QVariant.Double) ] )
             prlfield1 = prline.addAttributes( [ QgsField(nomecampo, QVariant.Double) ] )
-            sec_cicli = sec_cicli + sec_int
+            sec_cicli = sec_cicli + int_sec
         end
 
 
@@ -218,10 +220,13 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
         prline.addFeatures( [ fetline ] )
         geomline = fetline.geometry()
 
+
+
+
         if trend == 1
             controllo = 0
         else
-            controllo=1
+            controllo = 1
         end
 
         while currentdistance < length
@@ -245,7 +250,7 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
                     z = slope[x, y][1]
                     v_inst = ( mean_hydraulic_radius^(2/3) * √(z/100) ) * manning_coeff
                     push!( list_vmedia, v_inst )
-                    vmadia = sum(list_vmedia) / count_index
+                    mean_v = sum(list_vmedia) / count_index
 
                  """ NON SO COSA RAPPRESENTINO QUESTE RIGHE
                     fet = QgsFeature()
@@ -260,21 +265,16 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
                     fetline.setAttribute(0,realdistance)
                     fetline.setAttribute(1,self.vmedia) 
                  """
-
-                    ciclo = 1
-
-                    while sec <= sec_end                            
-                        element = River( concentration, sec, realdistance, fickian_x, vmedia, hydraulic_section, decay_coeff )                    
+                    for (i,t) in enumerate(start_sec:int_sec:end_sec)
+                        element = River( concentration, t, realdistance, fickian_x, mean_v, hydraulic_section, decay_coeff )                    
                         Cfinal = calc_concentration!(element)
-                        if ciclo == 1
+                        if i == 1
                             push!( list_result, Cfinal )
                         end
                      """ NON SO COSA STIA FACENDO
                         fet.setAttribute(1+ciclo,Cfinal)
                         fetline.setAttribute(1+ciclo,Cfinal)
-                     """
-                        ciclo = ciclo + 1
-                        sec = sec + sec_int
+                     """   
                     end
                     
                     vl.updateFeature(fet)

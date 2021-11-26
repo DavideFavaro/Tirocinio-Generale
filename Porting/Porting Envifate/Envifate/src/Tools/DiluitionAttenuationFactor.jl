@@ -301,6 +301,28 @@ function calc_LF!( l::Leach )
 end
 
 
+
+
+function expand!( positions::AbstractVector, ss_conc::Real, algorithm::Symbol, option::Symbol, ind_x::Integer, ind_y::Integer, c::DAF, dtm )
+    concentration = 0
+    if algorithm == :fickian
+        if option == :pulse
+            concentration = calc_DAF!(c)
+        else opzione == :continuous
+            concentration = calc_DAF_c!(c)
+        end
+    else
+        concentration = ss_conc * calc_DAF_ispra!(c)
+    end
+    if concentration > 0 && (ind_x, ind_y) ∉ positions 
+        push!( positions, (ind_x, ind_y, concentration) )
+        xs = [ ind_x+1, ind_x, ind_x-1, ind_x ]
+        ys = [ ind_y, ind_y+1, ind_y, ind_y-1 ]
+        expand!.( Ref(positions), ss_conc, algorithm, option, xs, ys, c, Ref(dtm) )
+    end
+end
+
+
 #------------------------------------------------ TESTING------------------------------------------------------------------------------
 
 import ArchGDAL as agd
@@ -390,6 +412,23 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
         leaching_factor = calc_LF!(element)
         secondary_source_concentration = concentration * leaching_factor
 
+
+     # ========================================================================= MODIFICA A DAF =======================================================================================
+
+        feature = collect(agd.getfeature(source))
+        geom = agd.getgeom(feature[1])
+        x_source = agd.getx(geom, 0)
+        y_source = agd.gety(geom, 0)
+
+        r_source, c_source = GeoArrays.indices( dtm, [x_source, y_source] )
+        element_daf = DAF( secondary_source_concentration, xvero, yvero, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time )
+        positions = []
+        expand!( positions, secondary_source_concentration, algorithm, option, r_source, c_source, element_daf, dtm )
+
+
+
+    # =================================================================================================================================================================================
+
         area_layer = agd.getlayer(area, 0)
      # NON FUNZIONANTE / DA ELIMINARE
         x_min, y_min, x_max, y_max = agd.envelope( area_layer )
@@ -401,7 +440,7 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
 
         gtiff_driver = agd.getdriver("GTiff")
         target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-        agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
+        agd.setgeotransform!( target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ] )
         agd.setproj!( target_ds, refsys )
      """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
         target_ds.SetMetadata(
@@ -438,7 +477,6 @@ function leach( source, area, contaminants, concentrations, aquifer_depth, acqui
             cosa = cos(deg2rad(azimut))
 
          # DOVE VIENE USATA?
-            #   end_point = QgsPoint(original_point.x()+(length*sina), original_point.y()+(length*cosa))
             end_point = agd.createpoint( (x_source, y_source) + length * (sina, cosa) )
 
             calcolo_daf = DAF( secondary_source_concentration, 100length, 0, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, 1, time )

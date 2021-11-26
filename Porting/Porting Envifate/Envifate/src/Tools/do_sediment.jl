@@ -1,5 +1,7 @@
+module Sediments
+
 # -*- coding: utf-8 -*-
-"""
+#=
 /***************************************************************************
  OpenRisk
                                  A QGIS plugin
@@ -19,65 +21,74 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-"""
-from __future__ import print_function
+=#
 
-from builtins import str
-from builtins import range
-from qgis.PyQt import QtCore, QtGui
-from PyQt5.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QObject, pyqtSignal, pyqtRemoveInputHook
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QAction, QDialog, QFormLayout, QMenu, QComboBox, QTableWidgetItem, QHBoxLayout, QLineEdit, QPushButton, QWidget, QSpinBox, QTableWidgetItem, QMessageBox,QFileDialog
+import ArchGDAL as agd
+using ArgParse
+using Parameters
+using Dates
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-
-import matplotlib.pyplot as plt
-
-from mpl_toolkits.mplot3d import Axes3D
+include("../Library/Functions.jl")
 
 
-import os,sys
-import time, datetime
-
-# Initialize Qt resources from file resources.py
-#import resources
-import qgis
-from qgis.core import *
-from qgis.gui import *
-from qgis.utils import iface
-
-import numpy as np
-import math
-import struct
-import platform
 
 
-from osgeo import gdal,ogr,osr
+
+@with_kw mutable struct Sediment
+    """docstring for element"""
+  
+    # dredged_mass: input sedimento (kg/sec)
+    # t: tempo finale
+    # h: profondità metri
+    # Dx,Dy: coefficienti di diffusione
+    # x0,y0: coordinate sorgente
+    # x,y: coordinate target point
+    # V: velocità media corrente
+    # w: velocità di sedimentazione
+    # dt: delta t per la discretizzazione dell'integrale
+    # U: amplitude of the oscillatory current
+    # tide: tidal cycle es. 12 (ore)
+  
+    dredged_mass::Float64
+    time
+    mean_depth::Int
+    x_dispersion_coeff::Float64
+    y_dispersion_coeff::Float64
+    x::Int
+    y::Int
+    mean_flow_speed::Float64
+    mean_sedimentation_velocity::Float64
+    time_intreval::Int
+    stream_oscillation_width::Float64 = 0.0
+    tide::Int = 0
+  
+    ω = 0
+    ew
+
+    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide)
+        if stream_oscillation_width > 0 && tide > 0
+            ω = 2π/tide
+            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide, ω)
+        end
+    end
+end
 
 
-# Import the code for the dialog
+function calc_q( s::Sediment )
+    return s.dredged_mass / ( 4π *s.mean_depth * isqrt(s.x_dispersion_coeff * s.y_dispersion_coeff) )
+end
+  
 
-#from open_risk_dialog import OpenRiskDialog
-import os.path
-try:
-  import sqlite3
-except:
-  # fix_print_with_import
-  print("librerie per la connessione al database sqlite non trovate")
+function calcolo_e!( s::Sediment, i )
+    s.ew = s.ω > 0 ? s.stream_oscillation_width / ( s.ω * cos(deg2rad(s.ω)) - cos(deg2rad(s.ω * i *s.time_intreval)) ) : 0
+    e1 = ℯ^(-(( s.x - s.mean_flow_speed * ( s.time - i * s.time_intreval) + s.ew ) / ( 4s.x_dispersion_coeff * (s.time - i * s.time_intreval) ) ))
+    e2 = ℯ^(-( s.y^2 / ( 4s.y_dispersion_coeff * (s.time - i * s.time_intreval) ) ) - ( (s.mean_sedimentation_velocity * (s.time - i * s.time_intreval)) / s.mean_depth ) )
+    return e1*e2
+end
 
-#from qgis.core import QgsMapLayerRegistry
 
-import pdb
 
-from envifate_dialog import EnviDialog
-
-from configuration_dialog import ConfigurationDialog
-
-sys.path.append( os.path.dirname(__file__)+"/../library" )
-
-import functions,sediment, do_setting
-
+#=
 class Dialog(EnviDialog):
 
     def __init__(self, iface):
@@ -203,12 +214,8 @@ class Dialog(EnviDialog):
         self.layout_mat_2.addWidget(self.canvas_mat)
 
         #self.list_srid=[3003,3004,32632,32633,3857,4326]
-
-    def run1(self):
-        # fix_print_with_import
-        print("run effettuato")
-
-
+=#
+#=
     def help(self):
         #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
         #QMessageBox.about(self.dlg,"Credits", self.credits )
@@ -220,27 +227,6 @@ class Dialog(EnviDialog):
             # pyqtRemoveInputHook()
             # pdb.set_trace()
             os.system("open "+os.path.join(os.path.dirname(__file__), "../tutorial/manuale_envifate_sedimentazione_marina.pdf"))
-
-    def configuration(self):
-        d = do_setting.Dialog(self.iface)
-        d.show()
-        d.exec_()
-
-
-    def esporta_output(self):
-        resultmodel=self.console.toPlainText()
-        name = QFileDialog.getSaveFileName(self, 'Save File')
-        file = open(name[0],'w')
-        file.write(resultmodel)
-        file.close()
-
-
-    def reset_output(self):
-        ret = QMessageBox.warning(self,"Attenzione", "Vuoi davvero eliminare i risultati del modello?",QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if ret== QMessageBox.Yes:
-            self.console.clear()
-        else:
-            return False
 
 
     def popolacombo(self):
@@ -269,46 +255,8 @@ class Dialog(EnviDialog):
         self.combo_maindirwind.addItem("SW")
         self.combo_maindirwind.addItem("W")
         self.combo_maindirwind.addItem("NW")
-
-
-
-
-    def reset_fields(self):
-
-        self.console.clear()
-
-        for i in range(3,11):
-            self.tableWidget.setItem(i , 0, QTableWidgetItem(""))
-
-
-        self.popolacombo()
-
-
-    def scegli_file(self,tipofile):
-        if tipofile=="sqlite":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','sqlite3 files (*.sqlite);;all files (*.*)')
-            self.dlg_conf.pathtodb.setText(self.fname)
-        if tipofile=="csv":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','csv files (*.csv);;all files (*.*)')
-            self.dlg_conf.path_to_kmean.setText(self.fname)
-        if tipofile=="tif":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.dlg_reclass.output_raster_class.setText(self.fname)
-        if tipofile=="tutti":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','all files (*.*)')
-            self.dlg_reclass.input_reclass.setText(self.fname)
-        if tipofile=="salvaraster":
-            self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.line_output.setText(self.fname[0])
-        # if self.tipofile=="salvacsv":
-        #     self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','csv files (*.csv);;all files (*.*)')
-        #     self.dlg.lineEdit_csv.setText(self.fname)
-
-    def about(self):
-        QMessageBox.about(self, "Credits EnviFate",u"""<p>EnviFate: Open source tool for environmental risk analysis<br />Release 1.0<br />13-1-2017<br />License: GPL v. 3<br /><a href='https://bitbucket.org/fragit/envifate'>Home page plugin</a></p><hr><p>Lavoro svolto nell’ambito del  Progetto  di   ricerca   scientifica  “Definizione  di   metodi   standard     e  di strumenti applicativi   informatici per   il calcolo degli effetti dei fattori di perturbazione   ai sensi della decisione  2011/484/Ue,  da impiegarsi  nell’ambito  della valutazione di incidenza” finanziato dalla Regione Veneto. Partner principale è il DICAM, Dipartimento di Ingegneria Civile Ambientale e Meccanica dell’Università di Trento (Italia).</p><hr><p>Autori: Francesco Geri, Marco Ciolli</p><p>Universita' di Trento, Trento - Dipartimento di Ingegneria Civile Ambientale e Meccanica (DICAM) <a href="http://www.dicam.unitn.it/">www.dicam.unitn.it/</a></p><hr><p>Consulenti: Paolo Zatelli, Oscar Cainelli</p>""")
-
-
-
+=#
+#=
     def run_sediment(self):
 
 
@@ -623,3 +571,188 @@ class Dialog(EnviDialog):
         #ax1f1.plot(self.list_result)
 
         self.canvas_mat.draw()
+=#
+
+                    #                                     v                      h                 dx                        dy                        q                   dir
+function run_sediment( source, area, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
+                    #  w                                  t / time       dt                      u
+                       mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, stream_oscillation_width::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
+
+    # try:
+    #     self.dir=int(self.text_dir)
+    # except Exception as e:
+    #     QMessageBox.warning(self,"Warning", "La direzione media della corrente è obbligatoria")
+    #     return
+
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
+
+    if agd.geomdim(area) != 2
+        throw(DomainError(source, "`area` must be a polygon"))
+    end
+
+    if agd.getspatialref(area) != agd.getspatialref(source)
+         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+     end
+ 
+    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
+
+
+ # SERVE UN ELEMENTO DI classwind
+    self.dir=self.classiwind[self.combo_maindirwind.currentText()]
+
+
+
+
+ """ PRINT
+    messaggio="Inizio elaborazione plume atmosferico Envifate\n"
+    messaggio+="---------------------------\n\n"
+    messaggio+="FILE DI INPUT:\n"
+    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
+    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
+    messaggio+="VARIABILI:\n"
+    messaggio+=u"Quantità di sedimento dragata: "+str(self.text_q)+"\n"
+    messaggio+=u"Profondità media: "+str(self.text_h)+"\n"
+    messaggio+=u"Velocità media della corrente: "+str(self.text_v)+"\n"
+    messaggio+=u"Direzione media della corrente: "+str(self.combo_maindirwind.currentText())+"\n"
+    messaggio+=u"Coefficienti di diffusione (x,y): "+str(self.text_dx)+" "+str(self.text_dy)+"\n"
+    messaggio+=u"Velocità di sedimentazione marina: "+str(self.text_w)+"\n"
+    messaggio+=u"Tempo di analisi: "+str(self.text_t)+"\n"
+    messaggio+=u"Intervallo di analisi: "+str(self.text_dt)+"\n"
+    if self.text_u!="":
+        messaggio+=u"Ampiezza della marea: "+str(self.text_u)+"\n"
+    if self.text_tide!="":
+        messaggio+=u"Ciclo della marea: "+str(self.text_tide)+"\n"
+    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
+    messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
+    messaggio+="---------------------------\n\n"
+ """
+
+    area_layer = agd.getlayer(area, 0)
+ # NON FUNZIONANTE / DA ELIMINARE
+    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
+    valNoData = -9999
+    # Create the destination data source
+    x_res = ( x_max - x_min ) / resolution
+    y_res = ( y_max - y_min ) / resolution
+
+
+
+    gtiff_driver = agd.getdriver("GTiff")
+    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
+    agd.setproj!(target_ds, refsys)
+ """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+    target_ds.SetMetadata(
+        Dict(
+            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+            "modulo" => "Analisi sedimentazione marina",
+            "descrizione" => "Simulazione di sedimento disperso in ambiente marino",
+            "srs" => refsys,
+            "data" => today()
+        )
+    )
+ """
+    band1 = agd.getband(target_ds, 1)
+    agd.setnodatavalue!( band1, Float64(valNoData) )
+    band = agd.read(band1)
+    agd.fillraster!(band, valNoData)
+    xsize = agd.width(band)
+    ysize = agd.height(band)
+ # NON SONO CERTO SIA IL METODO GIUSTO 
+    # outData = deepcopy(band)
+    outData = band
+
+
+
+    feature = collect(agd.getfeature(source))
+    geom = agd.getgeom(feature[1])
+    x_source = agd.getx(geom, 0)
+    y_source = agd.gety(geom, 0)
+    rows = ysize - 1
+    cols = xsize - 1
+
+    #   start_time = time.time()
+
+
+    for row in 1:rows
+        for col in 1:cols
+            x, y = (col, row) * resolution + (x_min, y_min) .+ (resolution/2)
+            Δx = x - x_source
+            Δy = y - y_source
+            true_x = Δx * cos(deg2rad(flow_direction)) - Δy * sin(deg2rad(flow_direction))
+            true_y = Δx * sin(deg2rad(flow_direction)) + Δy * cos(deg2rad(flow_direction))
+
+            if true_y > 0
+                element = Sediment(time, dredged_mass, mean_depth, x_dispersion_coeff, y_dispersion_coeff, true_y, true_x, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide)
+                q = calc_q(element)
+                n = round( Int64, element.time / element.time_intreval )
+                csum = 0
+                for i in 1:n
+                    e = calcolo_e!(element, i)
+                    csum += e * (1 / (element.time - i * element.time_intreval))
+                end
+                outData[row, col] = q * csum * element.time_intreval
+            else
+                outData[row, col] = 0
+            end
+        end
+    end
+
+ # NON SO SE SIA EQUIVALENTE
+    #   outData_raster=outData[::-1]
+    #   band.WriteArray(outData_raster)
+    agd.write!( target_ds, outData, 1 )
+
+
+
+
+
+
+
+
+    
+
+
+    band= None
+    target_ds = None
+
+    base_raster_name=os.path.basename(self.output_path)
+    raster_name=os.path.splitext(base_raster_name)[0]
+    self.outputlayer=self.iface.addRasterLayer(self.output_path, raster_name)
+
+    layer=None
+    for lyr in list(QgsProject.instance().mapLayers().values()):
+        if lyr.name() == raster_name:
+            layer = lyr
+            
+
+
+
+ """ PRINT
+    tempoanalisi=time.time() - start_time
+    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
+    messaggio="---------------------------------\n"
+    messaggio+="Fine modellazione\n"
+    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
+    messaggio+="---------------------------------\n\n"
+    self.console.appendPlainText(messaggio)
+ """
+
+ """ PLOTS
+    ax1f1 = self.figure.gca(projection='3d')
+    (x, y) = np.meshgrid(outData_raster.shape[0], outData_raster.shape[1])
+    #fig = plt.figure()
+    #ax1f1 = fig.add_subplot(111, projection='3d')
+    surf = ax1f1.plot_wireframe(x, y, outData_raster)
+    #ax1f1.plot(self.list_result)
+
+    self.canvas_mat.draw()
+ """
+
+end
+
+
+
+end # module

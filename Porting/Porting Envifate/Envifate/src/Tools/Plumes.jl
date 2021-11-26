@@ -30,7 +30,7 @@ using Dates
 include("../Library/Functions.jl")
 
 
-
+#=
 mutable struct Plume
   """docstring for element"""
   # concentration: concentrazione inquinante m3/sec
@@ -66,8 +66,9 @@ mutable struct Plume
 
   Plume(concentration,d,y,z,stability,wind_speed,stack_height,gas_speed,stack_diameter,smoke_temperature,temperature,x_w,outdoor) = new(concentration,d,y,z,stability,outdoor,wind_speed,gas_speed,stack_diameter,smoke_temperature,temperature,stack_height,x_w)
 end
+=#
 
-
+#= VERSIONE CON LO STRUCT
 function calc_h!( p::Plume )
   try
     fb = 9.81 * ( (p.stack_diameter * p.gas_speed) / 4 ) * ( ( p.smoke_temperature / p.temperature ) / p.smoke_temperature )
@@ -80,8 +81,19 @@ function calc_h!( p::Plume )
   end
   return p.H
 end
+=#
+function calc_h( d::Real, stack_diameter::Real, gas_speed::Real, smoke_temperature::Real, temperature::Real )
+    try
+      fb = 9.81 * ( (stack_diameter * gas_speed) / 4 ) * ( ( smoke_temperature / temperature ) / smoke_temperature )
+      Δh = 1.6fb^(1/3) * d^(2/3)
+      return stack_height + Δh
+    catch
+      return stack_height
+    end
+end
 
 
+#= VERSIONE CON LO STRUCT
 function calc_sigma!( p::Plume )
   σ_values = Functions.air_extract( p.c_stability, p.outdoor )
   σy1 = σ_values[0]
@@ -95,19 +107,37 @@ function calc_sigma!( p::Plume )
   p.σz = ( σz1 * p.d ) / (1 + σz2 * p.d)^σzexp
   return p.σy, p.σz
 end
+=#
+function calc_σ( d::Real, stability_class::AbstractString, outdoor::AbstractString )
+    σ_values = Functions.air_extract( stability_class, outdoor )
+    σy = ( σ_values[0] * d ) / ( 1 + σ_values[1] * d )^σ_values[2]
+    σz = ( σ_values[3] * d ) / ( 1 + σ_values[4] * d )^σ_values[5]
+    return σy, σz
+  end
 
 
-
+#= VERSIONE CON LO STRUCT
 function calc_g!( p::Plume )
   p.g1 = exp( ( -0.5 * p.y^2 ) / p.σy^2 )
   p.g2 = exp( ( -0.5 * (p.z - p.stack_height)^2 ) / p.σz^2 ) + exp( ( -0.5 * (p.z + p.stack_height)^2 ) / p.σz^2 )
   return p.g1, p.g2
 end
+=#
+function calc_g( y::Real, z::Real, σy::Real, σz::Real, stack_height::Real )
+    g1 = ℯ^( ( -0.5y^2 ) / σy^2 )
+    g2 = ℯ^( ( -0.5(z - stack_height)^2 ) / σz^2 ) + ℯ^( ( -0.5(z + stack_height)^2 ) / σz^2 )
+    return g1, g2
+  end
 
 
+#= VERSIONE CON LO STRUCT
 function calc_C!( p::Plume )
-  p.C = ( p.q * 100 / (p.u * 3600) ) * ( (p.g1 * p.g2) / ( 2 * π * p.σy * p.σz ) )
+  p.C = ( 100p.concentration / 3600p.wind_speed ) * ( (p.g1 * p.g2) / ( 2π * p.σy * p.σz ) )
   return p.C
+end
+=#
+function calc_C( concentration::Real, wind_speed::Real, σy::Real, σz::Real, g1::Real, g2::Real )
+    return ( 100concentration / 3600wind_speed ) * ( (g1 * g2) / ( 2π * σy * σz ) )
 end
 
 
@@ -183,10 +213,10 @@ end
 
 
 
-         #                                                                                                                       q / text_conc        u / wspeed
+         #                                                                                                         q / text_conc        u / wspeed
 function run_plume( dem, source, area, stability::AbstractString, outdoor::AbstractString, resolution::Int64, x_w, concentration::Real, wind_speed::Real, 
                   # h_s / height        v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
-                    stack_height::Real, gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temparature::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
+                    stack_height::Real, gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temperature::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
@@ -318,17 +348,24 @@ function run_plume( dem, source, area, stability::AbstractString, outdoor::Abstr
             true_y = Δx * sin(deg2rad(x_w)) +  Δy * cos(de2rad(x_w))
 
             if true_y > 0
-                element = Plume(concentration, true_y, true_x, z[1], stability, outdoor, wind_speed, stack_height, gas_speed, stack_diameter, smoke_temperature, temparature, x_w)
+             #= VERSIONE CON STRUCT `Plume`
+                element = Plume(concentration, true_y, true_x, z[1], stability, outdoor, wind_speed, stack_height, gas_speed, stack_diameter, smoke_temperature, temperature, x_w)
                 calc_sigma!(element)
                 calc_g!(element)
                 calc_h!(element)
                 cfinal = calc_C!(element)
+             =#
+                σy, σz = calc_σ( true_y, stability, outdoor )
+                g1, g2 = calc_g( true_y, z[1], σy, σz, stack_height )
+             # IL CALCOLO QUI SOTTO SEMBRA ESSERE INUTILE
+                s_height = calc_h( true_y, stack_diameter, gas_speed, smoke_temperature, temperature )
+                cfinal = calc_C( concentration, wind_speed, σy, σz, g1, g2 )
                 if cfinal > max_dominio
                     max_dominio = cfinal
                 end
                 outData[row, col] = cfinal
             else
-                outData[row, col]=0
+                outData[row, col] = 0.0
             end
         end
     end

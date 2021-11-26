@@ -1,5 +1,7 @@
+module Runoffs
+
 # -*- coding: utf-8 -*-
-"""
+#=
 /***************************************************************************
  OpenRisk
                                  A QGIS plugin
@@ -19,58 +21,17 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-"""
-from __future__ import print_function
-
-from builtins import str
-from builtins import range
-from qgis.PyQt import QtCore, QtGui
-from PyQt5.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QObject, pyqtSignal, pyqtRemoveInputHook,QVariant
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QAction, QDialog, QFormLayout, QMenu, QComboBox, QTableWidgetItem, QHBoxLayout, QLineEdit, QPushButton, QWidget, QSpinBox, QTableWidgetItem, QMessageBox, QFileDialog
-
-import datetime
-import sys
-
-# Initialize Qt resources from file resources.py
-#import resources
+=#
 
 
-# Import the code for the dialog
+import ArchGDAL as agd
+using ArgParse
+using Dates
 
-#from open_risk_dialog import OpenRiskDialog
-import os.path
-try:
-  import sqlite3
-except:
-  # fix_print_with_import
-  print("librerie per la connessione al database sqlite non trovate")
+include("../Library/Functions.jl")
 
-import qgis
-from qgis.core import *
-from qgis.gui import *
-from qgis.utils import iface
 
-import numpy as np
-import math
-import time
-from osgeo import gdal,ogr,osr
-import platform
-
-import processing
-from processing.core.Processing import Processing
-Processing.initialize()
-
-import pdb
-
-from envifate_dialog import EnviDialog
-
-from configuration_dialog import ConfigurationDialog
-
-sys.path.append( os.path.dirname(__file__)+"/../library" )
-
-import functions, do_setting
-
+#=
 class Dialog(EnviDialog):
 
     def __init__(self, iface):
@@ -221,27 +182,10 @@ class Dialog(EnviDialog):
         #pyqtRemoveInputHook()
         #pdb.set_trace()
         self.tabWidget.removeTab(1)
+=#
 
 
-
-
-    def esporta_output(self):
-        resultmodel=self.console.toPlainText()
-        name = QFileDialog.getSaveFileName(self, 'Save File')
-        file = open(name[0],'w')
-        file.write(resultmodel)
-        file.close()
-
-
-
-    def reset_output(self):
-        ret = QMessageBox.warning(self,"Attenzione", "Vuoi davvero eliminare i risultati del modello?",QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if ret== QMessageBox.Yes:
-            self.console.clear()
-        else:
-            return False
-
-
+#=
     def help(self):
         #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
         #QMessageBox.about(self.dlg,"Credits", self.credits )
@@ -253,40 +197,6 @@ class Dialog(EnviDialog):
             os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
 
 
-    def run1(self):
-        # fix_print_with_import
-        print("run effettuato")
-
-
-    def checkfields(self):
-        self.combofield_lc.clear()
-        self.combofield_soil.clear()
-        self.popolafields(self.combo_lc,self.combofield_lc)
-        self.popolafields(self.combo_lc,self.combofield_soil)
-
-
-    def checkfield_source(self):
-        self.combo_fieldp.clear()
-        self.popolafields(self.combo_source,self.combo_fieldp)
-
-
-    def checkfield_target(self):
-        self.combofield_target.clear()
-        self.popolafields(self.combo_target,self.combofield_target)
-
-    def popolafields(self,combo_in,combo_out):
-        vect_source_text=combo_in.currentText()
-        if vect_source_text!="":
-            #vfields = self.allLayers[mainvect].pendingFields()
-            mainvect = QgsProject.instance().mapLayersByName( vect_source_text )[0]
-            vfields = mainvect.fields()
-            #combo_out.addItem("No field")
-            for field in vfields:
-                combo_out.addItem(field.name())
-
-    def configuration(self):
-        d = do_setting.Dialog(self.iface)
-        d.show()
         d.exec_()
 
     def popolacombo(self):
@@ -329,59 +239,10 @@ class Dialog(EnviDialog):
         self.popolafields(self.combo_source,self.combo_fieldp)
         self.popolafields(self.combo_target,self.combofield_target)
 
-
-
-    def reset_fields(self):
-        self.console.clear()
-
-
-
-        self.popolacombo()
-
-        ##### da eliminare #####
-        # self.line_speed.setText("4")
-        # self.line_flickianx.setText("1000")
-        # self.line_flickiany.setText("1000")
-        # self.line_conc.setText("2000")
-        # self.line_lambda.setText("0")
-        # self.spintime.setValue(20)
-
-
-        ##### fine da eliminare #####
-
-
-    def scegli_file(self,tipofile):
-        if tipofile=="sqlite":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','sqlite3 files (*.sqlite);;all files (*.*)')
-            self.dlg_conf.pathtodb.setText(self.fname)
-        if tipofile=="csv":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','csv files (*.csv);;all files (*.*)')
-            self.dlg_conf.path_to_kmean.setText(self.fname)
-        if tipofile=="tif":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.dlg_reclass.output_raster_class.setText(self.fname)
-        if tipofile=="tutti":
-            self.fname = QFileDialog.getOpenFileName(None, 'Open file', '/home','all files (*.*)')
-            self.dlg_reclass.input_reclass.setText(self.fname)
-        if tipofile=="salvaraster":
-            self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','GeoTiff files (*.tif);;all files (*.*)')
-            self.line_output.setText(self.fname[0])
-        if tipofile=="folder":
-            self.folder = QFileDialog.getExistingDirectory(self, "Select Directory")
-            self.line_folder.setText(self.folder)
-        # if self.tipofile=="salvacsv":
-        #     self.fname = QFileDialog.getSaveFileName(None, 'Save file', '/home','csv files (*.csv);;all files (*.*)')
-        #     self.dlg.lineEdit_csv.setText(self.fname)
-
-
-    def about(self):
-        QMessageBox.about(self, "Credits EnviFate",u"""<p>EnviFate: Open source tool for environmental risk analysis<br />Release 1.0<br />13-1-2017<br />License: GPL v. 3<br /><a href='https://bitbucket.org/fragit/envifate'>Home page plugin</a></p><hr><p>Lavoro svolto nell’ambito del  Progetto  di   ricerca   scientifica  “Definizione  di   metodi   standard     e  di strumenti applicativi   informatici per   il calcolo degli effetti dei fattori di perturbazione   ai sensi della decisione  2011/484/Ue,  da impiegarsi  nell’ambito  della valutazione di incidenza” finanziato dalla Regione Veneto. Partner principale è il DICAM, Dipartimento di Ingegneria Civile Ambientale e Meccanica dell’Università di Trento (Italia).</p><hr><p>Autori: Francesco Geri, Marco Ciolli</p><p>Universita' di Trento, Trento - Dipartimento di Ingegneria Civile Ambientale e Meccanica (DICAM) <a href="http://www.dicam.unitn.it/">www.dicam.unitn.it/</a></p><hr><p>Consulenti: Paolo Zatelli, Oscar Cainelli</p>""")
-
-
-
+    
+    
     def calc_s(self,cn):
         return(254.0*((100/cn)-1))
-
 
 
     def extract_values(self, raster,x,y):
@@ -389,7 +250,8 @@ class Dialog(EnviDialog):
         zresult=z.results()
         zvalue=zresult[1]
         return(zvalue)
-
+=#
+#=
     def run_runoff(self):
         self.text_vector = str(self.combo_source.currentText())
         self.text_area = str(self.combo_bound.currentText())
@@ -735,3 +597,347 @@ class Dialog(EnviDialog):
         self.label_status.setText("In attesa di dati")
         self.label_status.setStyleSheet('color : green; font-weight:bold')
         self.progressBar.setValue(max_progress)
+=#
+function run_runoff( dem, source, area, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=@__DIR__ )
+    
+    # wkbType: 1:point, 6:multipolygon, 2: Linestring
+
+
+ """ NON SO QUALE SIA L'EQUIVALENTE
+    if not self.dem.isValid():
+        QMessageBox.warning(self,"Warning", "The dem file is not valid" )
+        return
+ """
+
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
+
+    if agd.geomdim(area) != 2
+        throw(DomainError(source, "`area` must be a polygon"))
+    end
+
+    if agd.geomdim(targer) != 2
+        throw(DomainError(source, "`target` must be a polygon"))
+    end
+
+    if agd.geomdim(landcover) != 2
+        throw(DomainError(source, "Not a valid `landcover` geometry"))
+    end
+
+    if agd.getspatialref(area) != agd.getspatialref(source) || agd.getspatialref(target) != agd.getspatialref(source) ||
+       agd.getspatialref(landcover) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+    end
+
+    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
+
+    path_temp_landcover = folder * "\\temp_lc.tiff"
+    path_temp_soil = folder * "\\temp_soil.tiff"
+
+
+ """ NON SO COSA SIANO QUESTE VARIABILI
+    self.text_vector = str(self.combo_source.currentText())
+    self.text_lcfield = str(self.combofield_lc.currentText())
+    self.text_p = str(self.combo_fieldp.currentText())
+    self.text_targetfield = str(self.combofield_target.currentText())
+    self.text_lcfield = str(self.combofield_lc.currentText())
+    self.text_soil = str(self.combo_soil.currentText())
+    self.text_soilfield = str(self.combofield_soil.currentText())
+ """
+
+    clc_list = Functions.cn_list_extract()
+
+    soil_control = 0
+
+""" PRINT DI COSE
+    messaggio="Inizio elaborazione analisi dispersione per ruscellamento\n"
+    messaggio+="---------------------------\n\n"
+    messaggio+="FILE DI INPUT:\n"
+    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
+    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
+    messaggio+="Vettoriale target: "+str(self.text_target)+"\n"
+    messaggio+="DTM: "+str(self.text_dem)+"\n\n"
+
+    messaggio+="VARIABILI:\n"
+    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
+    messaggio+='ALGORITMO UTILIZZATO: calcolo della separazione delle componenti infiltrazione e ruscellamento tramite metodo SCS-CN; US Department of Agriculture Soil Conservation Service, 1972. National Engineering Handbook, Section 4, Hydrology. US Government Printing Office, Washington, DC, 544pp.\n\n'
+    messaggio+="---------------------------\n\n"
+    self.console.appendPlainText(messaggio)
+ """
+
+    output_path = folder * "\\runoff.tiff"
+
+    area_layer = agd.getlayer(area, 0)
+ # NON FUNZIONANTE / DA ELIMINARE
+    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
+    valNoData = -9999
+    # Create the destination data source
+    x_res = ( x_max - x_min ) / resolution
+    y_res = ( y_max - y_min ) / resolution
+
+    gtiff_driver = agd.getdriver("GTiff")
+    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
+    agd.setproj!(target_ds, refsys)
+ """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+    target_ds.SetMetadata(
+        Dict(
+            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+            "modulo" => "Analisi ruscellamento",
+            "descrizione" => "Analisi di ruscellamento di un inquinante attraverso il metodo della separazione delle componenti",
+            "srs" => refsys,
+            "data" => today()
+        )
+    )
+ """
+    band1 = agd.getband(target_ds, 1)
+    agd.setnodatavalue!( band1, Float64(valNoData) )
+    band = agd.read(band1)
+    agd.fillraster!(band, valNoData)
+    xsize = agd.width(band)
+    ysize = agd.height(band)
+
+
+ # PRENDE LE DIMENSIONI REALI DI UA CELLA, NOI FORSE QUESTO VALORE LO ABBIAMO GIA'
+    intervallo=int(self.dem.rasterUnitsPerPixelX())
+
+
+ # NON SONO CERTO SIA IL METODO GIUSTO 
+    # outData = deepcopy(band)
+    outData = band
+
+
+
+
+ """ NON SO COSA FACCIA STA ROBA """
+    lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
+    lc_clip=QgsVectorLayer(lc_clip_proc['OUTPUT'], 'lc_clip', 'ogr')
+    lc_clip.setCrs(self.source.crs())
+
+    #path__layer_lc=lc_clip['OUTPUT'].dataProvider().dataSourceUri()
+    path__layer_lc=lc_clip.dataProvider().dataSourceUri()
+    path_lc=path__layer_lc.split("|")
+    source_ds_lc = ogr.Open(path_lc[0])
+    lc_layer = source_ds_lc.GetLayer()
+ """"""
+
+
+
+
+    landcover_ds = agd.create( path_temp_landcover, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(landcover_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+    agd.setproj!(landcover_ds, refsys)
+    band_lc = agd.getband(landcover_ds, 1)
+    agd.setnodatavalue!( band_lc, Float64(valNoData) )
+    bandlc = agd.read(band_lc)
+    agd.fillraster!(bandlc, valNoData)
+    xsize = agd.width(band)
+    ysize = agd.height(band)
+
+
+
+ """ NON SO COSA FACCIA STA ROBA """
+    gdal.RasterizeLayer(lc_ds, [1], lc_layer,options=["ATTRIBUTE="+self.text_lcfield])
+    lc_ds=None
+
+    lc_layer=QgsRasterLayer(self.path_temp_lc,"lc_layer")
+ """"""
+
+
+
+
+    if soil_text == "Valore campo"
+        soil_control = 1
+
+
+     # NON SO SE SIA EQUIVALENTE
+        #   source_ds_soil = ogr.Open(path_lc[0])
+        #   soil_layer = source_ds_soil.GetLayer()
+        agd.getlayer(path_lc, 0)
+
+        soil_ds = agd.create( path_temp_soil, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+        agd.setgeotransform!(soil_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+        agd.setproj!(soil_ds, refsys)
+        band_sl = agd.getband(soil_ds, 1)
+        agd.setnodatavalue!( band_sl, Float64(valNoData) )
+        bandsl = agd.read(band_sl)
+        agd.fillraster!(bandsl, valNoData)
+
+
+
+
+     """ NON SO COSA FACCIA STA ROBA """
+        gdal.RasterizeLayer(lc_ds, [1], soil_layer,options=["ATTRIBUTE="+self.text_soilfield])
+        soil_ds=None
+
+        soil_layer=QgsRasterLayer(self.path_temp_soil,"soil_layer")
+     """"""
+    end
+
+    
+ """ NON SO COSA FACCIA STA ROBA """
+    grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
+    # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
+
+    namewatershed=self.path_working+'/watershed'
+    namedrain=self.path_working+'/wshed.shp'
+
+    params = { 'GRASS_RASTER_FORMAT_OPT' : '','GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area,
+               'GRASS_VECTOR_EXPORT_NOCAT' : False, '-a' : False, 'start_coordinates' : None,  '-n' : False,
+               'input' : self.dem.dataProvider().dataSourceUri(),'-c' : True, 'drain' : namedrain, 'GRASS_MIN_AREA_PARAMETER' : 0.0001,
+               'start_points' : self.source.dataProvider().dataSourceUri(), 'output' : namewatershed }
+
+    waterwshed_proc = processing.run('grass7:r.drain', params)
+
+
+    #aggiungo per controllo la viewshed alla toc
+    #iface.addVectorLayer(namedrain,'watershed','ogr')
+    #watershed=QgsProject.instance().mapLayersByName('watershed.shp')
+
+
+    vdrain = QgsVectorLayer(namedrain, 'vdrain', 'ogr')
+
+    idxlevel = self.source.fields().indexFromName(self.text_p)
+    idxcat = vdrain.fields().indexFromName('cat')
+
+    idxtargetname = self.target.fields().indexFromName(self.text_targetfield)
+ """"""
+
+
+
+
+    features = agd.getgeom.(collect(agd.features(vdrain)))
+    nfeat = 0
+    polygons_t = collect(agd.getfeature(target)) 
+
+    #   start_time = time.time()
+
+    for f in features
+        length = agd.geomlength(f)
+        currentdistance = intervallo
+        nfeat += 1
+        featlines = []
+
+
+
+     # NON TROVO COME OTTENERE L'INTRPOLATION
+        firstpoint=geom.interpolate(0)
+
+
+
+        old_x= agd.getx(firstpoint, 0)
+        old_y= agd.gety(firstpoint, 0)
+
+        fileoutput = folder * "\\drain$nfeat.shp"
+
+
+
+     """ NON SO COSA FACCIA STA ROBA """
+        vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, "drain"+str(nfeat), "memory")
+
+        prline = vline.dataProvider()
+        prlfield=prline.addAttributes( [ QgsField("concentrazione", QVariant.Double) ] )
+
+
+
+        idf=f.attributes()[idxcat]
+        feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
+        p00=feat_drain.attributes()[idxlevel]
+     """"""
+
+        
+        index_progress = 0
+        while currentdistance < length
+            if index_progress == 0
+                p0 = p00
+            else
+                p0 = pe
+            end
+
+
+         # NON TROVO COME OTTENERE L'INTRPOLATION
+            point = geom.interpolate(currentdistance)
+
+
+            x = agd.getx(point, 0)
+            y = agd.gety(point, 1)
+            clc = extract_values(lc_layer, x, y)
+            if soil_control == 1
+                soil = extract_values(soil_layer, x, y)
+            else
+                soil = text_soil
+            end
+            try
+             # MANCA "classisoil"
+                cn = listaclc[clc][classisoil[soil]]
+                S = calc_s(round(Int64, cn))
+            catch
+                S = 0
+            end
+
+            pcheck = (p0 - 0.2S)^2 / (p0 - 0.2S + S)
+            if pcheck > 0.2S
+                pe = pcheck
+
+
+             """ NON SO COSA FACCIA STA ROBA """
+               fetline = QgsFeature()
+               fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
+               fetline.initAttributes(1)
+               fetline.setAttribute(0,pe)
+               vline.updateFeature(fetline)
+
+               featlines.append(fetline)
+             """"""
+             
+
+                index_progress += 1
+
+                for polygon in polygons_t
+                    p_geom = agd.getgeom(polygon)
+                    if agd.within(point, p_geom)
+                        nometarget = pol_t.attributes()[idxtargetname]
+                     """ MESSAGIO
+                        messaggio = "\nIl vettore drain$nfeat ha raggiunto l'area bersaglio denominata $nometarget con un volume pari a: $(round(pe,3))mm\n"
+                        self.console.appendPlainText(messaggio)
+                     """
+                        currentdistance = length + 1
+                    end
+                end
+            else
+                pe = 0
+                currentdistance = length + 1
+            end
+                old_x = x
+                old_y = y
+                currentdistance += intervallo
+            end
+
+
+         """ NON SO COSA FACCIA STA ROBA """
+            prline.addFeatures(featlines)
+            vline.updateFields()
+            QgsProject.instance().addMapLayer(vline)
+         """"""
+
+    end
+
+ """ PRINT DI COSE
+    tempoanalisi=time.time() - start_time
+    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
+    messaggio="---------------------------------\n"
+    messaggio+="Fine modellazione\n"
+    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
+    messaggio+="---------------------------------\n\n"
+    self.console.appendPlainText(messaggio)
+
+    self.label_status.setText("In attesa di dati")
+    self.label_status.setStyleSheet('color : green; font-weight:bold')
+    self.progressBar.setValue(max_progress)
+ """
+end
+
+
+
+end # module
