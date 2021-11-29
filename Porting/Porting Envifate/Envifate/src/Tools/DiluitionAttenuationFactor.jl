@@ -302,63 +302,6 @@ end
 
 
 
-
-function expand!( positions::AbstractVector, ss_conc::Real, algorithm::Symbol, option::Symbol, ind_x::Integer, ind_y::Integer, c::DAF, dtm )
-    concentration = 0
-    if algorithm == :fickian
-        if option == :pulse
-            concentration = calc_DAF!(c)
-        else opzione == :continuous
-            concentration = calc_DAF_c!(c)
-        end
-    else
-        concentration = ss_conc * calc_DAF_ispra!(c)
-    end
-    if concentration > 0 && (ind_x, ind_y) ∉ positions 
-        push!( positions, (ind_x, ind_y, concentration) )
-        xs = [ ind_x+1, ind_x, ind_x-1, ind_x ]
-        ys = [ ind_y, ind_y+1, ind_y, ind_y-1 ]
-        expand!.( Ref(positions), ss_conc, algorithm, option, xs, ys, c, Ref(dtm) )
-    end
-end
-
-
-#------------------------------------------------ TESTING------------------------------------------------------------------------------
-
-import ArchGDAL as agd
-
-# Raster
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
-dtm = agd.read(dtm_file)
-
-agd.getgeotransform(dtm)
-
-band = agd.getband(dtm, 1)
-band1 = agd.read(band)
-
-
-# Vector
-
-
-cmn_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
-cmn = agd.read(cmn_file)
-
-cmn_layer = agd.getlayer(cmn, 0)
-
-agd.envelope(cmn_layer)
-
-
-sts_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\Stazioni_Veneto\\Stazioni_Veneto.shp"
-sts = agd.read(sts_file)
-
-sts_layer = collect(agd.getlayer(sts, 0))
-
-
-
-#---------------------------------------------------------------------------------------------------------------------------------------
-
-
 function leach( source, area, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Int64, time::Int64=1,
                 orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Int64=1, darcy_velocity::Real=0.000025, mixed_zone_depth::Int64=1,
                 decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )
@@ -556,3 +499,372 @@ end
 
 
 end # module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#------------------------------------------------ TESTING------------------------------------------------------------------------------
+
+import ArchGDAL as agd
+
+# Raster
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.read(dtm_file)
+dtm_band = agd.getband(dtm, 1)
+agd.toPROJ4(agd.importWKT(agd.getproj(dtm)))
+
+agd.getgeotransform(dtm)
+
+band = agd.getband(dtm, 1)
+band1 = agd.read(band)
+
+
+# Vector
+
+
+cmn_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
+cmn = agd.read(cmn_file)
+
+cmn_layer = agd.getlayer(cmn, 0)
+
+agd.envelope(cmn_layer)
+
+
+
+
+
+
+
+
+
+# crs del dtm
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.read(dtm_file)
+crs_dtm = agd.importWKT(agd.getproj(dtm))
+
+
+# crs delle stazioni
+sts_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\Stazioni_Veneto\\Stazioni_Veneto.shp"
+sts = agd.read(sts_file)
+sts_layers = collect(agd.getlayer(sts, 0))
+crs_src = agd.getspatialref(agd.getlayer(sts, 0))
+
+# crs della sorgente
+point = agd.getgeom(sts_layers[1])
+agd.geomdim(point)
+crs_point = agd.getspatialref(point)
+
+
+
+
+#---------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+import ArchGDAL as agd
+using CombinedParsers
+using CombinedParsers.Regexp
+
+@syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
+@syntax points = Sequence( re"[^(]+", "(  ", Numeric(Float64), ", ", Numeric(Float64), re".+" )
+
+
+"""
+Return the dimentions of the cell of an ArchGDAL raster dataset
+"""
+function getCellDims( dtm )
+    size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
+    size_pars = dims(size_str)
+    return size_pars[2], size_pars[4]
+end
+
+
+"""
+Return distances from left upper right and lower sides of an ArchGDAL raster dataset
+"""
+function getSidesDistances( dtm )
+    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+    dists_pars = points.( getindex.(Ref(info), [51, 54]) )
+    return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
+end
+
+
+"""
+Convert indexes to the coordinates of the respective cell in `dtm` raster
+"""
+function toCoords( dtm, r::Integer, c::Integer )
+    Δx, Δy = getCellDims(dtm)
+    left, up = getSidesDistances(dtm)[1:2]
+
+    x = r * Δx + left
+    y = c * Δy + up
+
+    return x, y
+end
+
+
+"""
+Convert coordinates to the indexes of the respective cell in `dtm` raster
+"""
+function toIndexes( dtm, x::Real, y::Real )
+    Δx, Δy = getCellDims(dtm)
+    left, up = getSidesDistances(dtm)[1:2]
+
+    r = round( Int64, ( x - left ) / Δx  )
+    c = round( Int64, ( y - up ) / Δy )
+
+    return r, c
+end
+
+
+
+
+if xvero > 0
+    element_daf = DAF( secondary_source_concentration, xvero, yvero, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time )
+    if algorithm == :fickian
+        if opzione == :pulse
+            cfinal = calc_DAF!(element_daf)
+        else opzione == :continuous
+            cfinal = calc_DAF_c!(element_daf)
+        end
+    else
+        cfinal = secondary_source_concentration * calc_DAF_ispra!(element_daf)
+    end
+    outData[row, col] = cfinal
+else
+    outData[row, col] = 0
+end
+
+
+
+
+function expand!( dtm, positions::AbstractVector, ss_conc::Real, indx_x::Integer, indx_y::Integer, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time, algorithm::Symbol, option::Symbol )
+    concentration = 0
+    x, y = toCoords( dtm, indx_x, indx_y )
+    if x > 0
+        element_daf = DAF( ss_conc, x, y, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time ) 
+        if algorithm == :fickian
+            if option == :pulse
+                concentration = calc_DAF!(element_daf)
+            else opzione == :continuous
+                concentration = calc_DAF_c!(element_daf)
+            end
+        else
+            concentration = ss_conc * calc_DAF_ispra!(element_daf)
+        end
+        
+    end
+
+    if concentration > 0 && (indx_x, indx_y) ∉ positions 
+        push!( positions, (ind_x, ind_y, concentration) )
+        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+        expand!.( Ref(positions), ss_conc, algorithm, option, xs, ys, c, Ref(dtm) )
+    end
+end
+
+
+
+
+
+
+
+function leach( source, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Int64, time::Int64=1,
+                orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Int64=1, darcy_velocity::Real=0.000025, mixed_zone_depth::Int64=1,
+                decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )
+
+    if algorithm ∉ [:fickian, :domenico]
+        throw(DomainError(algorithm, "`algorithm` must either be `:fickian` or `:domenico`"))
+    end
+
+    if option ∉ [:pulse, :continuous]
+        throw(DomainError(option, "`option` must either be `:continuous` or `:pulse`"))
+    end
+
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
+
+    refsys = agd.getspatialref(source)
+
+    azimut = acquifer_flow_direction - 90
+
+    effective_infiltration *= (mean_rainfall/10.2)^2
+
+    x_source = agd.getx(source, 0)
+    y_source = agd.gety(source, 0)
+    r_source, c_source = toIndexes( dtm, x_source, y_source ) 
+
+    tera_a, tera_w, effective_infiltration, tera_e, grain = Functions.texture_extract( texture, ["tot_por", "c_water_avg", "effective_infiltration", "por_eff", "grain"], ".\\..\\library\\" )
+    if all(isempty.([tera_a, tera_w, effective_infiltration, tera_e, grain]))
+        throw(DomainError("Analysis error, check input parameters"))
+    end
+
+    points = []
+    for i in 1:length(contaminants)
+        if output_path == ""
+            output_path = ".\\output_model_$(contaminants[i]).tiff"
+        end
+
+        push!( points, [ (r_source, c_source, concentrations[i]) ] )
+
+        h, kd = Functions.substance_extract( contaminants[i], ["c_henry", "koc_kd"], ".\\..\\library\\" )
+        if isempty(h) && isempty(kd)
+            throw(DomainError("Analysis error, check input parameters"))
+        end
+
+        #                                       ief,                    ro,           dz,               lf,            ve,             dgw               sw
+        element = Leach( h, tera_w, tera_a, kd, effective_infiltration, soil_density, source_thickness, aquifer_depth, darcy_velocity, mixed_zone_depth, orthogonal_extension ) 
+        calc_kw!(element)
+        calc_ldf!(element)
+        calc_sam!(element)
+        leaching_factor = calc_LF!(element)
+        secondary_source_concentration = concentrations[i] * leaching_factor
+
+        expand!( points[i], secondary_source_concentration, algorithm, option, r_source, c_source, element, dtm )
+    end
+
+
+
+
+
+    for (substance, concentration) in zip(contaminants, concentrations)
+        if output_path == ""
+            output_path = ".\\output_model_$substance.tiff"
+        end
+
+        push!(points, [(r_source, c_source, concentration)])
+
+        h, kd = Functions.substance_extract( substance, ["c_henry", "koc_kd"], ".\\..\\library\\" )
+        if isempty(h) && isempty(kd)
+            throw(DomainError("Analysis error, check input parameters"))
+        end
+
+        #                                       ief,                    ro,           dz,               lf,            ve,             dgw               sw
+        element = Leach( h, tera_w, tera_a, kd, effective_infiltration, soil_density, source_thickness, aquifer_depth, darcy_velocity, mixed_zone_depth, orthogonal_extension ) 
+        calc_kw!(element)
+        calc_ldf!(element)
+        calc_sam!(element)
+        leaching_factor = calc_LF!(element)
+        secondary_source_concentration = concentration * leaching_factor
+
+        expand!( positions, secondary_source_concentration, algorithm, option, r_source, c_source, element_daf, dtm )
+
+
+
+        list_result = []
+        orthogonal_extension /= 1000
+        
+        for length in resolution:resolution:1000
+            sina = sin(deg2rad(azimut))
+            cosa = cos(deg2rad(azimut))
+
+            calcolo_daf = DAF( secondary_source_concentration, 100length, 0, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, 1, time )
+            cfinal_p = secondary_source_concentration * calc_DAF_ispra!(calcolo_daf)
+            push!( list_result, cfinal_p )
+        end
+
+        for row in 1:ysize
+            for col in 1:xsize
+                x, y = (col, row) * resolution + (x_min, y_min) + (resolution/2)
+                control_point = agd.createpoint( x, y )
+                for polygon in polygons
+                    if agd.within( control_point, agd.getgeom(polygon) )
+                        Δx = x - x_source
+                        Δy = y - y_source
+                        xvero = Δx * cos(deg2rad(azimut)) - Δy * sin(deg2rad(azimut))
+                        yvero = Δx * sin(deg2rad(azimut)) + Δy * cos(deg2rad(azimut))
+
+                        if xvero > 0
+                            element_daf = DAF( secondary_source_concentration, xvero, yvero, 0, 0, decay_coeff, darcy_velocity, kd, soil_density, tera_e, orthogonal_extension, time )
+                            if algorithm == :fickian
+                                if opzione == :pulse
+                                    cfinal = calc_DAF!(element_daf)
+                                else opzione == :continuous
+                                    cfinal = calc_DAF_c!(element_daf)
+                                end
+                            else
+                                cfinal = secondary_source_concentration * calc_DAF_ispra!(element_daf)
+                            end
+                            outData[row, col] = cfinal
+                        else
+                            outData[row, col] = 0
+                        end
+                    end
+                end
+            end
+
+
+            gtiff_driver = agd.getdriver("GTiff")
+            target_ds = agd.create( output_path, gtiff_driver, round(Int64, ), round(Int64, ), 1, agd.GDAL.GDT_Float32 )
+            agd.setgeotransform!( target_ds, [ , resolution, 0.0, , 0.0, -resolution ] )
+            agd.setproj!( target_ds, refsys )
+         """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+            target_ds.SetMetadata(
+                Dict(
+                    "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+                    "modulo" => "Dispersione in falda",
+                    "descrizione" => "Simulazione di dispersione inquinante in falda",
+                    "srs" => refsys,
+                    "data" => today()
+                )
+            )
+         """
+            valNoData = -9999
+            band1 = agd.getband(target_ds, 1)
+            agd.setnodatavalue!( band1, Float64(valNoData) )
+            band = agd.read(band1)
+            agd.fillraster!(band, valNoData)
+
+
+
+
+            
+         """ NON CAPISCO BENE IL SENSO DI QUESTE OPERAZIONI
+            outData_raster = outData [::-1]
+            band.WriteArray(outData_raster)
+            astats=band.GetStatistics(0, 1)
+         """
+            agd.write!( target_ds, outData, 1 )
+            # band = deepcopy(outData)
+        end
+
+     """" AGGIUNTA DI UN LAYER AL RASTER FINALE
+        band = nothing
+        target_ds = nothing
+
+        base_raster_name=os.path.basename(ef.path_output+str(sostanza))
+        raster_name=os.path.splitext(base_raster_name)[0]
+        ef.iface.addRasterLayer(ef.path_output, raster_name)
+
+        contatore_sostanza=0
+        ef.list_result=[]
+     """
+
+    end
+end
