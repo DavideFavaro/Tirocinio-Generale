@@ -243,7 +243,7 @@ function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
     layers = agd.getlayers(river)
     refsys = agd.getspatialref(source)
 
-    if agd.importWKT(agd.getproj(dtm)) !=  refsys ||  agd.getspatialref(layers) != refsys
+    if agd.importWKT(agd.getproj(dem)) !=  refsys ||  agd.getspatialref(layers) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis." ))
     end
 

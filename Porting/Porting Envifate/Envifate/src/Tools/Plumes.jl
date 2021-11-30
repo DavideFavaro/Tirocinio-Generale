@@ -25,17 +25,24 @@ module Plumes
 
 import ArchGDAL as agd
 using ArgParse
+using CombinedParsers
+using CombinedParsers.Regexp
 using Dates
 
-include("../Library/Functions.jl")
+include("..\\Library\\Functions.jl")
 
 
-#=
+
+@syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
+@syntax points = Sequence( re"[^(]+", "(  ", Numeric(Float64), ", ", Numeric(Float64), re".+" )
+
+
+
 mutable struct Plume
   """docstring for element"""
   # concentration: concentrazione inquinante m3/sec
   # d: distanza (coordinata x)
-  # y,z coordinate in metri
+  # y,z: coordinate in metri
   # stability: classe di stabilità
   # wind_speed: velocità del vento nella direzione x
   # stack_height: altezza camino
@@ -45,30 +52,31 @@ mutable struct Plume
   # temperature: temperatura ambiente
 
   concentration::Real
-  d::Integer
-  y::Integer
-  z::Integer
+  d::Real
+  y::Real
+  z::Real
   stability::AbstractString
-  wind_speed::Real
+  outdoor::AbstractString
   stack_height::Real
-  gas_speed::Real
   stack_diameter::Real
+  wind_direction::Integer
+  wind_speed::Real
+  gas_speed::Real
   smoke_temperature::Real
   temperature::Real
-  x_w::Integer
-  outdoor::AbstractString
+  max_domain::Real
 
   H
   σy
   σz
   g1
   g2
-
-  Plume(concentration,d,y,z,stability,wind_speed,stack_height,gas_speed,stack_diameter,smoke_temperature,temperature,x_w,outdoor) = new(concentration,d,y,z,stability,outdoor,wind_speed,gas_speed,stack_diameter,smoke_temperature,temperature,stack_height,x_w)
+  
+  Plume(concentration,d,y,z,stability,outdoor,stack_height,stack_diameter,wind_direction,wind_speed,gas_speed,smoke_temperature,temperature,max_domain)=new(concentration,d,y,z,stability,outdoor,stack_height,stack_diameter,wind_direction,wind_speed,gas_speed,smoke_temperature,temperature,max_domain)
 end
-=#
 
-#= VERSIONE CON LO STRUCT
+
+
 function calc_h!( p::Plume )
   try
     fb = 9.81 * ( (p.stack_diameter * p.gas_speed) / 4 ) * ( ( p.smoke_temperature / p.temperature ) / p.smoke_temperature )
@@ -81,7 +89,7 @@ function calc_h!( p::Plume )
   end
   return p.H
 end
-=#
+#= VERSIONE SENZA LO STRUCT
 function calc_h( d::Real, stack_diameter::Real, gas_speed::Real, smoke_temperature::Real, temperature::Real )
     try
       fb = 9.81 * ( (stack_diameter * gas_speed) / 4 ) * ( ( smoke_temperature / temperature ) / smoke_temperature )
@@ -91,10 +99,9 @@ function calc_h( d::Real, stack_diameter::Real, gas_speed::Real, smoke_temperatu
       return stack_height
     end
 end
+=#
 
-
-#= VERSIONE CON LO STRUCT
-function calc_sigma!( p::Plume )
+function calc_sigma!(p::Plume)
   σ_values = Functions.air_extract( p.c_stability, p.outdoor )
   σy1 = σ_values[0]
   σy2 = σ_values[1]
@@ -107,38 +114,136 @@ function calc_sigma!( p::Plume )
   p.σz = ( σz1 * p.d ) / (1 + σz2 * p.d)^σzexp
   return p.σy, p.σz
 end
-=#
+#= VERSIONE SENZA LO STRUCT
 function calc_σ( d::Real, stability_class::AbstractString, outdoor::AbstractString )
     σ_values = Functions.air_extract( stability_class, outdoor )
     σy = ( σ_values[0] * d ) / ( 1 + σ_values[1] * d )^σ_values[2]
     σz = ( σ_values[3] * d ) / ( 1 + σ_values[4] * d )^σ_values[5]
     return σy, σz
-  end
+end
+=#
 
-
-#= VERSIONE CON LO STRUCT
-function calc_g!( p::Plume )
+function calc_g!(p::Plume)
   p.g1 = exp( ( -0.5 * p.y^2 ) / p.σy^2 )
   p.g2 = exp( ( -0.5 * (p.z - p.stack_height)^2 ) / p.σz^2 ) + exp( ( -0.5 * (p.z + p.stack_height)^2 ) / p.σz^2 )
   return p.g1, p.g2
 end
-=#
+#= VERSIONE SENZA LO STRUCT
 function calc_g( y::Real, z::Real, σy::Real, σz::Real, stack_height::Real )
     g1 = ℯ^( ( -0.5y^2 ) / σy^2 )
     g2 = ℯ^( ( -0.5(z - stack_height)^2 ) / σz^2 ) + ℯ^( ( -0.5(z + stack_height)^2 ) / σz^2 )
     return g1, g2
-  end
+end
+=#
 
-
-#= VERSIONE CON LO STRUCT
 function calc_C!( p::Plume )
   p.C = ( 100p.concentration / 3600p.wind_speed ) * ( (p.g1 * p.g2) / ( 2π * p.σy * p.σz ) )
   return p.C
 end
-=#
+#= VERSIONE SENZA LO STRUCT
 function calc_C( concentration::Real, wind_speed::Real, σy::Real, σz::Real, g1::Real, g2::Real )
     return ( 100concentration / 3600wind_speed ) * ( (g1 * g2) / ( 2π * σy * σz ) )
 end
+=#
+
+
+function calcPlume!(p::Plume)
+  if p.d <= 0
+      return 0.0
+  else
+    calc_σ!(element)
+    calc_g!(element)
+    calc_h!(element)
+    cfinal = calc_C!(element)
+    if cfinal > max_dominio
+        p.max_domain = cfinal
+    end
+    return cfinal
+  end
+end
+
+
+
+
+
+#  FUNZIONI CHE PROBABILMENTE POSSONO ESSERE SPOSTATE IN UN FILE A PARTE (IDEALMENTE Functions)
+"""
+Return the dimentions of the cell of an ArchGDAL raster dataset
+"""
+function getCellDims( dtm )
+  size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
+  size_pars = dims(size_str)
+  return size_pars[2], size_pars[4]
+end
+
+"""
+Return distances from left upper right and lower sides of an ArchGDAL raster dataset
+"""
+function getSidesDistances( dtm )
+  info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+  dists_pars = points.( getindex.(Ref(info), [51, 54]) )
+  return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
+end
+
+"""
+Convert indexes to the coordinates of the respective cell in `dtm` raster
+"""
+function toCoords( dtm, r::Integer, c::Integer )
+  Δx, Δy = getCellDims(dtm)
+  left, up = getSidesDistances(dtm)[1:2]
+
+  x = r * Δx + left
+  y = c * Δy + up
+
+  return x, y
+end
+
+"""
+Convert coordinates to the indexes of the respective cell in `dtm` raster
+"""
+function toIndexes( dtm, x::Real, y::Real )
+  Δx, Δy = getCellDims(dtm)
+  left, up = getSidesDistances(dtm)[1:2]
+
+  r = round( Int64, ( x - left ) / Δx  )
+  c = round( Int64, ( y - up ) / Δy )
+
+  return r, c
+end
+
+"""
+Recursively compute the concentration of each point and add the value and its indexes to positions
+"""
+function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, plume::Plume )
+  if (indx_x, indx_y) in positions
+    xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+    ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, plume )
+    return nothing
+  else
+    Δx, Δy = toCoords(dtm, positions[1][1], positions[1][2]) - toCoords(dtm, indx_x, indx_y)
+    dir = deg2rad(plume.wind_direction)
+    sindir = sin(dir)
+    cosdir = cos(dir)
+ # SETTANO d A true_y E y A true_x, NON SO SE SIA GIUSTO
+    plume.d = Δy * sindir + Δy * cosdir
+    plume.y = Δx * cosdir - Δy * sindir
+    plume.z = agd.getband(dtm, 1)[indx_x, indx_y]
+    concentration = calcPlume!(plume)
+    if round(concentration, digits=5) > 0
+        push!( positions, (ind_x, ind_y) )
+        push!( results, concentration )
+        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, plume )
+    end
+    return nothing
+  end
+end
+
+
+
+
 
 
 
@@ -213,216 +318,91 @@ end
 
 
 
-         #                                                                                                         q / text_conc        u / wspeed
-function run_plume( dem, source, area, stability::AbstractString, outdoor::AbstractString, resolution::Int64, x_w, concentration::Real, wind_speed::Real, 
-                  # h_s / height        v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
-                    stack_height::Real, gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temperature::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
+         #                                                                                                x_w             q / text_conc        u / wspeed        h_s / height
+function run_plume( dem, source, stability::AbstractString, outdoor::AbstractString, resolution::Integer, wind_direction, concentration::Real, wind_speed::Real, stack_height::Real, 
+                  # v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
+                    gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temperature::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
 
-    if agd.geomdim(source) != 0
-        throw(DomainError(source, "`source` must be a point"))
-    end
-    if agd.geomdim(area) != 2
-        throw(DomainError(source, "`area` must be a polygon"))
-    end
+  if agd.geomdim(source) != 0
+      throw(DomainError(source, "`source` must be a point"))
+  end
 
- """ CONTROLLO SULLA VALIDITA' DEL RASTER
-    if not self.dem.isValid():
-        QMessageBox.warning(self,"Warning", "Il file DEM non è valido" )
-        return
- """
- 
-    if agd.getspatialref(area) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
-        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
-    end
+  refsys = agd.getspatialref(source)
 
-
-    # self.text_line_srid=str(self.line_srid.text())
-    
-    lst_fields = [ "sf_ing", "sf_inal", "iur", "rfd_ing", "rfd_inal", "rfc" ]
-
-    lst_toxic_msg = [ 
-        "Slope Factor per ingestione", 
-        "Slope Factor per inalazione",
-        "Inhalation Unit Risk",
-        "Reference Dose per ingestione",
-        "Reference Dose per inalazione",
-        "Reference Concentration"
-    ]
-
- # DA SISTEMARE IL PATH
-    toxic = Functions.substance_extract( contaminant, lst_fields, os.path.dirname(__file__)+"/../library/" )
-
-
-    # try:
-    #     self.srid=int(self.text_line_srid)
-    #     if self.srid not in self.list_srid :
-    #         QMessageBox.warning(self,"Warning", u"Errore codice srid" )
-    #         return
-    # except Exception as e:
-    #     QMessageBox.warning(self,"Warning", u"Errore codice srid" )
-    #     return
-
-
-
-
-
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
- """ PRINT DI COSE
-    messaggio="Inizio elaborazione plume atmosferico Envifate\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-    messaggio+="DTM: "+str(self.text_dem)+"\n\n"
-    messaggio+="VARIABILI:\n"
-    messaggio+=u"Concentrazione inquinante: "+str(self.text_conc)+" Kg/h\n"
-    messaggio+=u"Classe stabilità atmosferica: "+str(self.combo_stability.currentText())+"\n"
-    messaggio+=u"Classe outdoor: "+str(self.class_outdoor)+"\n"
-    messaggio+="Direzione vento: "+str(self.combo_maindirwind.currentText())+"\n"
-    messaggio+=u"Velocità vento: "+str(self.text_wspeed)+" m/s\n"
-    messaggio+="Temperatura: "+str(self.text_etemp)+"\n"
-    messaggio+=u"Diametro stack: "+str(self.text_diameter)+" m\n"
-    messaggio+=u"Altezza stack: "+str(self.text_height)+" m\n"
-    messaggio+="Temperatura gas: "+str(self.text_temp)+" °C\n"
-    messaggio+=u"Velocità gas: "+str(self.text_gspeed)+" m/s\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-    messaggio+='ALGORITMO UTILIZZATO: Pasquill-Gifford (Pasquill, F., 1961: The estimation of the dispersion of windborne material. Meteor. Mag.,90, 33–49.; Gifford, F. A., Jr., 1961: Use of routine observations for estimating atmospheric dispersion. Nucl. Saf.,2, 47–57; Turner, D. B., 1967: Workbook of atmospheric dispersion estimates. PHS Publ. 999 AP-26, 84 pp.)\n\n'
-    messaggio+="---------------------------\n\n"
- """
-
-    area_layer = agd.getlayer(area, 0)
- # NON FUNZIONANTE / DA ELIMINARE
-    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
-    valNoData = -9999
-    # Create the destination data source
-    x_res = ( x_max - x_min ) / resolution
-    y_res = ( y_max - y_min ) / resolution
-
-    
-    gtiff_driver = agd.getdriver("GTiff")
-    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
-    agd.setproj!(target_ds, refsys)
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-    target_ds.SetMetadata(
-        Dict(
-            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-            "modulo" => "Dispersione atmosferica",
-            "descrizione" => "Simulazione di dispersione di un inquinante in atmosfera da una sorgente tipo "ciminiera", modello gaussiano di Pasquill-Gifford",
-            "srs" => refsys,
-            "data" => today()
-        )
-    )
- """
-    band1 = agd.getband(target_ds, 1)
-    agd.setnodatavalue!( band1, Float64(valNoData) )
-    band = agd.read(band1)
-    agd.fillraster!(band, valNoData)
-    xsize = agd.width(band)
-    ysize = agd.height(band)
- # NON SONO CERTO SIA IL METODO GIUSTO 
-    # outData = deepcopy(band)
-    outData = band
-
-    polygons = collect(agd.getfeature(area))
-    feature = collect(agd.getfeature(source))
-    geom = agd.getgeom(feature[1])
-    x_source = agd.getx(geom, 0)
-    y_source = agd.gety(geom, 0)
-
-    rows = ysize - 1
-    cols = xsize - 1
-
-    # start_time = time.time()
-
-    max_dominio=0.0
-
-    for row in 1:rows
-        for col in 1:cols
-            x, y = (col, row) * resolution + (x_min, y_min) .+ (resolution/2)
-         # POTREBBE NON ESSERE COSI' SEMPLICE
-            z = dem[x, y]
-            Δx = x - x_source
-            Δy = y - y_source
-            true_x = Δx * cos(deg2rad(x_w)) -  Δy * sin(de2rad(x_w))
-            true_y = Δx * sin(deg2rad(x_w)) +  Δy * cos(de2rad(x_w))
-
-            if true_y > 0
-             #= VERSIONE CON STRUCT `Plume`
-                element = Plume(concentration, true_y, true_x, z[1], stability, outdoor, wind_speed, stack_height, gas_speed, stack_diameter, smoke_temperature, temperature, x_w)
-                calc_sigma!(element)
-                calc_g!(element)
-                calc_h!(element)
-                cfinal = calc_C!(element)
-             =#
-                σy, σz = calc_σ( true_y, stability, outdoor )
-                g1, g2 = calc_g( true_y, z[1], σy, σz, stack_height )
-             # IL CALCOLO QUI SOTTO SEMBRA ESSERE INUTILE
-                s_height = calc_h( true_y, stack_diameter, gas_speed, smoke_temperature, temperature )
-                cfinal = calc_C( concentration, wind_speed, σy, σz, g1, g2 )
-                if cfinal > max_dominio
-                    max_dominio = cfinal
-                end
-                outData[row, col] = cfinal
-            else
-                outData[row, col] = 0.0
-            end
-        end
-    end
-
-
-
-
-
-
-
-    outData_raster=outData[::-1]
-    band.WriteArray(outData_raster)
-    band= None
-    target_ds = None
-
-    base_raster_name=os.path.basename(self.path_output)
-    raster_name=os.path.splitext(base_raster_name)[0]
-    self.outputlayer=self.iface.addRasterLayer(self.path_output, raster_name)
-
-    layer=None
-    for lyr in list(QgsProject.instance().mapLayers().values()):
-        if lyr.name() == raster_name:
-            layer = lyr
-        end
-    end
-
-    functions.applystyle(layer,'gr',0.5)
-
-
- """ PRINT DI COSE
-    max_round_dominio = round(max_dominio*1000000,5)
+  if agd.importWKT(agd.getproj(dem)) != refsys
+      throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+  end
   
-    tempoanalisi=time.time() - start_time
-    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-    messaggio="---------------------------------\n"
-    messaggio+="Fine modellazione\n"
-    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
+  lst_fields = [
+    "sf_ing",
+    "sf_inal",
+    "iur",
+    "rfd_ing",
+    "rfd_inal",
+    "rfc"
+  ]
 
-    max_round_dominio=round(max_dominio*1000000,10)
+  lst_toxic_msg = [ 
+      "Slope Factor per ingestione", 
+      "Slope Factor per inalazione",
+      "Inhalation Unit Risk",
+      "Reference Dose per ingestione",
+      "Reference Dose per inalazione",
+      "Reference Concentration"
+  ]
 
-    messaggio+="\nMassima concentrazione rilevata nel dominio di analisi: "+str(max_round_dominio)+" \u03BCg /  m\u00b3\n\n\n"
+  toxic = Functions.substance_extract(contaminant, lst_fields, ".\\..\\Library\\")
 
-    check_alert_msg=0
-    for idx, tox in enumerate(toxic):
-        if tox:
-            if float(tox)<=max_round_dominio:
-                if check_alert_msg==0:
-                    messaggio+="*** ALLERTA RILEVATA!!! ***\n\n"
-                    check_alert_msg=1
-                messaggio+="Concetrazione limite superata per: "+lst_toxic_msg[idx]+" (valore soglia: "+str(tox)+")\n\n"
+  feature = collect(agd.getfeature(source))
+  geom = agd.getgeom(feature[1])
+  x_source = agd.getx(geom, 0)
+  y_source = agd.gety(geom, 0)
+  r_source, c_source = toCoords(dtm, x_source, y_source)
 
-    messaggio+="---------------------------------\n\n"
-    self.console.appendPlainText(messaggio)
+  # start_time = time.time()
 
-    self.label_status.setText("In attesa di dati")
-    self.label_status.setStyleSheet('color : green; font-weight:bold')
-"""
+  points = [ (r_source, c_source) ]
+  values = [ concentration ]
+ # NON CI INTERESSA DARE DEI VALORI COERENTI A d, y, E z PERCHE' AD OGNI CHIAMATA expand! LI RESETTA
+  plume = Plume(concentration, 0.0, 0.0, 0.0, stability, outdoor, wind_speed, stack_height, stack_diameter, gas_speed, smoke_temperature, temperature, wind_direction,0.0) 
+  expand!(points, values, dtm, r_source, c_source, plume)
+
+  maxR = maximum( point -> point[1], points )
+  minR = minimum( point -> point[1], points )
+  maxC = maximum( point -> point[2], points )
+  minC = minimum( point -> point[2], points )
+
+  rows = maxR - minR
+  cols = maxC - minC
+  minX, maxY = toCoords(dtm, minX, maxY)
+
+  gtiff_driver = agd.getdriver("GTiff")
+  target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+ # NON SONO CERTO CHE IL GEOTRASFORM VADA BENE
+  agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
+  agd.setproj!( target_ds, refsys )
+ """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+  target_ds.SetMetadata(
+    Dict(
+      "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+      "modulo" => "Dispersione in falda",
+      "descrizione" => "Simulazione di dispersione inquinante in falda",
+      "srs" => refsys,
+      "data" => today()
+    )
+  )
+ """
+  valNoData = -9999.0
+  band1 = agd.getband( target_ds, 1 )
+  agd.setnodatavalue!(band1, valNoData)
+  agd.fillraster!(band1, valNoData)
+  band = agd.read(band1)
+
+  for (point, value) in zip(points[i], values[i])
+      r, c = point - (minR, minC)
+      band[r, c] = value
+  end
+end
 
 
 

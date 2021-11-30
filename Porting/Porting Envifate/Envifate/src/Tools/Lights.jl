@@ -336,7 +336,7 @@ def run_light(self):
 
 =#
 
-function run_light( dem, source, area, resolution::Integer, srource_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286, processing_memory::Integer=500, output_path::AbstractString=".\\light_intensity.tiff"  )
+function run_light( dem, source, resolution::Integer, srource_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286, processing_memory::Integer=500, output_path::AbstractString=".\\light_intensity.tiff"  )
 
  """ CONTROLLO SUL RASTER dem
     if not self.dem.isValid():
@@ -347,16 +347,11 @@ function run_light( dem, source, area, resolution::Integer, srource_height::Real
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    if agd.geomdim(area) != 2
-        throw(DomainError(source, "`area` must be a polygon"))
-    end
+    refsys = agd.getspatialref(source)
 
-
-    if agd.getspatialref(area) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+    if agd.importWKT(agd.getproj(dem)) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
-
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
  """ PRINT DI COSE
     #recupero dati database
@@ -377,15 +372,95 @@ function run_light( dem, source, area, resolution::Integer, srource_height::Real
     self.console.appendPlainText(messaggio)
  """
 
-    area_layer = agd.getlayer(area, 0)
- # NON FUNZIONANTE / DA ELIMINARE
-    x_min, y_min, x_max, y_max = agd.envelope( area_layer )
+    nfeature = 0
+    features = agd.getgeom( agd.getfeature(source) )
+    for feature in features
+        x_source = agd.getx(geom, 0)
+        y_source = agd.gety(geom, 0)
+
+
+
+        idxlevel = self.source.fields().indexFromName('level')
+        intensity=feature.attributes()[idxlevel]
+
+
+
+
+        nfeature += 1
+        polygons = collect(agd.features(area))
+
+        #   start_time = time.time()
+
+
+
+        
+
+        grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
+        grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
+
+        nameviewshed='viewshedanalysis'+str(nfeature)
+
+        params = { '-b' : True, '-c' : False, '-e' : False, '-r' : False, 'GRASS_RASTER_FORMAT_META' : '', 'GRASS_RASTER_FORMAT_OPT' : '',
+                   'GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area, 'coordinates' : grass_coord,
+                   'input' : self.dem.dataProvider().dataSourceUri(), 'max_distance' : -1, 'memory' : self.memory, 'observer_elevation' : self.hsource, 'output' : nameviewshed,
+                   'refraction_coeff' : self.rarefraction, 'target_elevation' : self.htarget }
+        viewshed_proc = processing.run('grass7:r.viewshed', params)
+
+
+
+
+        #aggiungo per controllo la viewshed alla toc
+        iface.addRasterLayer(viewshed_proc['output'])
+
+        viewshed=QgsProject.instance().mapLayersByName(nameviewshed)[0]
+
+
+        for row in 1:rows
+            for col in 1:cols
+                x = col*pixel_size+x_min+(pixel_size/2)
+                y = row*pixel_size+y_min+(pixel_size/2)
+
+                punto_controllo = QgsPointXY(x,y)
+
+                for pol in polygons
+                    poly = pol.geometry()
+                    if poly.contains(punto_controllo)
+
+                        cfr_viewshed=viewshed.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
+
+                        if cfr_viewshed.results()[1] == 1
+                            deltax=x-x_source
+                            deltay=y-y_source
+                            dist=math.sqrt(math.pow(deltay,2)+math.pow(deltax,2))
+
+                            #new_intensity=(1/math.pow(dist,2))*intensity
+                            new_intensity=(1/dist)*intensity
+
+                            if nfeature == 1
+                                if new_intensity > 0
+                                    outData[row,col]=new_intensity
+                                else
+                                    outData[row,col]=0
+                                end
+                            else
+                                if new_intensity > 0
+                                    outData[row,col]=outData[row,col]+new_intensity
+                                else
+                                    outData[row,col]=outData[row,col]
+                                end
+                            end
+                        else
+                            outData[row,col]=0
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+
+
     valNoData = -9999
-
-    # Create the destination data source
-    x_res = (x_max - x_min) / resolution
-    y_res = (y_max - y_min) / resolution
-
 
     gtiff_driver = agd.getdriver("GTiff")
     target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
@@ -410,146 +485,43 @@ function run_light( dem, source, area, resolution::Integer, srource_height::Real
     band = agd.read(band1)
     # outData = deepcopy(band)
     outData = band
+    rows=ysize-1
+    cols=xsize-1
+
+
+        self.label_status.setText("Preparazione output")
+        self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
+
+        outData_raster=outData[::-1]
+        band.WriteArray(outData_raster)
+
+
+    band= None
+    target_ds = None
 
 
 
-        nfeature=0
-
-        features=self.source.getFeatures()
-
-        for feature in features:
-
-            geom = feature.geometry().asPoint()
-            x_source=geom[0]
-            y_source=geom[1]
+    base_raster_name=os.path.basename(self.path_output)
+    raster_name=os.path.splitext(base_raster_name)[0]
+    self.iface.addRasterLayer(self.path_output, raster_name)
 
 
-            idxlevel = self.source.fields().indexFromName('level')
-            intensity=feature.attributes()[idxlevel]
-
-            nfeature+=1
-
-            polygons = [feature for feature in self.areastudio.getFeatures()]
-
-            rows=ysize-1
-            cols=xsize-1
-
-            max_progress=rows*cols
-            self.progressBar.setMaximum(max_progress)
-            start_time = time.time()
+    layer=None
+    for lyr in list(QgsProject.instance().mapLayers().values()):
+        if lyr.name() == raster_name:
+            layer = lyr
 
 
-            self.label_status.setText("Processing data")
-            self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-            grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
-            grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
-
-            nameviewshed='viewshedanalysis'+str(nfeature)
-
-            params = { '-b' : True, '-c' : False, '-e' : False, '-r' : False, 'GRASS_RASTER_FORMAT_META' : '', 'GRASS_RASTER_FORMAT_OPT' : '',
-                       'GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area, 'coordinates' : grass_coord,
-                       'input' : self.dem.dataProvider().dataSourceUri(), 'max_distance' : -1, 'memory' : self.memory, 'observer_elevation' : self.hsource, 'output' : nameviewshed,
-                       'refraction_coeff' : self.rarefraction, 'target_elevation' : self.htarget }
-            viewshed_proc = processing.run('grass7:r.viewshed', params)
-            #viewshed=viewshed_proc['output']
+    functions.applystyle(layer,'gr',0.5)
 
 
-            #QgsProject.instance().mapLayersByName("memory:viewshed")[0]
+    tempoanalisi=time.time() - start_time
+    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
+    messaggio="---------------------------------\n"
+    messaggio+="Fine modellazione\n"
+    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
+    messaggio+="---------------------------------\n\n"
+    self.console.appendPlainText(messaggio)
 
-
-
-
-            #aggiungo per controllo la viewshed alla toc
-            iface.addRasterLayer(viewshed_proc['output'])
-
-            viewshed=QgsProject.instance().mapLayersByName(nameviewshed)[0]
-
-
-            index_progress=0
-            controllo=1
-            if controllo==1:
-
-                for row in range(rows):
-
-                    for col in range(cols):
-                        index_progress+=1
-                        self.progressBar.setValue(index_progress)
-                        x = col*pixel_size+x_min+(pixel_size/2)
-                        y = row*pixel_size+y_min+(pixel_size/2)
-
-
-                        punto_controllo = QgsPointXY(x,y)
-
-
-
-                        for pol in polygons:
-                            poly = pol.geometry()
-                            if poly.contains(punto_controllo):
-
-                                cfr_viewshed=viewshed.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
-
-
-                                if cfr_viewshed.results()[1]==1:
-                                    deltax=x-x_source
-                                    deltay=y-y_source
-                                    dist=math.sqrt(math.pow(deltay,2)+math.pow(deltax,2))
-
-
-                                    #new_intensity=(1/math.pow(dist,2))*intensity
-                                    new_intensity=(1/dist)*intensity
-
-
-                                    if nfeature==1:
-                                        if new_intensity>0:
-                                            outData[row,col]=new_intensity
-                                        else:
-                                            outData[row,col]=0
-                                    else:
-
-                                        if new_intensity>0:
-                                            outData[row,col]=outData[row,col]+new_intensity
-                                        else:
-                                            outData[row,col]=outData[row,col]
-
-                                else:
-                                    outData[row,col]=0
-
-
-
-            self.label_status.setText("Preparazione output")
-            self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-            outData_raster=outData[::-1]
-            band.WriteArray(outData_raster)
-
-
-        band= None
-        target_ds = None
-
-
-
-        base_raster_name=os.path.basename(self.path_output)
-        raster_name=os.path.splitext(base_raster_name)[0]
-        self.iface.addRasterLayer(self.path_output, raster_name)
-
-
-        layer=None
-        for lyr in list(QgsProject.instance().mapLayers().values()):
-            if lyr.name() == raster_name:
-                layer = lyr
-
-
-        functions.applystyle(layer,'gr',0.5)
-
-
-        tempoanalisi=time.time() - start_time
-        tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-        messaggio="---------------------------------\n"
-        messaggio+="Fine modellazione\n"
-        messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-        messaggio+="---------------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
+    self.label_status.setText("In attesa di dati")
+    self.label_status.setStyleSheet('color : green; font-weight:bold')
