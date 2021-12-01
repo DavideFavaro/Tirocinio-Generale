@@ -37,6 +37,8 @@ module WaterNoise
 
 import ArchGDAL as agd
 
+include("..\\Library\\Functions.jl")
+
 
 function run_f1(S,T)
     return √(0.78(S / 35)) * ℯ^(T/26)
@@ -50,7 +52,7 @@ end
 
 
 
-function run_spread( source, area, depth::Real, salinity::Real, pH::Real, temperature::Real, frequencys::Real, resolution::Integer, folder::AbstractString=".\\" )
+function run_spread( dem, source, depth::Real, salinity::Real, pH::Real, temperature::Real, frequencys::Real, resolution::Integer, folder::AbstractString=".\\" )
 
     if pH < 0 || pH > 14
         throw(DomainError(pH, "`pH` must be a number between 0 and 14"))
@@ -78,69 +80,13 @@ function run_spread( source, area, depth::Real, salinity::Real, pH::Real, temper
     for freq in frequencys
         output_path = folder*"\\sound_level_$freq.tiff"
 
-        messaggio="Inizio elaborazione Analisi del rumore in acqua\n"
-        messaggio+="---------------------------\n\n"
-        messaggio+="FILE DI INPUT:\n"
-        messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-        messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-        messaggio+="VARIABILI:\n"
-        messaggio+="Salinità: "+str(self.line_salinity)+"\n"
-        messaggio+="Profondità: "+str(self.line_depth)+"\n"
-        messaggio+=u"Ph: "+str(self.line_ph)+"\n"
-        messaggio+="Temperatura: "+str(self.line_temperature)+"\n"
-        messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-        messaggio+='ALGORITMO UTILIZZATO: Ainslie, M. A., & McColm, J. G. (1998). A simplified formula for viscous and chemical absorption in sea water. The Journal of the Acoustical Society of America, 103(3), 1671-1672.)\n\n'
-        messaggio+="---------------------------\n\n"
+        # messaggio+='ALGORITMO UTILIZZATO: Ainslie, M. A., & McColm, J. G. (1998). A simplified formula for viscous and chemical absorption in sea water. The Journal of the Acoustical Society of America, 103(3), 1671-1672.)\n\n'
 
 
 
-        path_layer=self.areastudio.dataProvider().dataSourceUri()
-        path=path_layer.split("|")
-        source_ds = ogr.Open(path[0])
-        area_layer = source_ds.GetLayer()
-        #x_min, x_max, y_min, y_max = area_layer.GetExtent()
-        x_min=int(area_layer.GetExtent()[0])
-        y_min=int(area_layer.GetExtent()[2])
-        x_max=int(area_layer.GetExtent()[1])
-        y_max=int(area_layer.GetExtent()[3])
 
 
-        valNoData = -9999.0
 
-
-        # Create the destination data source
-        x_res = int((x_max - x_min) / pixel_size)
-        y_res = int((y_max - y_min) / pixel_size)
-
-
-        tiffdriver = agd.getdriver("GTiff")
-        target_ds = gdal.create( output_path, x_res, y_res, 1, )
-        target_ds = gdal.GetDriverByName('GTiff').Create(self.path_output, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-        target_ds.SetGeoTransform((x_min, pixel_size, 0, y_max, 0, -pixel_size))
-        # if self.srid!="":
-        #     srs = osr.SpatialReference()
-        #     srs.ImportFromEPSG(self.srid)
-        #     target_ds.SetProjection( srs.ExportToWkt() )
-        # else:
-        #     target_ds.SetProjection(projectionfrom)
-        # self.refsys
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(int(self.refsys))
-        target_ds.SetProjection( srs.ExportToWkt() )
-
-        target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
-                               'modulo':'Dispersione rumore in acqua',
-                               'descrizione':'Analisi della dispersione acustica in acqua',
-                               'srs':self.source.crs().authid(),
-                               'data':datetime.datetime.now().strftime("%d-%m-%y")})
-
-        band = agd.GetRasterBand(target_ds, 1)
-        agd.setnodatavalue!(target_ds, valNoData)
-        band.SetNoDataValue(float(NoData_value))
-        band.Fill(NoData_value)
-        xsize = agd.width(band)
-        ysize = agd.height(band)
-        outData = np.array(band.ReadAsArray(0, 0, xsize,ysize).astype(np.float))
 
 
         nfeature=0
@@ -157,11 +103,6 @@ function run_spread( source, area, depth::Real, salinity::Real, pH::Real, temper
 
             nfeature+=1
 
-            rows = ysize - 1
-            cols = xsize - 1
-
-            npts = 100
-
             #   start_time = time.time()
             
             for row in 1:rows
@@ -173,9 +114,9 @@ function run_spread( source, area, depth::Real, salinity::Real, pH::Real, temper
                     Δy = y - y_source
                     dist = √( Δy^2 + Δx^2 )
 
-                    f1 = √(0.78(salinity / 35)) * ℯ^(temperature / 26)
+                    f1 = √(0.78(salinity / 35))ℯ^(temperature / 26)
                     f2 = 42ℯ^(temperature / 17)
-                    α1 = 0.106( (f1 * freq_f^2) / (freq_f^2 + f1^2) ) * ℯ^( (pH - 8) / 0.56 )
+                    α1 = 0.106( (f1 * freq_f^2) / (freq_f^2 + f1^2) )ℯ^( (pH - 8) / 0.56 )
                     α2 = 0.52( 1 + (temperature / 43) ) * (salinity / 35) * ( (f2 * freq_f^2) / (freq_f^2 + f1^2) )ℯ^(-depth / 6)
                     α3 = 0.00049freq_f^2 * ℯ^( -((temperature / 27) + (depth / 17)) )
                     α = α1 + α2 + α3
@@ -208,44 +149,55 @@ function run_spread( source, area, depth::Real, salinity::Real, pH::Real, temper
         end
 
 
+
+
+
+
+
+        gtiff_driver = agd.getdriver("GTiff")
+        target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+     # NON SONO CERTO CHE IL GEOTRASFORM VADA BENE
+        agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
+        agd.setproj!( target_ds, refsys )
+     """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+        target_ds.SetMetadata(
+            Dict(
+                "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+                "modulo" => "Dispersione rumore in acqua",
+                "descrizione" => "Analisi della dispersione acustica in acqua",
+                "srs" => refsys,
+                "data" => today()
+            )
+        )
+     """
+        valNoData = -9999.0
+        band1 = agd.getband( target_ds, 1 )
+        agd.setnodatavalue!(band1, valNoData)
+        agd.fillraster!(band1, valNoData)
+        band = agd.read(band1)
+
+
+
+
+
+ """
         outData_raster=outData[::-1]
         band.WriteArray(outData_raster)
 
-
-
-
         band= None
         target_ds = None
-
-
-
-
 
         base_raster_name=os.path.basename(self.path_output)
         raster_name=os.path.splitext(base_raster_name)[0]
         self.outputlayer=self.iface.addRasterLayer(self.path_output, raster_name)
 
         layer=None
-        for lyr in list(QgsProject.instance().mapLayers().values()):
-            if lyr.name() == raster_name:
+        for lyr in list(QgsProject.instance().mapLayers().values())
+            if lyr.name() == raster_name
                 layer = lyr
+            end
+        end
+"""
+end
 
-
-        functions.applystyle(layer,'viridis',0.5)
-
-        # pyqtRemoveInputHook()
-        # pdb.set_trace()
-
-
-        layer.triggerRepaint()
-
-        tempoanalisi=time.time() - start_time
-        tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-        messaggio="---------------------------------\n"
-        messaggio+="Fine modellazione\n"
-        messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-        messaggio+="---------------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
+end # module

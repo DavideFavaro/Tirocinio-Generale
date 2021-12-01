@@ -26,32 +26,10 @@ module DiluitionAttenuationfactor
 
 
 import ArchGDAL as agd
-using CombinedParsers
-using CombinedParsers.Regexp
+
 using Dates
 
 include("..\\Library\\Functions.jl")
-
-
-
-@syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
-@syntax points = Sequence( re"[^(]+", "(  ", Numeric(Float64), ", ", Numeric(Float64), re".+" )
-
-
-
-Base.getindex( point::ArchGDAL.IGeometry{ArchGDAL.wkbPoint}, index::Int64 ) = index == 1 ? agd.getx(point, 0) : index == 2 ? agd.gety(point, 0) : index == 3 ? agd.getz(point, 0) : throw(BoundsError(point, index))
-
-Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
-Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
-Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
 
 
@@ -263,50 +241,6 @@ end
 
 #  FUNZIONI CHE PROBABILMENTE POSSONO ESSERE SPOSTATE IN UN FILE A PARTE (IDEALMENTE Functions)
 """
-Return the dimentions of the cell of an ArchGDAL raster dataset
-"""
-function getCellDims( dtm )
-    size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
-    size_pars = dims(size_str)
-    return size_pars[2], size_pars[4]
-end
-
-"""
-Return distances from left upper right and lower sides of an ArchGDAL raster dataset
-"""
-function getSidesDistances( dtm )
-    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
-    dists_pars = points.( getindex.(Ref(info), [51, 54]) )
-    return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
-end
-
-"""
-Convert indexes to the coordinates of the respective cell in `dtm` raster
-"""
-function toCoords( dtm, r::Integer, c::Integer )
-    Δx, Δy = getCellDims(dtm)
-    left, up = getSidesDistances(dtm)[1:2]
-
-    x = r * Δx + left
-    y = c * Δy + up
-
-    return x, y
-end
-
-"""
-Convert coordinates to the indexes of the respective cell in `dtm` raster
-"""
-function toIndexes( dtm, x::Real, y::Real )
-    Δx, Δy = getCellDims(dtm)
-    left, up = getSidesDistances(dtm)[1:2]
-
-    r = round( Int64, ( x - left ) / Δx  )
-    c = round( Int64, ( y - up ) / Δy )
-
-    return r, c
-end
-
-"""
 Recursively compute the concentration of each point and add the value and its indexes to positions
 """
 function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, daf::DAF )
@@ -469,11 +403,17 @@ end # module
 #------------------------------------------------ TESTING------------------------------------------------------------------------------
 
 import ArchGDAL as agd
+import GeoArrays as ga
 
 # Raster
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.read(dtm_file)
+gdtm = ga.read(dtm_file)
+
+ga.coords()
+
+
 dtm_band = agd.getband(dtm, 1)
 agd.toPROJ4(agd.importWKT(agd.getproj(dtm)))
 
@@ -500,11 +440,12 @@ agd.envelope(cmn_layer)
 
 
 
-
 # crs del dtm
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.read(dtm_file)
 crs_dtm = agd.importWKT(agd.getproj(dtm))
+
+
 
 
 # crs delle stazioni

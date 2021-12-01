@@ -25,16 +25,9 @@ module Plumes
 
 import ArchGDAL as agd
 using ArgParse
-using CombinedParsers
-using CombinedParsers.Regexp
 using Dates
 
 include("..\\Library\\Functions.jl")
-
-
-
-@syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
-@syntax points = Sequence( re"[^(]+", "(  ", Numeric(Float64), ", ", Numeric(Float64), re".+" )
 
 
 
@@ -101,7 +94,8 @@ function calc_h( d::Real, stack_diameter::Real, gas_speed::Real, smoke_temperatu
 end
 =#
 
-function calc_sigma!(p::Plume)
+
+function calc_σ!(p::Plume)
   σ_values = Functions.air_extract( p.c_stability, p.outdoor )
   σy1 = σ_values[0]
   σy2 = σ_values[1]
@@ -123,6 +117,7 @@ function calc_σ( d::Real, stability_class::AbstractString, outdoor::AbstractStr
 end
 =#
 
+
 function calc_g!(p::Plume)
   p.g1 = exp( ( -0.5 * p.y^2 ) / p.σy^2 )
   p.g2 = exp( ( -0.5 * (p.z - p.stack_height)^2 ) / p.σz^2 ) + exp( ( -0.5 * (p.z + p.stack_height)^2 ) / p.σz^2 )
@@ -135,6 +130,7 @@ function calc_g( y::Real, z::Real, σy::Real, σz::Real, stack_height::Real )
     return g1, g2
 end
 =#
+
 
 function calc_C!( p::Plume )
   p.C = ( 100p.concentration / 3600p.wind_speed ) * ( (p.g1 * p.g2) / ( 2π * p.σy * p.σz ) )
@@ -164,53 +160,6 @@ end
 
 
 
-
-
-#  FUNZIONI CHE PROBABILMENTE POSSONO ESSERE SPOSTATE IN UN FILE A PARTE (IDEALMENTE Functions)
-"""
-Return the dimentions of the cell of an ArchGDAL raster dataset
-"""
-function getCellDims( dtm )
-  size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
-  size_pars = dims(size_str)
-  return size_pars[2], size_pars[4]
-end
-
-"""
-Return distances from left upper right and lower sides of an ArchGDAL raster dataset
-"""
-function getSidesDistances( dtm )
-  info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
-  dists_pars = points.( getindex.(Ref(info), [51, 54]) )
-  return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
-end
-
-"""
-Convert indexes to the coordinates of the respective cell in `dtm` raster
-"""
-function toCoords( dtm, r::Integer, c::Integer )
-  Δx, Δy = getCellDims(dtm)
-  left, up = getSidesDistances(dtm)[1:2]
-
-  x = r * Δx + left
-  y = c * Δy + up
-
-  return x, y
-end
-
-"""
-Convert coordinates to the indexes of the respective cell in `dtm` raster
-"""
-function toIndexes( dtm, x::Real, y::Real )
-  Δx, Δy = getCellDims(dtm)
-  left, up = getSidesDistances(dtm)[1:2]
-
-  r = round( Int64, ( x - left ) / Δx  )
-  c = round( Int64, ( y - up ) / Δy )
-
-  return r, c
-end
-
 """
 Recursively compute the concentration of each point and add the value and its indexes to positions
 """
@@ -221,7 +170,7 @@ function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_
     expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, plume )
     return nothing
   else
-    Δx, Δy = toCoords(dtm, positions[1][1], positions[1][2]) - toCoords(dtm, indx_x, indx_y)
+    Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
     dir = deg2rad(plume.wind_direction)
     sindir = sin(dir)
     cosdir = cos(dir)

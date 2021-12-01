@@ -11,18 +11,8 @@ using GeoStats
 using Plots
 using Shapefile
 
-Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
-Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
-Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
-Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+include("..\\Library\\Functions.jl")
+
 
 repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
 
@@ -37,58 +27,31 @@ rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc
 Compute the transmission loss of a noise over `r` distance
 """
 function transmission_loss( r::Real )
-    return 20 * log10(r)
+    return 20log10(r)
 end
 
 function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity::Real, temperature_k::Real, frequency::Real )
     # Calculate atmospheric absorption coefficient using ANSI S1.26-1995 standard
-
     # Convert elevation to atmospheric pressure
-    atmospheric_pressure = 101.325 * ( 1 - ( 2.25577 * 10^(-5) * height_m ) )^5.25588
-
+    atmospheric_pressure = 101.325( 1 - ( 2.25577 * 10^(-5) * height_m ) )^5.25588
     # Calculate derived values for subsequent equations
     p_atm_pressure = atmospheric_pressure / 101.325
     t_tr = temperature_k / 293.15
-
     # Convert relative humidity to molar concentration of water vapor
-    C = ( -6.8346 * ( 273.16 / temperature_k )^1.261 ) + 4.6151
+    C = ( -6.8346( 273.16 / temperature_k )^1.261 ) + 4.6151
     p_saturation_pressure = 10^C
     humidity = relative_humidity * p_saturation_pressure * p_atm_pressure^(-1)
-
     # Calculate relaxation frequency of O (equation 3)
     #   frO₂ = ( p_atm_pressure * ( (24 + 4.04e04) * humidity ) * (0.02 + humidity) ) / (0.391 + humidity)
-    frO₂ = p_atm_pressure * (
-                               24 + ( 
-                                        4.04e04 * humidity * (
-                                                                 (0.02 + humidity) / (0.391 + humidity)
-                                                             )
-                                    )
-                           )
-
+    frO₂ = p_atm_pressure * ( 24 + ( 4.04e04humidity * ( (0.02 + humidity) / (0.391 + humidity) ) ) )
     # Calculate relaxation frequency of N (equation 4)
-    frN₂ = p_atm_pressure * √t_tr * (
-                                       9 + (
-                                               280 * humidity * ℯ^( -4.170 * (
-                                                                                 t_tr^(-1/3) - 1
-                                                                             )
-                                                                  )
-                                           )
-                                   )
-
+    frN₂ = p_atm_pressure * √t_tr * ( 9 + ( 280humidity * ℯ^( -4.170(t_tr^(-1/3) - 1) ) ) )
     # Calculate alpha (equation 5)
-    term1 = 1.84*10^(-11) * p_atm_pressure^(-1) * √t_tr
+    term1 = 1.84 * 10^(-11) * p_atm_pressure^(-1) * √t_tr
     #   term2 = t_tr^(-2.5) * ( 0.01275 * ℯ^(-2239.1 / temp_k) * ( frO₂ / (frO₂^2 + freq^2) ) )
-    term2 = t_tr^(-2.5) * (
-                              0.01275 * ℯ^(-2239.1 / temp_k) / (
-                                                                   frO₂ + (freq^2 / frO₂)
-                                                               )
-                          )
+    term2 = t_tr^(-2.5)( 0.01275ℯ^(-2239.1 / temp_k) / ( frO₂ + (freq^2 / frO₂) ) )
     #   term3 = 0.1068 * ℯ^(-3352 / temp_k) * ( frN₂ / (frN₂^2 + freq^2) )
-    term3 = t_tr^(-2.5) * (
-                              0.1068 * ℯ^(-3352 / temp_k) / (
-                                                                frN₂ + (freq^2 / frN₂)
-                                                            )
-                          ) 
+    term3 = t_tr^(-2.5) * ( 0.1068ℯ^(-3352 / temp_k) / ( frN₂ + (freq^2 / frN₂) ) ) 
     #   α = 8.686 * (frequency^2) * ( term1 + term2 + term3 )
     α = frequency^2 * (term1 + term2 + term3)
 
@@ -1201,102 +1164,6 @@ end
 
 
 
-
-
-
-
-
-
-
-# === VIEWSHED ===========================================================================================================================
-
-profile1 = [
-    (0,12),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,13),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
-profile2 = [
-    (0,500),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,9),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
-profile3 = [
-    (0,12),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,16),
-    (125,11),
-    (150,500),
-    (175,14),
-    (200,23)
-]
-profile = profile3
-
-visible = [ profile[1], profile[2] ]
-vali = abs( ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] ) )
-for i in 3:length(profile)
-    println("vali: $vali")
-    val = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
-    print("$(profile[i]): $val")
-    if val >= abs(vali)
-        print("    PUSH")
-        push!( visible, profile[i] )
-    end
-    println("\n")
-    vali = vali < 0 ? vali+val : vali-val
-end
-visible
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractVector
-    if result == visible
-        visible = [ profile[1], profile[2] ]
-        slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
-        for i in 3:length(profile)
-            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
-            if new_slope >= slope
-                push!( visible, profile[i] )
-                slope = new_slope
-            end
-        end
-        return visible
-    else
-        nonvisible = []
-        for i in 3:length(profile)
-            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
-            if new_slope < slope
-                push!( nonvisible, profile[i] )
-                slope = new_slope
-            end
-        end
-        return nonvisible
-    end
-end
 
 
 

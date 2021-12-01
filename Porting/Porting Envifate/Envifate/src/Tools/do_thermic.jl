@@ -222,9 +222,6 @@ module Thermic
 import ArchGDAL as agd
 
 function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
-    self.text_vector = str(self.combo_source.currentText())
-    self.text_river = str(self.combo_river.currentText())
-    self.text_dem = str(self.combo_dem.currentText())
     self.text_source_q = str(self.combo_source_q.currentText())
     self.text_source_t = str(self.combo_source_t.currentText())
     self.text_river_q = str(self.combo_river_q.currentText())
@@ -251,10 +248,10 @@ function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
 
     #   start_time = time.time()
 
- """ NON SO DA DOVE PRENDA I DATI """
+ """ NON HO CAPITO """
     buffer_sorgente = processing.run("native:buffer", {"INPUT": self.source, "DISTANCE": 5, "OUTPUT":"memory:"})
     sorgente = buffer_sorgente["OUTPUT"]
- """                              """
+ """               """
 
     for f in agd.getfeature(sorgente)
         for a in agd.getfeature(river)

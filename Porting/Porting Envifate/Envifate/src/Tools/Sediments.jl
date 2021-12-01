@@ -32,8 +32,6 @@ include("../Library/Functions.jl")
 
 
 
-
-
 @with_kw mutable struct Sediment
     """docstring for element"""
   
@@ -59,162 +57,84 @@ include("../Library/Functions.jl")
     mean_flow_speed::Float64
     mean_sedimentation_velocity::Float64
     time_intreval::Int
-    stream_oscillation_width::Float64 = 0.0
+    current_oscillatory_amplitude::Float64 = 0.0
     tide::Int = 0
   
     ω = 0
     ew
 
-    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide)
-        if stream_oscillation_width > 0 && tide > 0
+
+    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+        if current_oscillatory_amplitude > 0 && tide > 0
             ω = 2π/tide
-            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide, ω)
+            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide, ω)
         end
     end
 end
 
 
+
 function calc_q( s::Sediment )
     return s.dredged_mass / ( 4π *s.mean_depth * isqrt(s.x_dispersion_coeff * s.y_dispersion_coeff) )
 end
-  
 
-function calcolo_e!( s::Sediment, i )
-    s.ew = s.ω > 0 ? s.stream_oscillation_width / ( s.ω * cos(deg2rad(s.ω)) - cos(deg2rad(s.ω * i *s.time_intreval)) ) : 0
+
+function calc_e!( s::Sediment, i )
+    s.ew = s.ω > 0 ? s.current_oscillatory_amplitude / ( s.ω * cos(deg2rad(s.ω)) - cos(deg2rad(s.ω * i *s.time_intreval)) ) : 0
     e1 = ℯ^(-(( s.x - s.mean_flow_speed * ( s.time - i * s.time_intreval) + s.ew ) / ( 4s.x_dispersion_coeff * (s.time - i * s.time_intreval) ) ))
     e2 = ℯ^(-( s.y^2 / ( 4s.y_dispersion_coeff * (s.time - i * s.time_intreval) ) ) - ( (s.mean_sedimentation_velocity * (s.time - i * s.time_intreval)) / s.mean_depth ) )
     return e1*e2
 end
 
 
-
-#=
-class Dialog(EnviDialog):
-
-    def __init__(self, iface):
-        QDialog.__init__(self, iface.mainWindow())
-        self.iface = iface
-        self.canvas=self.iface.mapCanvas()
-        #self.registry = QgsMapLayerRegistry.instance()
-        self.msgBar = self.iface.messageBar()
-        # Set up the user interface from Designer.
-        self.setupUi(self)
-
-        self.tabWidget.setCurrentIndex(0)
-
-        self.tabWidget.removeTab(2)
-
-        self.label_title.setText("Analisi sedimentazione marina")
-        self.label_title.setStyleSheet('background-color : qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #9b4003, stop:1 rgba(0, 0, 0, 0)); color : white')
-        self.tableWidget.setRowCount(15)
-        self.tableWidget.horizontalHeader().setStretchLastSection(True)
-        #self.tableWidget.horizontalHeaderItem(0).setText("newHeader")
-        self.combo_bound = QComboBox()
-        self.combo_source = QComboBox()
-        self.combo_maindirwind = QComboBox()
-        self.tableWidget.setCellWidget(0,0, self.combo_source)
-        self.tableWidget.setCellWidget(1,0, self.combo_bound)
-        self.tableWidget.setCellWidget(2,0, self.combo_maindirwind)
-
-        self.tableWidget.setItem(3 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(4 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(5 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(6 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(7 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(8 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(9 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(10 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(11 , 0, QTableWidgetItem(""))
-        self.tableWidget.setItem(12 , 0, QTableWidgetItem(""))
+function calcSediment!( s::Sediment )
+    if s.x <= 0
+        return 0.0
+    else
+        q = calc_q(s)
+        n = round( Int64, s.time / s.time_intreval )
+        csum = 0
+        for i in 1:n
+            #   csum += calc_e!(s, i) * ( 1 / ( s.time - ( i * s.time_intreval ) ) )
+            csum += calc_e!(s, i) / ( s.time - ( i * s.time_intreval ) )
+        end
+        return q * csum * s.time_intreval
+    end
+end
 
 
 
-        hbox = QHBoxLayout()
-        hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(0)
-        self.line_output = QLineEdit()
-        self.line_output.setFixedHeight(25)
-        self.saveButton = QPushButton("Scegli")
-        self.saveButton.setFixedHeight(25)
-        hbox.addWidget(self.line_output)
-        hbox.addWidget(self.saveButton)
-        cellWidget = QWidget()
-        cellWidget.setLayout(hbox)
-        self.tableWidget.setCellWidget(13,0, cellWidget)
-
-        self.spinRes=QSpinBox()
-        self.spinRes.setValue(25)
-
-        self.tableWidget.setCellWidget(14,0, self.spinRes)
-
-
-        self.tableWidget.resizeRowsToContents();
-
-        # rowPosition = self.tableWidget.rowCount()
-        # self.tableWidget.insertRow(rowPosition)
-        # self.tableWidget.setItem(rowPosition , 0, QtGui.QTableWidgetItem("text1"))
-        self.tableWidget.setVerticalHeaderLabels((u'Vettoriale sorgente*', u'Vettoriale confine*', u'Direzione della corrente (°)',u'Velocità media corrente (m/s)',
-                                                  u'Profondità media (m)',u'Coefficiente dispersione X',u'Coefficiente dispersione Y',
-                                                  u'Quantità di sedimento dragata (Kg/s)',u'Velocità di sedimentazione media (m/s)',
-                                                  u'Periodo di analisi (min)',u'Intervallo di analisi (min)',
-                                                  u'Ampiezza oscillazione corrente',u'Ciclo di marea (h)',u'Output file',u'Risoluzione (m)'))
+"""
+Recursively compute the concentration of each point and add the value and its indexes to positions
+"""
+function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, sediment::Sediment )
+  if (indx_x, indx_y) in positions
+    xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+    ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, plume )
+    return nothing
+  else
+    Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
+    dir = deg2rad(plume.wind_direction)
+    sindir = sin(dir)
+    cosdir = cos(dir)
+    sediment.y = Δy * sindir + Δy * cosdir
+    sediment.x = Δx * cosdir - Δy * sindir
+    concentration = calcSediment!(sediment)
+    if round(concentration, digits=5) > 0
+        push!( positions, (ind_x, ind_y) )
+        push!( results, concentration )
+        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, plume )
+    end
+    return nothing
+  end
+end
 
 
 
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
 
-        self.clear_out_button.clicked.connect(self.reset_output)
-        self.save_out_button.clicked.connect(self.esporta_output)
-
-        self.popolacombo()
-
-
-        self.saveButton.clicked.connect(lambda: self.scegli_file("salvaraster"))
-        self.reset_field_button.clicked.connect(self.reset_fields)
-        self.buttonBox.accepted.connect(self.run_sediment)
-        self.actionManuale.triggered.connect(self.help)
-        self.actionCredits.triggered.connect(self.about)
-        self.actionSetting.triggered.connect(self.configuration)
-
-
-        self.classiwind={}
-        self.classiwind['N']=0
-        self.classiwind['NE']=45
-        self.classiwind['E']=90
-        self.classiwind['SE']=135
-        self.classiwind['S']=180
-        self.classiwind['SW']=225
-        self.classiwind['W']=270
-        self.classiwind['NW']=315
-
-
-        # demo data
-        #da eliminare
-        self.tableWidget.item(3,0).setText("1") #V
-        self.tableWidget.item(4,0).setText("13") #h
-        self.tableWidget.item(5,0).setText("1") #dx
-        self.tableWidget.item(6,0).setText("10") #dy
-        self.tableWidget.item(7,0).setText("4") #q
-        self.tableWidget.item(8,0).setText("0.0359") #w
-        self.tableWidget.item(9,0).setText("100") #final t
-        self.tableWidget.item(10,0).setText("1") #dt
-
-        #fine demo data
-
-
-
-        #self.tabWidget.removeTab(1)
-
-
-        self.figure = plt.figure()
-        self.canvas_mat = FigureCanvas(self.figure)
-        self.toolbar = NavigationToolbar(self.canvas_mat, self)
-        self.layout_mat.addWidget(self.toolbar)
-        self.layout_mat_2.addWidget(self.canvas_mat)
-
-        #self.list_srid=[3003,3004,32632,32633,3857,4326]
-=#
 #=
     def help(self):
         #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
@@ -574,74 +494,58 @@ class Dialog(EnviDialog):
 =#
 
                     #                                     v                      h                 dx                        dy                        q                   dir
-function run_sediment( source, area, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
+function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u
-                       mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, stream_oscillation_width::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
-
-    # try:
-    #     self.dir=int(self.text_dir)
-    # except Exception as e:
-    #     QMessageBox.warning(self,"Warning", "La direzione media della corrente è obbligatoria")
-    #     return
+                       mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
-
-    if agd.geomdim(area) != 2
-        throw(DomainError(source, "`area` must be a polygon"))
-    end
-
-    if agd.getspatialref(area) != agd.getspatialref(source)
-         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
-     end
  
     refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
 
  # SERVE UN ELEMENTO DI classwind
-    self.dir=self.classiwind[self.combo_maindirwind.currentText()]
+ #   self.dir=self.classiwind[self.combo_maindirwind.currentText()]
+
+ # messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
 
 
 
+    feature = collect(agd.getfeature(source))
+    geom = agd.getgeom(feature[1])
+    x_source = agd.getx(geom, 0)
+    y_source = agd.gety(geom, 0)
+    r_source, c_source = toCoords(dtm, x_source, y_source)
 
- """ PRINT
-    messaggio="Inizio elaborazione plume atmosferico Envifate\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-    messaggio+="VARIABILI:\n"
-    messaggio+=u"Quantità di sedimento dragata: "+str(self.text_q)+"\n"
-    messaggio+=u"Profondità media: "+str(self.text_h)+"\n"
-    messaggio+=u"Velocità media della corrente: "+str(self.text_v)+"\n"
-    messaggio+=u"Direzione media della corrente: "+str(self.combo_maindirwind.currentText())+"\n"
-    messaggio+=u"Coefficienti di diffusione (x,y): "+str(self.text_dx)+" "+str(self.text_dy)+"\n"
-    messaggio+=u"Velocità di sedimentazione marina: "+str(self.text_w)+"\n"
-    messaggio+=u"Tempo di analisi: "+str(self.text_t)+"\n"
-    messaggio+=u"Intervallo di analisi: "+str(self.text_dt)+"\n"
-    if self.text_u!="":
-        messaggio+=u"Ampiezza della marea: "+str(self.text_u)+"\n"
-    if self.text_tide!="":
-        messaggio+=u"Ciclo della marea: "+str(self.text_tide)+"\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-    messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
-    messaggio+="---------------------------\n\n"
- """
-
-    area_layer = agd.getlayer(area, 0)
- # NON FUNZIONANTE / DA ELIMINARE
-    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
-    valNoData = -9999
-    # Create the destination data source
-    x_res = ( x_max - x_min ) / resolution
-    y_res = ( y_max - y_min ) / resolution
+    #   start_time = time.time()
 
 
+    points = [ (r_source, c_source) ]
+ # NON CREDO SIA IL VALORE CORRETTO DA INSERIRE
+    values = [ dredged_mass ]
+    element = Sediment( dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+    expand!( points, values, dem, r_source, c_source, element )
+
+
+    points = [ (r_source, c_source) ]
+    values = [ concentration ]
+ # NON CI INTERESSA DARE DEI VALORI COERENTI A d, y, E z PERCHE' AD OGNI CHIAMATA expand! LI RESETTA
+    plume = Plume(concentration, 0.0, 0.0, 0.0, stability, outdoor, wind_speed, stack_height, stack_diameter, gas_speed, smoke_temperature, temperature, wind_direction,0.0) 
+    expand!(points, values, dtm, r_source, c_source, plume)
+
+    maxR = maximum( point -> point[1], points )
+    minR = minimum( point -> point[1], points )
+    maxC = maximum( point -> point[2], points )
+    minC = minimum( point -> point[2], points )
+
+    rows = maxR - minR
+    cols = maxC - minC
+    minX, maxY = toCoords(dtm, minX, maxY)
 
     gtiff_driver = agd.getdriver("GTiff")
-    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
+    target_ds = agd.create( output_path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ])
     agd.setproj!(target_ds, refsys)
  """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
     target_ds.SetMetadata(
@@ -654,103 +558,16 @@ function run_sediment( source, area, resolution::Integer, mean_flow_speed::Real,
         )
     )
  """
+    valNoData = -9999.0
     band1 = agd.getband(target_ds, 1)
     agd.setnodatavalue!( band1, Float64(valNoData) )
-    band = agd.read(band1)
     agd.fillraster!(band, valNoData)
-    xsize = agd.width(band)
-    ysize = agd.height(band)
- # NON SONO CERTO SIA IL METODO GIUSTO 
-    # outData = deepcopy(band)
-    outData = band
+    band = agd.read(band1)
 
-
-
-    feature = collect(agd.getfeature(source))
-    geom = agd.getgeom(feature[1])
-    x_source = agd.getx(geom, 0)
-    y_source = agd.gety(geom, 0)
-    rows = ysize - 1
-    cols = xsize - 1
-
-    #   start_time = time.time()
-
-
-    for row in 1:rows
-        for col in 1:cols
-            x, y = (col, row) * resolution + (x_min, y_min) .+ (resolution/2)
-            Δx = x - x_source
-            Δy = y - y_source
-            true_x = Δx * cos(deg2rad(flow_direction)) - Δy * sin(deg2rad(flow_direction))
-            true_y = Δx * sin(deg2rad(flow_direction)) + Δy * cos(deg2rad(flow_direction))
-
-            if true_y > 0
-                element = Sediment(time, dredged_mass, mean_depth, x_dispersion_coeff, y_dispersion_coeff, true_y, true_x, mean_flow_speed, mean_sedimentation_velocity, time_intreval, stream_oscillation_width, tide)
-                q = calc_q(element)
-                n = round( Int64, element.time / element.time_intreval )
-                csum = 0
-                for i in 1:n
-                    e = calcolo_e!(element, i)
-                    csum += e * (1 / (element.time - i * element.time_intreval))
-                end
-                outData[row, col] = q * csum * element.time_intreval
-            else
-                outData[row, col] = 0
-            end
-        end
+    for (point, value) in zip(points[i], values[i])
+        r, c = point - (minR, minC)
+        band[r, c] = value
     end
-
- # NON SO SE SIA EQUIVALENTE
-    #   outData_raster=outData[::-1]
-    #   band.WriteArray(outData_raster)
-    agd.write!( target_ds, outData, 1 )
-
-
-
-
-
-
-
-
-    
-
-
-    band= None
-    target_ds = None
-
-    base_raster_name=os.path.basename(self.output_path)
-    raster_name=os.path.splitext(base_raster_name)[0]
-    self.outputlayer=self.iface.addRasterLayer(self.output_path, raster_name)
-
-    layer=None
-    for lyr in list(QgsProject.instance().mapLayers().values()):
-        if lyr.name() == raster_name:
-            layer = lyr
-            
-
-
-
- """ PRINT
-    tempoanalisi=time.time() - start_time
-    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-    messaggio="---------------------------------\n"
-    messaggio+="Fine modellazione\n"
-    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-    messaggio+="---------------------------------\n\n"
-    self.console.appendPlainText(messaggio)
- """
-
- """ PLOTS
-    ax1f1 = self.figure.gca(projection='3d')
-    (x, y) = np.meshgrid(outData_raster.shape[0], outData_raster.shape[1])
-    #fig = plt.figure()
-    #ax1f1 = fig.add_subplot(111, projection='3d')
-    surf = ax1f1.plot_wireframe(x, y, outData_raster)
-    #ax1f1.plot(self.list_result)
-
-    self.canvas_mat.draw()
- """
-
 end
 
 

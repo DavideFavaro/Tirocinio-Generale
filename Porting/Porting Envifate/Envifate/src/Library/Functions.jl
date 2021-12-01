@@ -1,11 +1,34 @@
 module Functions
 
-export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extract,
-       array2raster!, writeRaster!, applystyle
+export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extract, array2raster!, writeRaster!, applystyle,
+       +, -, *, /, ^,
+       getCellDims, getSidesDistances, toCoords, toIndexes
 
-import ArchGDAL as agdal
+import ArchGDAL as agd
+using CombinedParsers
+using CombinedParsers.Regexp
 import DBInterface as dbi
 import SQLite as sql
+
+
+
+@syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
+@syntax points = Sequence( re"[^(]+", "(", re" *", Numeric(Float64), ",", re" *", Numeric(Float64), re".+" )
+
+
+Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
+Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
+Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
+Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
+Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
+Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
+Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
+Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+
 
 
 function substance_extract( substance_id, fields, dbloc = "" )
@@ -56,11 +79,11 @@ function cn_list_extract( dbloc::AbstractString=*( @__DIR__, "\\") )
 	db = sql.DB(dbloc*"substance.db")
     query_cn = sql.Stmt( db, "SELECT * FROM cn" )
     results = dbi.execute(query_cn)
-#    listaclc = Dict()
-#    for row in results
-#        lista_soil = [ x for x in row ]
-#        listaclc[ row[5] ] = lista_soil
-#    end
+ #    listaclc = Dict()
+ #    for row in results
+ #        lista_soil = [ x for x in row ]
+ #        listaclc[ row[5] ] = lista_soil
+ #    end
     listaclc = Dict( row[5] => [ x for x  in row ] for row in results )
     return listaclc
 end
@@ -75,16 +98,16 @@ function array2raster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize,
     originX = xmin
     originY = ymin
 
-    driver = agdal.getdriver("GTiff")
-    outRaster = agdal.create( newRasterfn, driver, cols, rows, 1, ArchGDAL.GDT_Byte )
-    agdal.setgeotransform!( outRaster, [ originX, pixelWidth, 0, originY, 0, pixelHeight ] )
-    outband = agdal.getband(1)
-    agdal.write!( outband, array )
-    #outRasterSRS = agdal.importEPSG(4326)
-    #agdal.setproj!( outRaster,  agdal.toWKT(outRasterSRS) )
-"""
-    outband.FlushCache()
-"""
+    driver = agd.getdriver("GTiff")
+    outRaster = agd.create( newRasterfn, driver, cols, rows, 1, ArchGDAL.GDT_Byte )
+    agd.setgeotransform!( outRaster, [ originX, pixelWidth, 0, originY, 0, pixelHeight ] )
+    outband = agd.getband(1)
+    agd.write!( outband, array )
+    #outRasterSRS = agd.importEPSG(4326)
+    #agd.setproj!( outRaster,  agd.toWKT(outRasterSRS) )
+ """
+     outband.FlushCache()
+ """
 end
 
 
@@ -96,5 +119,126 @@ end
 
 
 function applystyle( layer, colore, opacity ) end
+
+
+
+# Additional functions
+
+"""
+Return the dimentions of the cell of an ArchGDAL raster dataset
+"""
+function getCellDims( dtm )
+    size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
+    size_pars = dims(size_str)
+    return size_pars[2], size_pars[4]
+end
+
+
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+dtm = agd.read(dtm_file)
+
+"""
+Return distances from left upper right and lower sides of an ArchGDAL raster dataset
+"""
+function getOrigin( dtm )
+    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+    pos = findfirst(occursin.("Origin", info))
+    origin_pars = points(info[pos])
+    return origin_pars[4], origin_pars[7]
+end
+
+findfirst( occursin.( "origin") )
+
+"""
+Return distances from left upper right and lower sides of an ArchGDAL raster dataset
+"""
+function getSidesDistances( dtm )
+    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+    pos = findfirst(occursin.)
+    dists_pars = points.( getindex.(Ref(info), [51, 54]) )
+    return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
+end
+
+
+"""
+Convert indexes to the coordinates of the respective cell in `dtm` raster
+"""
+function toCoords( dtm, r::Integer, c::Integer )
+    Δx, Δy = getCellDims(dtm)
+    left, up = getOrigin(dtm)
+
+    x = r * Δx + left
+    y = c * Δy + up
+
+    return x, y
+end
+
+
+"""
+Convert coordinates to the indexes of the respective cell in `dtm` raster
+"""
+function toIndexes( dtm, x::Real, y::Real )
+    Δx, Δy = getCellDims(dtm)
+    left, up = getSidesDistances(dtm)[1:2]
+
+    r = round( Int64, ( x - left ) / Δx  )
+    c = round( Int64, ( y - up ) / Δy )
+
+    return r, c
+end
+
+
+
+
+
+
+
+
+# DA MODIFICARE PER RENDERLA GENERICA
+"""
+Recursively compute the concentration of each point and add the value and its indexes to positions
+"""
+function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, data_struct )
+  if (indx_x, indx_y) in positions
+    xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+    ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, data_struct )
+    return nothing
+  else
+
+ # SOSTITUIRE CON UNA O UN'INSIEME DI FUNZIONI CHE MODIFICHINO I VALORI NECESSARI NELLO STRUCT
+    Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
+    dir = deg2rad(plume.wind_direction)
+    sindir = sin(dir)
+    cosdir = cos(dir)
+    data_struct.x = Δy * sindir + Δy * cosdir
+    data_struct.y = Δx * cosdir - Δy * sindir
+
+    result = calcSediment!(sediment)
+
+
+ # SOSTITUIRE CON UN CONTROLLO CHE DIPENDA DA PARAMETRI ESTERNI
+    if round(result, digits=5) > 0
+        push!( positions, (ind_x, ind_y) )
+        push!( results, result )
+        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, data_struct )
+    end
+    return nothing
+  end
+end
+
+
+
+
+
+
+
+
+
+
+
 
 end # module
