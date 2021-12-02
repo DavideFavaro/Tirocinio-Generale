@@ -7,8 +7,8 @@ export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extr
 import ArchGDAL as agd
 using CombinedParsers
 using CombinedParsers.Regexp
-import DBInterface as dbi
-import SQLite as sql
+#   import DBInterface as dbi
+#   import SQLite as sql
 
 
 
@@ -30,9 +30,9 @@ Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x
 Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
 
 
-
+#=
 function substance_extract( substance_id, fields, dbloc = "" )
-    #estrazione valori sostanze
+    # estrazione valori sostanze
     db = sql.DB(dbloc*"substance.db")
     sql_fields = join( fields, "," )
     query_substance = sql.Stmt( db, "SELECT ? FROM substance WHERE id = ?AAA" )
@@ -44,7 +44,7 @@ end
 
 
 function texture_extract( texture_name, fields, dbloc = "" )
-    #estrazione valori sostanze
+    # estrazione valori sostanze
     db = sql.DB(dbloc*"substance.db")
     sql_fields = join( fields, "," )
     query_texture = sql.Stmt( db, "SELECT ? FROM texture WHERE nome LIKE ?" )
@@ -53,6 +53,7 @@ function texture_extract( texture_name, fields, dbloc = "" )
     res_fields = [ x  for x in results ]
     return res_fields
 end
+
 
 function air_extract( stability_class, outdoor, dbloc::AbstractString=*( @__DIR__, "\\") )
     db = sql.DB(dbloc*"substance.db")
@@ -117,9 +118,10 @@ function writeRaster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize, 
 end
 
 
-
-function applystyle( layer, colore, opacity ) end
-
+function applystyle( layer, colore, opacity )
+    return nothing
+end
+=#
 
 
 # Additional functions
@@ -128,15 +130,12 @@ function applystyle( layer, colore, opacity ) end
 Return the dimentions of the cell of an ArchGDAL raster dataset
 """
 function getCellDims( dtm )
-    size_str = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )[45]
-    size_pars = dims(size_str)
+    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+    pos = findfirst(occursin.("Pixel Size", info))
+    size_pars = dims(info[pos])
     return size_pars[2], size_pars[4]
 end
 
-
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-dtm = agd.read(dtm_file)
 
 """
 Return distances from left upper right and lower sides of an ArchGDAL raster dataset
@@ -148,16 +147,15 @@ function getOrigin( dtm )
     return origin_pars[4], origin_pars[7]
 end
 
-findfirst( occursin.( "origin") )
 
 """
-Return distances from left upper right and lower sides of an ArchGDAL raster dataset
+Return distances from left, upper, right and lower sides of an ArchGDAL raster dataset
 """
 function getSidesDistances( dtm )
     info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
-    pos = findfirst(occursin.)
-    dists_pars = points.( getindex.(Ref(info), [51, 54]) )
-    return dists_pars[1][3], dists_pars[1][5], dists_pars[2][3], dists_pars[2][5]
+    pos = findfirst(occursin.("Upper Left", info))
+    dists_pars = points.( getindex.(Ref(info), [pos, pos+3] ) )
+    return dists_pars[1][4], dists_pars[1][7], dists_pars[2][4], dists_pars[2][7]
 end
 
 
@@ -167,10 +165,8 @@ Convert indexes to the coordinates of the respective cell in `dtm` raster
 function toCoords( dtm, r::Integer, c::Integer )
     Δx, Δy = getCellDims(dtm)
     left, up = getOrigin(dtm)
-
     x = r * Δx + left
     y = c * Δy + up
-
     return x, y
 end
 
@@ -181,21 +177,14 @@ Convert coordinates to the indexes of the respective cell in `dtm` raster
 function toIndexes( dtm, x::Real, y::Real )
     Δx, Δy = getCellDims(dtm)
     left, up = getSidesDistances(dtm)[1:2]
-
     r = round( Int64, ( x - left ) / Δx  )
     c = round( Int64, ( y - up ) / Δy )
-
     return r, c
 end
 
 
 
-
-
-
-
-
-# DA MODIFICARE PER RENDERLA GENERICA
+#= DA MODIFICARE PER RENDERLA GENERICA
 """
 Recursively compute the concentration of each point and add the value and its indexes to positions
 """
@@ -229,16 +218,28 @@ function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_
     return nothing
   end
 end
+=#
 
 
 
 
 
 
+#------------------------------------------------ TESTING------------------------------------------------------------------------------
+#=
+import ArchGDAL as agd
+import GeoArrays as ga
 
 
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.read(dtm_file)
+gdtm = ga.read(dtm_file)
 
+x, y = ga.coords(gdtm, [4000, 6000])
+x1, y1 = toCoords(dtm, 4000, 6000)
 
-
+ga.indices(gdtm, [x, y])
+toIndexes(dtm, x1, y1)
+=#
 
 end # module

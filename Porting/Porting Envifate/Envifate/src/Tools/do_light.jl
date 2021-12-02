@@ -401,7 +401,10 @@ visible
 
 
 function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractVector
-    if result == visible
+    if result ∉ [:visible, :invisible]
+        throw(DomainError(result, "result must either be :visible or :invisible"))
+    end
+    if result == :visible
         visible = [ profile[1], profile[2] ]
         slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
         for i in 3:length(profile)
@@ -413,7 +416,7 @@ function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractV
         end
         return visible
     else
-        nonvisible = []
+        invisible = []
         for i in 3:length(profile)
             new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
             if new_slope < slope
@@ -421,7 +424,7 @@ function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractV
                 slope = new_slope
             end
         end
-        return nonvisible
+        return invisible
     end
 end
 

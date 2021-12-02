@@ -411,7 +411,10 @@ dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.read(dtm_file)
 gdtm = ga.read(dtm_file)
 
-ga.coords()
+x, y = ga.coords(gdtm, [4000, 6000])
+x1, y1 = toCoords(dtm, 4000, 6000)
+
+
 
 
 dtm_band = agd.getband(dtm, 1)
