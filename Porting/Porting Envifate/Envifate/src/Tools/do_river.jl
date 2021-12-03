@@ -77,7 +77,7 @@ end
 
 
          #                                     min         min_end   min_int        C / conc             radius
-function run_river( dem, river, slope, source, start_time, end_time, time_interval, resolution::Integer, concentration::Real, mean_hydraulic_radius::Real, fickian_x::Real=0.05,
+function run_river( dem, slope, river, source, start_time, end_time, time_interval, resolution::Integer, concentration::Real, mean_hydraulic_radius::Real, fickian_x::Real=0.05,
                   # w / sez                     k                    manning
                     hydraulic_section::Real=1.0, decay_coeff::Real=0, manning_coeff::Real=0.05, output_path::AbstractString )
     
@@ -99,7 +99,9 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
         throw(DomainError(source, "`river` must be a line"))
     end
 
-    if agd.getspatialref(river) != agd.getspatialref(source) || agd.getspatialref(slope) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+    refsys = agd.getspatialref(source)
+
+    if agd.getspatialref(river) != refsys || agd.importWKT(agd.getproj(slope)) != refsys || agd.importWKT(agd.getproj(dem)) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
 
@@ -107,7 +109,6 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
         throw(DomainError("`end_time` must be greater than `start_time`"))
     end
 
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
  """ PRINT DI COSE
     self.label_status.setText("Preparazione dati")
@@ -138,7 +139,7 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
 
     start_sec, end_sec, int_sec = 60( time_start, time_end, time_interval )
     #calcolo ciclo intervallo temporale di analisi
-    cicli = ( (end_time - start_time) / time_interval ) + 1
+    cicles = ( (end_time - start_time) / time_interval ) + 1
         
  # CREDO SIA L'EQUIVALENTE DI:
     #   feature = next(self.river.getFeatures())
@@ -150,25 +151,32 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
     src_geom = agd.getgeom(src_feature[1])
     x_source = agd.getx(src_geom, 0)
     y_source = agd.gety(src_geom, 0)
+    r_source, c_source = toIndexes(dem, x_source, y_source)
 
  # DEVO TROVARE L'EQUIVALENTE DI INTERPOLATE
     firstpoint = features[1].interpolate(0)
 
     x_first = agd.getx(firstpoint, 0)
     y_first = agd.gety(firstpoint, 0)
+    r_first ,c_first = toIndexes(dem, x_first, y_first) 
  
- # POTREBBE NON ESSERE COSI' SEMPLICE
-    demfirstpoint = dem[x_first, y_first]
-    demsource = dem[x_source, y_source]
+    slopeband = agd.getband(slope, 1)
 
+    demband = agd.getband(dem, 1)
+    demfirstpoint = demband[r_first, c_first]
+    demsource = demband[r_source, c_source]
+
+    trend = 0
+    old_x = x_first
+    old_r = r_first
+    old_y = y_first  
+    old_c = c_first  
     if demfirstpoint >= demsource
         trend = 1
         old_x = x_source
+        old_r = r_source
         old_y = y_source
-    else
-        trend = 0
-        old_x = x_first
-        old_y = y_first           
+        old_c = c_source       
     end
  
     for f in features
@@ -222,11 +230,9 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
 
 
 
-
+        controllo = 1
         if trend == 1
             controllo = 0
-        else
-            controllo = 1
         end
 
         while currentdistance < length
@@ -245,9 +251,9 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
 
             if controllo == 1
                 if avanzamento == resolution
-                    realdistance = realdistance + ressolution
+                    realdistance = realdistance + resolution
                     count_index += 1
-                    z = slope[x, y][1]
+                    z = slopeband[x, y]
                     v_inst = ( mean_hydraulic_radius^(2/3) * √(z/100) ) * manning_coeff
                     push!( list_vmedia, v_inst )
                     mean_v = sum(list_vmedia) / count_index
@@ -288,17 +294,14 @@ function run_river( dem, river, slope, source, start_time, end_time, time_interv
                     feats.append(fet)
                     featlines.append(fetline)
 
-                    old_x=x
-                    old_y=y
-
-                    avanzamento=0
+                    old_x = x
+                    old_y = y
+                    avanzamento = 0
                 end
-                avanzamento=avanzamento+1
+                avanzamento += 1
             end
-
-            currentdistance = currentdistance + 1
+            currentdistance += 1
         end    
-
 
         pr.addFeatures(feats)
         prline.addFeatures(featlines)

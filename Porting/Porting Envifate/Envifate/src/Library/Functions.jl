@@ -15,19 +15,33 @@ using CombinedParsers.Regexp
 @syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
 @syntax points = Sequence( re"[^(]+", "(", re" *", Numeric(Float64), ",", re" *", Numeric(Float64), re".+" )
 
+#= Old version
+    Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
+    Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
+    Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
+    Base.:*( x::Tuple{Number, Number}, y::Number ) = Typle( x[1] * y, x[2] * y )
+    Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
+    Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
+    Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
+    Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
+    Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
+    Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+=#
 
 Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
-Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
-Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
-Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
+Base.:+( x::Tuple{Vararg{T}}, y::Tuple{Vararg{T}} ) where {T <: Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Tuple{Vararg{T}}, y::Tuple{Vararg{T}} ) where {T <: Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Tuple{Vararg{T}}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:-( x::Vector{T}, y::Tuple{Vararg{T}} ) where {T <: Number} = length(x) == length(y) ? [ xi-yi for (xi, yi) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:*( x::Tuple{Vararg{T}}, y::Tuple{Vararg{T}} ) where {T <: Number} = length(x) == length(y) ? Tuple( xi*yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:*( x::Tuple{Vararg{T}}, y::T ) where {T <: Number} = Tuple( xi*y for xi in x )
+Base.:*( x::T, y::Tuple{Vararg{T}} ) where {T <: Number} = y * x
+Base.:/( x::Tuple{Vararg{T}}, y::Tuple{Vararg{T}} ) where {T <: Number} = length(x) == length(y) ? Tuple( xi/yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+Base.:/( x::Tuple{Vararg{T}}, y::T ) where {T <: Number} = Tuple( xi/y for xi in x )
+Base.:/( x::T, y::Tuple{Vararg{T}} ) where {T <: Number} = Tuple( x/yi for yi in y )
+Base.:^( x::Tuple{Vararg{T}}, y::T ) where {T <: Number} = Tuple( xi^y for xi in x )
 
 
 #=

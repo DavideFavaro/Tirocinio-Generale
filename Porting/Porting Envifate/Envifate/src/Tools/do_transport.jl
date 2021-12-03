@@ -47,57 +47,12 @@ module Transport
         self.popolacombo()
 =#
 
-
-function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispersiveness_t::Real, dispersiveness_l::Real, storativity::Real=0.0001,
-                        break_error::Real=0.000001, delay::Real=1.0 )
-
-
+                      # top          bottom          q                      phead
+function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piezomatic_head, status, source, srs, tensorx::Real, tensory::Real, porosity::Real, dispersiveness_t::Real,
+                        dispersiveness_l::Real, storativity::Real=0.0001, break_error::Real=0.000001, delay::Real=1.0, time::Integer, resolution::Integer, output_path::AbstractString=".\\" )
 
 
-    if self.text_valuetop=='' and self.text_top=='No file':
-        QMessageBox.warning(self,"Warning", u"Acquifer top surface è obbligatorio" )
-        return
-
-
-    messaggio_top=''
-    messaggio_mappatop=''
-    if self.text_top!='No file':
-        self.top=self.listalayers[self.text_top]
-        messaggio_mappatop="Raster acquifer top surface: "+str(self.top)+"\n"
-        if not self.top.isValid():
-            QMessageBox.warning(self,"Warning", u"Il file raster top acquifer surface non è valido" )
-            return
-    else:
-        try:
-            self.top=float(self.text_valuetop)
-            messaggio_top="Acquifer top surface: "+str(self.top)+"\n"
-        except Exception as e:
-            QMessageBox.warning(self,"Warning", "Errore nella variabile Acquifer top surface" )
-            return
-
-
-
-    if self.text_valuebottom=='' and self.text_bottom=='No file':
-        QMessageBox.warning(self,"Warning", u"Acquifer bottom surface è obbligatorio" )
-        return
-
-    messaggio_bottom=''
-    messaggio_mappabottom=''
-
-    if self.text_bottom!='No file':
-        self.bottom=self.listalayers[self.text_bottom]
-        messaggio_mappabottom="Raster acquifer bottom surface: "+str(self.bottom)+"\n"
-        if not self.bottom.isValid():
-            QMessageBox.warning(self,"Warning", u"Il file raster bottom acquifer surface non è valido" )
-            return
-    else:
-        try:
-            self.bottom=float(self.text_valuebottom)
-            messaggio_bottom="Acquifer bottom surface: "+str(self.bottom)+"\n"
-        except Exception as e:
-            QMessageBox.warning(self,"Warning", "Errore nella variabile Acquifer bottom surface" )
-            return
-
+ #= E' UN RASTER MA LO PONE A ZERO
     messaggio_q=''
     if self.text_q!='No file':
         self.q=self.listalayers[self.text_q]
@@ -107,85 +62,26 @@ function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispe
             return
     else:
         self.q=0.0
+ =#
 
-
-    self.phead=self.listalayers[self.text_phead]
-
-    if not self.phead.isValid():
-        QMessageBox.warning(self,"Warning", "La mappa raster della testa piezometrica non è valida" )
-        return
-
-
-    self.status=self.listalayers[self.text_status]
-
-    if not self.status.isValid():
-        QMessageBox.warning(self,"Warning", "Il file raster status non è valido" )
-        return
-
-
-
- 
-
-    if self.source.wkbType()!=QGis.WKBPoint:
-        QMessageBox.warning(self,"Warning", "The source file must have point geometry" )
-        return
-
-    
-
-    if self.areastudio.wkbType()!=QGis.WKBPolygon:
-        QMessageBox.warning(self,"Warning", "The boundaries file must have polygon geometry" )
-        return
-
-
-    self.path_output=self.line_output.text()
-    if self.path_output=="":
-        self.path_output=os.path.dirname(__file__)
-
-    try:
-        self.myepsg=float(self.text_srs)
-    except Exception as e:
-        QMessageBox.warning(self,"Warning", u"Il sistema di riferimento geografico (SRS) è obbligatorio" )
-        return
-
-
-
-
-
-
-
-
-
-
-    self.text_valuetop=str(self.tableWidget.item(4,0).text())
-    self.text_valuebottom=str(self.tableWidget.item(6,0).text())
-
-    self.text_vector = str(self.combo_source.currentText())
-    self.text_area = str(self.combo_bound.currentText())
-    self.text_top = str(self.combo_top.currentText())
-    self.text_bottom = str(self.combo_bottom.currentText())
-    self.text_phead = str(self.combo_phead.currentText())
+  #= COSA SONO QUESTI PARAMETRI
     self.text_campophead = str(self.combo_campophead.currentText())
-
-    self.text_status = str(self.combo_status.currentText())
     self.text_campostatus = str(self.combo_campostatus.currentText())
     self.text_solver = str(self.combo_solver.currentText())
-    self.text_q = str(self.combo_q.currentText())
-
     self.text_conc = str(self.combo_conc.currentText())
-
-    self.text_srs=str(self.tableWidget.item(24,0).text())
-
-    self.res=int(self.spinRes.text())
-    self.time=int(self.spinTime.text())*3600
+ =#
 
 
 
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
+ 
 
-    messaggio="Inizio elaborazione trasporto soluto in falda Envifate\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
+    time *= 3600 
+
+
+ """ PRINT DI COSE
     messaggio+=messaggio_q
     messaggio+=messaggio_mappatop
     messaggio+=messaggio_mappabottom
@@ -193,42 +89,12 @@ function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispe
     messaggio+="VARIABILI:\n"
     messaggio+=u"Concentrazione inquinante: da shapefile"
     messaggio+=u"Solver: "+str(self.combo_solver.currentText())+"\n"
-    messaggio+=u"Tensore di conduttività X: "+str(self.text_tensorx)+"\n"
-    messaggio+=u"Tensore di conduttività Y: "+str(self.text_tensory)+"\n"
-    messaggio+="Fattore di delay: "+str(self.text_delay)+"\n"
-    messaggio+=u"Porosità: "+str(self.text_porosity)+"\n"
-    messaggio+="Error break criteria: "+str(self.text_break_error)+"\n"
-    messaggio+=u"Dispersività trasversale: "+str(self.text_dispersiveness_t)+"\n"
-    messaggio+=u"Dispersività longitudinale: "+str(self.text_dispersiveness_l)+"\n"
-    messaggio+=u"Storavità: "+str(self.text_storativity)+"\n"
     messaggio+=messaggio_top
     messaggio+=messaggio_bottom
-    messaggio+="Tempo analisi: "+str(self.spinTime.text())+"\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
     messaggio+='ALGORITMO UTILIZZATO: modello realizzato sfruttando r.gwflow e r.solute.transport di Grass GIS v.7 (Neteler and Mitasova, 2008). Per i dettagli matematici degli algoritmi vedere https://grass.osgeo.org/gdp/hydrology/gebbert2007_diplom_stroemung_grass_gis.pdf\n\n'
-    messaggio+="---------------------------\n\n"
+ """
 
-    self.console.appendPlainText(messaggio)
-
-
-    self.label_status.setText("Preparazione dati")
-    self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')    
-    #rasterizzazione layer boundaries
-    #raster_fn = 'test.tif'
-
-    # pyqtRemoveInputHook()
-    # pdb.set_trace() 
-    self.progressBar.setValue(50)
-
-
-    start_time = time.time()  
-
-    self.label_status.setText("Processing data")
-    self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-
-
-    # say hello
+    # start_time = time.time()
 
 
     self.areastudio_path=self.areastudio.dataProvider().dataSourceUri().split('|')
@@ -236,43 +102,52 @@ function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispe
     self.source_path=self.source.dataProvider().dataSourceUri().split('|')
     self.status_path=self.status.dataProvider().dataSourceUri().split('|')
 
+
     #g.proj -c epsg=3003
     run_command("g.proj", epsg=self.myepsg, flags = 'c')
 
+    # Carica e trasforma in raster "area"
+     # Inporta "areastudio" come vettoriale
     run_command("v.in.ogr", input=self.areastudio_path[0], output="areastudio",overwrite=True, flags = 'o')
+     # Definisce la regione di "areastudio"
     run_command("g.region", res=self.res, vector="areastudio")
+     # Trasforma "areastudio" in raster
     run_command("v.to.rast", input="areastudio", output="areastudio",overwrite=True, use = 'val')
 
 
-    run_command("v.in.ogr", input=self.phead_path[0], output="phead",overwrite=True, flags = 'o')
-    run_command("v.to.rast", input="phead", output="phead",overwrite=True, use = 'attr', attribute_column=self.text_campophead)
 
+
+
+ """ Carica e trasforma in raster il vettore di "top"
+  # Inporta "phead" come vettoriale
+    run_command("v.in.ogr", input=self.phead_path[0], output="phead",overwrite=True, flags = 'o')
+  # Trasforma "phead" in raster
+    run_command("v.to.rast", input="phead", output="phead",overwrite=True, use = 'attr', attribute_column=self.text_campophead)
+ """
+    pheadband = agd.getband(piezomatic_head, 1)
+
+ """ Carica e trasforma in raster "status" 
     run_command("v.in.ogr", input=self.status_path[0], output="status",overwrite=True, flags = 'o')
     run_command("v.to.rast", input="status", output="status",overwrite=True, use = 'attr', attribute_column=self.text_campostatus)
+ """
+    statusband = agd.getband(status, 1)
 
-    # pyqtRemoveInputHook()
-    # pdb.set_trace() 
-
-
+ """ Carica source lo trasforma in raster e setta la cella corrispondente a 0/null
+  # Inporta "source" come vettoriale
     run_command("v.in.ogr", input=self.source_path[0], output="source",overwrite=True, flags = 'o')
+  # Trasforma "source" in raster
     run_command("v.to.rast", input="source", output="source",overwrite=True, use = 'attr', attribute_column=self.text_conc)
+  # Rimpiazza i null value in "source" con 0
     run_command("r.null", map="source", null=0)
+ """
+    src_feature = collect(agd.getfeature(source))
+    src_geom = agd.getgeom(src_feature[1])
+    x_source = agd.getx(src_geom, 0)
+    y_source = agd.gety(src_geom, 0)
+    r_source, c_source = toIndexes( dtm, x_source, y_source )
 
 
-
-
-    if self.q==0.0:
-        run_command("r.mapcalc", expression="well = 0",overwrite=True)
-    else:
-        q_path=self.q.dataProvider().dataSourceUri().split('|')
-        run_command("r.in.gdal", input=q_path[0], output="well",overwrite=True,flags = 'o')            
-
-
-    if self.status==1:
-        run_command("r.mapcalc", expression="status = 1",overwrite=True)
-
-    #run_command("r.mapcalc", expression="status = if(col() == 1 || col() == 200 , 2, 1)")
-    #run_command("r.mapcalc", expression="well = 0")
+ """ CREDO STIA SOLO SETTANDO DEI VALORI
     ex_hydx="hydcondx = "+'{0:.10f}'.format(self.tensorx)
     ex_hydy="hydcondy = "+'{0:.10f}'.format(self.tensory)
     run_command("r.mapcalc", expression=ex_hydx,overwrite=True)
@@ -288,10 +163,17 @@ function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispe
     run_command("r.mapcalc", expression="cs = 0.0",overwrite=True)
     run_command("r.mapcalc", expression="diff = 0.0000001",overwrite=True)
     run_command("r.mapcalc", expression="R = "+str(self.delay),overwrite=True)
+ """
+
+
 
     run_command("r.gwflow", solver="cg", top="top_conf", bottom="bottom", phead="phead",\
       status="status", hc_x="hydcondx", hc_y="hydcondy", q="well", s="syield",\
-      recharge="recharge", output="gwresult_conf", dt=self.time, type="confined",overwrite=True)  
+      recharge="recharge", output="gwresult_conf", dt=self.time, type="confined",overwrite=True)
+    
+    
+      
+    
 
     run_command("r.solute.transport", solver=self.text_solver, top="top_conf",\
       bottom="bottom", phead="gwresult_conf", status="status", hc_x="hydcondx", hc_y="hydcondy",\
@@ -316,16 +198,8 @@ function run_transport( top, tensorx::Real, tensory::Real, porosity::Real, dispe
 
 
 
-    tempoanalisi=time.time() - start_time
-    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-    messaggio="---------------------------------\n"
-    messaggio+="Fine modellazione\n"
-    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-    messaggio+="---------------------------------\n\n"
-    self.progressBar.setValue(100)
-    self.console.appendPlainText(messaggio)       
+    #   tempoanalisi=time.time() - start_time
+     
+end
 
-    self.label_status.setText("In attesa di dati")
-    self.label_status.setStyleSheet('color : green; font-weight:bold')  
-
-    #shutil.rmtree(location_path)
+end # module

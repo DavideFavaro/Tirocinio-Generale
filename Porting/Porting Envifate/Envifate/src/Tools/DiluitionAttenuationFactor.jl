@@ -449,6 +449,8 @@ dtm = agd.read(dtm_file)
 crs_dtm = agd.importWKT(agd.getproj(dtm))
 
 
+band = agd.getband(dtm, 1)
+agd.getspatialref(band)
 
 
 # crs delle stazioni

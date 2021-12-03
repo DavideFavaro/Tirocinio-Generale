@@ -222,8 +222,8 @@ module Thermic
 import ArchGDAL as agd
 
 function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
-    self.text_source_q = str(self.combo_source_q.currentText())
-    self.text_source_t = str(self.combo_source_t.currentText())
+    self.text_source_flow_rate = str(self.combo_source_q.currentText())
+    self.text_source_temperature = str(self.combo_source_t.currentText())
     self.text_river_q = str(self.combo_river_q.currentText())
     self.text_river_t = str(self.combo_river_t.currentText())
 
@@ -259,6 +259,11 @@ function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
             geom_f = agd.getgeom(f)
             if agd.intersects(geom_a, geom_f)
                 intersection = intersection(geom_a, geom_f)
+
+            
+                new_flow = Dict( :Flow => f[:portata] )
+                new_temperature = Dict( :Temperature => f[:temperature] )
+
              """ """
                 nuova_portata = { a.fieldNameIndex(self.text_river_q): f[self.text_source_q]}
                 nuova_temp = { a.fieldNameIndex(self.text_river_t): f[self.text_source_t]}
