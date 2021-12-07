@@ -31,158 +31,6 @@ using Dates
 include("../Library/Functions.jl")
 
 
-#=
-class Dialog(EnviDialog):
-
-    def __init__(self, iface):
-        QDialog.__init__(self, iface.mainWindow())
-        self.iface = iface
-        self.canvas=self.iface.mapCanvas()
-        #self.registry = QgsMapLayerRegistry.instance()
-        self.msgBar = self.iface.messageBar()
-        # Set up the user interface from Designer.
-        self.setupUi(self)
-
-        self.tabWidget.setCurrentIndex(0)
-        self.tabWidget.removeTab(2)
-
-        self.tab_2.setEnabled(False)
-
-        self.label_title.setText("Analisi ruscellamento")
-        self.label_title.setStyleSheet('background-color : qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6b0200, stop:1 rgba(0, 0, 0, 0)); color : white')
-        self.tableWidget.setRowCount(9)
-        self.tableWidget.horizontalHeader().setStretchLastSection(True)
-        #self.tableWidget.horizontalHeaderItem(0).setText("newHeader")
-        self.combo_bound = QComboBox()
-        self.combo_source = QComboBox()
-        self.combo_dem = QComboBox()
-        self.combo_lc = QComboBox()
-        self.combofield_lc = QComboBox()
-        self.combofield_soil = QComboBox()
-        self.combo_target = QComboBox()
-        self.combofield_target = QComboBox()
-        self.combo_fieldp = QComboBox()
-        self.tableWidget.setCellWidget(0,0, self.combo_source)
-        self.tableWidget.setCellWidget(1,0, self.combo_fieldp)
-        self.tableWidget.setCellWidget(2,0, self.combo_bound)
-
-
-        hbox_lc = QHBoxLayout()
-        hbox_lc.setContentsMargins(0, 0, 0, 0)
-        hbox_lc.setSpacing(0)
-        self.line_soil = QLineEdit()
-        self.combo_soil = QComboBox()
-        #self.line_freqList.setFixedHeight(25)
-        hbox_lc.addWidget(self.combo_lc)
-        hbox_lc.addWidget(self.combofield_lc)
-        cellWidget_lc = QWidget()
-        cellWidget_lc.setLayout(hbox_lc)
-
-        self.tableWidget.setCellWidget(3,0, cellWidget_lc)
-
-        hbox_subs = QHBoxLayout()
-        hbox_subs.setContentsMargins(0, 0, 0, 0)
-        hbox_subs.setSpacing(0)
-        self.line_soil = QLineEdit()
-        self.combo_soil = QComboBox()
-        #self.line_freqList.setFixedHeight(25)
-        hbox_subs.addWidget(self.combo_soil)
-        hbox_subs.addWidget(self.combofield_soil)
-        cellWidget_subs = QWidget()
-        cellWidget_subs.setLayout(hbox_subs)
-
-        self.tableWidget.setCellWidget(4,0, cellWidget_subs)
-
-
-        self.tableWidget.setCellWidget(5,0, self.combo_dem)
-
-
-        hbox_target = QHBoxLayout()
-        hbox_target.setContentsMargins(0, 0, 0, 0)
-        hbox_target.setSpacing(0)
-        self.line_target = QLineEdit()
-        hbox_target.addWidget(self.combo_target)
-        hbox_target.addWidget(self.combofield_target)
-        cellWidget_target = QWidget()
-        cellWidget_target.setLayout(hbox_target)
-
-        self.tableWidget.setCellWidget(6,0, cellWidget_target)
-
-
-        #self.tableWidget.setCellWidget(6,0, self.combo_target)
-
-
-
-        hbox = QHBoxLayout()
-        hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(0)
-        self.line_folder = QLineEdit()
-        self.line_folder.setFixedHeight(25)
-        self.saveButton = QPushButton("Scegli")
-        self.saveButton.setFixedHeight(25)
-        hbox.addWidget(self.line_folder)
-        hbox.addWidget(self.saveButton)
-        cellWidget = QWidget()
-        cellWidget.setLayout(hbox)
-
-
-        self.tableWidget.setCellWidget(7,0, cellWidget)
-
-        self.spintime=QSpinBox()
-        self.spinRes=QSpinBox()
-
-        self.tableWidget.setCellWidget(8,0, self.spinRes)
-
-        self.spinRes.setValue(25)
-        self.spintime.setValue(10)
-
-
-        self.tableWidget.resizeRowsToContents();
-
-        # rowPosition = self.tableWidget.rowCount()
-        # self.tableWidget.insertRow(rowPosition)
-        # self.tableWidget.setItem(rowPosition , 0, QtGui.QTableWidgetItem("text1"))
-        self.tableWidget.setVerticalHeaderLabels((u'Vettoriale sorgente*', u'Input quantità*', u'Vettoriale confine*',u'Vettoriale landcover*', u'Cat. suolo',
-                                                  u'DEM*',u'Vettoriale target (campo nome)',u'Working folder',u'Risoluzione'))
-
-
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
-
-        self.clear_out_button.clicked.connect(self.reset_output)
-        self.save_out_button.clicked.connect(self.esporta_output)
-
-        # self.web = QWebView()
-        # self.web.load(QUrl("https://grass.osgeo.org/grass70/manuals/addons/r.green.biomassfor.theoretical.html"))
-        # self.web_layout.addWidget(self.web)
-
-        self.popolacombo()
-
-        self.combo_lc.currentIndexChanged[str].connect(self.checkfields)
-        self.combo_source.currentIndexChanged[str].connect(self.checkfield_source)
-        self.combo_target.currentIndexChanged[str].connect(self.checkfield_target)
-
-        self.saveButton.clicked.connect(lambda: self.scegli_file("folder"))
-        self.reset_field_button.clicked.connect(self.reset_fields)
-        self.buttonBox.accepted.connect(self.run_runoff)
-        self.actionManuale.triggered.connect(self.help)
-        self.actionCredits.triggered.connect(self.about)
-        self.actionSetting.triggered.connect(self.configuration)
-
-
-        self.classisoil={}
-
-        self.classisoil['A']=0
-        self.classisoil['B']=1
-        self.classisoil['C']=2
-        self.classisoil['D']=3
-
-
-        #pyqtRemoveInputHook()
-        #pdb.set_trace()
-        self.tabWidget.removeTab(1)
-=#
 
 
 #=
@@ -598,10 +446,7 @@ class Dialog(EnviDialog):
         self.label_status.setStyleSheet('color : green; font-weight:bold')
         self.progressBar.setValue(max_progress)
 =#
-function run_runoff( dem, source, area, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=@__DIR__ )
-    
-    # wkbType: 1:point, 6:multipolygon, 2: Linestring
-
+function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
 
  """ NON SO QUALE SIA L'EQUIVALENTE
     if not self.dem.isValid():
@@ -613,104 +458,55 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    if agd.geomdim(area) != 2
-        throw(DomainError(source, "`area` must be a polygon"))
-    end
+    target_layer, landcover_layer, soil_layer = agd.getlayer([target, landcover, soil], 0) 
 
-    if agd.geomdim(targer) != 2
+    if agd.geomdim(target_layer) != 2
         throw(DomainError(source, "`target` must be a polygon"))
     end
 
-    if agd.geomdim(landcover) != 2
+    if agd.geomdim(landcover_layer) != 2
         throw(DomainError(source, "Not a valid `landcover` geometry"))
     end
 
-    if agd.getspatialref(area) != agd.getspatialref(source) || agd.getspatialref(target) != agd.getspatialref(source) ||
-       agd.getspatialref(landcover) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+    refsys = agd.getspatialref(source)
+
+    if agd.getspatialref(target_layer) != agd.getspatialref(source) || agd.getspatialref(landcover) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
-
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
     path_temp_landcover = folder * "\\temp_lc.tiff"
     path_temp_soil = folder * "\\temp_soil.tiff"
 
 
  """ NON SO COSA SIANO QUESTE VARIABILI
-    self.text_vector = str(self.combo_source.currentText())
-    self.text_lcfield = str(self.combofield_lc.currentText())
     self.text_p = str(self.combo_fieldp.currentText())
-    self.text_targetfield = str(self.combofield_target.currentText())
-    self.text_lcfield = str(self.combofield_lc.currentText())
-    self.text_soil = str(self.combo_soil.currentText())
-    self.text_soilfield = str(self.combofield_soil.currentText())
  """
 
     clc_list = Functions.cn_list_extract()
 
     soil_control = 0
 
-""" PRINT DI COSE
-    messaggio="Inizio elaborazione analisi dispersione per ruscellamento\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-    messaggio+="Vettoriale target: "+str(self.text_target)+"\n"
-    messaggio+="DTM: "+str(self.text_dem)+"\n\n"
-
-    messaggio+="VARIABILI:\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
+ """ PRINT DI COSE
     messaggio+='ALGORITMO UTILIZZATO: calcolo della separazione delle componenti infiltrazione e ruscellamento tramite metodo SCS-CN; US Department of Agriculture Soil Conservation Service, 1972. National Engineering Handbook, Section 4, Hydrology. US Government Printing Office, Washington, DC, 544pp.\n\n'
-    messaggio+="---------------------------\n\n"
-    self.console.appendPlainText(messaggio)
  """
 
     output_path = folder * "\\runoff.tiff"
-
-    area_layer = agd.getlayer(area, 0)
- # NON FUNZIONANTE / DA ELIMINARE
-    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
-    valNoData = -9999
-    # Create the destination data source
-    x_res = ( x_max - x_min ) / resolution
-    y_res = ( y_max - y_min ) / resolution
-
-    gtiff_driver = agd.getdriver("GTiff")
-    target_ds = agd.create( output_path, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!(target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ])
-    agd.setproj!(target_ds, refsys)
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-    target_ds.SetMetadata(
-        Dict(
-            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-            "modulo" => "Analisi ruscellamento",
-            "descrizione" => "Analisi di ruscellamento di un inquinante attraverso il metodo della separazione delle componenti",
-            "srs" => refsys,
-            "data" => today()
-        )
-    )
- """
-    band1 = agd.getband(target_ds, 1)
-    agd.setnodatavalue!( band1, Float64(valNoData) )
-    band = agd.read(band1)
-    agd.fillraster!(band, valNoData)
-    xsize = agd.width(band)
-    ysize = agd.height(band)
+    intervallo = max(getCellDims(dem))
 
 
- # PRENDE LE DIMENSIONI REALI DI UA CELLA, NOI FORSE QUESTO VALORE LO ABBIAMO GIA'
-    intervallo=int(self.dem.rasterUnitsPerPixelX())
+    # NON SO SE FUNZIONI
+    bbox_src = agd.boundingbox(source)
+    bbox_trgt = agd.boundingbox(target)
+    area = agd.union( bbox_src, bbox_trgt )
+    # Geometry containing both the source and the target
+     # Se union non ritorna una geometria unica ma un'unica geometria composta di due elementi disgiunti
+     #   area = agd.boundingbox(agd.union( bbox_src, bbox_trgt ))
+    area = agd.union( bbox_src, bbox_trgt )
+
+ 
 
 
- # NON SONO CERTO SIA IL METODO GIUSTO 
-    # outData = deepcopy(band)
-    outData = band
-
-
-
-
- """ NON SO COSA FACCIA STA ROBA """
+ """ PRENDE LA PORZIONE DI `landcover` RAPPRESENTATA DA `area`
     lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
     lc_clip=QgsVectorLayer(lc_clip_proc['OUTPUT'], 'lc_clip', 'ogr')
     lc_clip.setCrs(self.source.crs())
@@ -720,36 +516,38 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
     path_lc=path__layer_lc.split("|")
     source_ds_lc = ogr.Open(path_lc[0])
     lc_layer = source_ds_lc.GetLayer()
- """"""
+ """
+    # NON SONO CERTO PRESERVI LE INFORMAZIONI DI landcover
+    landcover_clip = agd.intersects( landcover, area )
+    landcover_layer = agd.getlayer(landcover_clip, 0)   
 
+    rows = agd.height(landcover_layer)
+    cols = agd.width(landcover_layer)
 
+    # NON SO COME OTTENERE minX E maxY
+    minX, maxY = ?
 
-
-    landcover_ds = agd.create( path_temp_landcover, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!(landcover_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+    landcover_ds = agd.create( path_temp_landcover, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!(landcover_ds, [ minX, 25.0, 0.0, maxY, 0.0, -25.0 ])
     agd.setproj!(landcover_ds, refsys)
     band_lc = agd.getband(landcover_ds, 1)
     agd.setnodatavalue!( band_lc, Float64(valNoData) )
     bandlc = agd.read(band_lc)
     agd.fillraster!(bandlc, valNoData)
-    xsize = agd.width(band)
-    ysize = agd.height(band)
 
-
-
- """ NON SO COSA FACCIA STA ROBA """
+    
+ """ TRASFORMA IN RASTER LA PORZIONE DI `landcover` PRESA PRIMA """
     gdal.RasterizeLayer(lc_ds, [1], lc_layer,options=["ATTRIBUTE="+self.text_lcfield])
     lc_ds=None
 
     lc_layer=QgsRasterLayer(self.path_temp_lc,"lc_layer")
  """"""
-
+    agd.gdalrasterize( x -> x, landcover_ds )
 
 
 
     if soil_text == "Valore campo"
         soil_control = 1
-
 
      # NON SO SE SIA EQUIVALENTE
         #   source_ds_soil = ogr.Open(path_lc[0])
@@ -764,10 +562,7 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
         bandsl = agd.read(band_sl)
         agd.fillraster!(bandsl, valNoData)
 
-
-
-
-     """ NON SO COSA FACCIA STA ROBA """
+     """ RASTERIZZA IL  VETTORIALE DEL TIPO DI SUOLO """
         gdal.RasterizeLayer(lc_ds, [1], soil_layer,options=["ATTRIBUTE="+self.text_soilfield])
         soil_ds=None
 
@@ -776,7 +571,7 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
     end
 
     
- """ NON SO COSA FACCIA STA ROBA """
+ """ CALCOLA UN VETTORILE TRAMITE `r.drain` SI PUO' FARE CON Omniscape.jl O SIMILI"""
     grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
     # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
 
@@ -807,9 +602,9 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
 
 
 
-    features = agd.getgeom.(collect(agd.features(vdrain)))
+    features = agd.getgeom.(collect(agd.getlayer(vdrain)))
     nfeat = 0
-    polygons_t = collect(agd.getfeature(target)) 
+    polygons_t = collect(target_layer) 
 
     #   start_time = time.time()
 
@@ -821,13 +616,10 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
 
 
 
-     # NON TROVO COME OTTENERE L'INTRPOLATION
-        firstpoint=geom.interpolate(0)
-
-
-
-        old_x= agd.getx(firstpoint, 0)
-        old_y= agd.gety(firstpoint, 0)
+        #   firstpoint=geom.interpolate(0)
+        firstpoint = agd.getpoint(geom, 0)
+        old_x = agd.getx(firstpoint, 0)
+        old_y = agd.gety(firstpoint, 0)
 
         fileoutput = folder * "\\drain$nfeat.shp"
 
@@ -839,12 +631,13 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
         prline = vline.dataProvider()
         prlfield=prline.addAttributes( [ QgsField("concentrazione", QVariant.Double) ] )
 
-
-
         idf=f.attributes()[idxcat]
         feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
         p00=feat_drain.attributes()[idxlevel]
      """"""
+        vline = agd.createlayer( "drain$nfeat", agd.wkbLineString, refsys )
+
+
 
         
         index_progress = 0
@@ -855,16 +648,14 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
                 p0 = pe
             end
 
-
-         # NON TROVO COME OTTENERE L'INTRPOLATION
-            point = geom.interpolate(currentdistance)
-
-
+            #   point = geom.interpolate(currentdistance)
+            point = agd.getpoint(geom, currentdistance)
             x = agd.getx(point, 0)
             y = agd.gety(point, 1)
             clc = extract_values(lc_layer, x, y)
             if soil_control == 1
-                soil = extract_values(soil_layer, x, y)
+                r, c = toIndexes(soil_layer, x, y)
+                soil = soil_layer[r, c]
             else
                 soil = text_soil
             end
@@ -881,7 +672,7 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
                 pe = pcheck
 
 
-             """ NON SO COSA FACCIA STA ROBA """
+             """ CREA UNA FEATURE """
                fetline = QgsFeature()
                fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
                fetline.initAttributes(1)
@@ -922,22 +713,372 @@ function run_runoff( dem, source, area, target, landcover, soil_text::AbstractSt
          """"""
 
     end
-
- """ PRINT DI COSE
-    tempoanalisi=time.time() - start_time
-    tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-    messaggio="---------------------------------\n"
-    messaggio+="Fine modellazione\n"
-    messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-    messaggio+="---------------------------------\n\n"
-    self.console.appendPlainText(messaggio)
-
-    self.label_status.setText("In attesa di dati")
-    self.label_status.setStyleSheet('color : green; font-weight:bold')
-    self.progressBar.setValue(max_progress)
- """
 end
 
 
 
 end # module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
+
+    """ NON SO QUALE SIA L'EQUIVALENTE
+       if not self.dem.isValid():
+           QMessageBox.warning(self,"Warning", "The dem file is not valid" )
+           return
+    """
+   
+       if agd.geomdim(source) != 0
+           throw(DomainError(source, "`source` must be a point"))
+       end
+   
+       if agd.geomdim(targer) != 2
+           throw(DomainError(source, "`target` must be a polygon"))
+       end
+   
+       if agd.geomdim(landcover) != 2
+           throw(DomainError(source, "Not a valid `landcover` geometry"))
+       end
+   
+       if agd.getspatialref(target) != agd.getspatialref(source) || agd.getspatialref(landcover) != agd.getspatialref(source) || agd.getspatialref(dem) != agd.getspatialref(source)
+           throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+       end
+   
+       refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
+   
+       path_temp_landcover = folder * "\\temp_lc.tiff"
+       path_temp_soil = folder * "\\temp_soil.tiff"
+   
+   
+    """ NON SO COSA SIANO QUESTE VARIABILI
+       self.text_p = str(self.combo_fieldp.currentText())
+    """
+   
+       clc_list = Functions.cn_list_extract()
+   
+       soil_control = 0
+   
+    """ PRINT DI COSE
+       messaggio+='ALGORITMO UTILIZZATO: calcolo della separazione delle componenti infiltrazione e ruscellamento tramite metodo SCS-CN; US Department of Agriculture Soil Conservation Service, 1972. National Engineering Handbook, Section 4, Hydrology. US Government Printing Office, Washington, DC, 544pp.\n\n'
+    """
+   
+       output_path = folder * "\\runoff.tiff"
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+       valNoData = -9999
+   
+       gtiff_driver = agd.getdriver("GTiff")
+       target_ds = agd.create( output_path, gtiff_driver, round(Int64, ), round(Int64, ), 1, agd.GDAL.GDT_Float32 )
+       agd.setgeotransform!(target_ds, [ , resolution, 0.0, , 0.0, -resolution ])
+       agd.setproj!(target_ds, refsys)
+    """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+       target_ds.SetMetadata(
+           Dict(
+               "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
+               "modulo" => "Analisi ruscellamento",
+               "descrizione" => "Analisi di ruscellamento di un inquinante attraverso il metodo della separazione delle componenti",
+               "srs" => refsys,
+               "data" => today()
+           )
+       )
+    """
+       band1 = agd.getband(target_ds, 1)
+       agd.setnodatavalue!( band1, Float64(valNoData) )
+       band = agd.read(band1)
+       agd.fillraster!(band, valNoData)
+       xsize = agd.width(band)
+       ysize = agd.height(band)
+   
+   
+   
+   
+   
+       intervallo = getCellDims(dem)
+   
+   
+   
+   
+   
+   
+   
+    """ PRENDE LA PORZIONE DI `landcover` RAPPRESENTATA DA `area` """
+       lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
+       lc_clip=QgsVectorLayer(lc_clip_proc['OUTPUT'], 'lc_clip', 'ogr')
+       lc_clip.setCrs(self.source.crs())
+   
+       #path__layer_lc=lc_clip['OUTPUT'].dataProvider().dataSourceUri()
+       path__layer_lc=lc_clip.dataProvider().dataSourceUri()
+       path_lc=path__layer_lc.split("|")
+       source_ds_lc = ogr.Open(path_lc[0])
+       lc_layer = source_ds_lc.GetLayer()
+    """"""
+       
+   
+       landcover_ds = agd.create( path_temp_landcover, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+       agd.setgeotransform!(landcover_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+       agd.setproj!(landcover_ds, refsys)
+       band_lc = agd.getband(landcover_ds, 1)
+       agd.setnodatavalue!( band_lc, Float64(valNoData) )
+       bandlc = agd.read(band_lc)
+       agd.fillraster!(bandlc, valNoData)
+       xsize = agd.width(band)
+       ysize = agd.height(band)
+   
+    """ TRASFORMA IN RASTER LA PORZIONE DI `landcover` PRESA PRIMA """
+       gdal.RasterizeLayer(lc_ds, [1], lc_layer,options=["ATTRIBUTE="+self.text_lcfield])
+       lc_ds=None
+   
+       lc_layer=QgsRasterLayer(self.path_temp_lc,"lc_layer")
+    """"""
+   
+   
+   
+   
+       if soil_text == "Valore campo"
+           soil_control = 1
+   
+        # NON SO SE SIA EQUIVALENTE
+           #   source_ds_soil = ogr.Open(path_lc[0])
+           #   soil_layer = source_ds_soil.GetLayer()
+           agd.getlayer(path_lc, 0)
+   
+           soil_ds = agd.create( path_temp_soil, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
+           agd.setgeotransform!(soil_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+           agd.setproj!(soil_ds, refsys)
+           band_sl = agd.getband(soil_ds, 1)
+           agd.setnodatavalue!( band_sl, Float64(valNoData) )
+           bandsl = agd.read(band_sl)
+           agd.fillraster!(bandsl, valNoData)
+   
+        """ RASTERIZZA IL  VETTORIALE DEL TIPO DI SUOLO """
+           gdal.RasterizeLayer(lc_ds, [1], soil_layer,options=["ATTRIBUTE="+self.text_soilfield])
+           soil_ds=None
+   
+           soil_layer=QgsRasterLayer(self.path_temp_soil,"soil_layer")
+        """"""
+       end
+   
+       
+    """ CALCOLA UN VETTORILE TRAMITE `r.drain` """
+       grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
+       # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
+   
+       namewatershed=self.path_working+'/watershed'
+       namedrain=self.path_working+'/wshed.shp'
+   
+       params = { 'GRASS_RASTER_FORMAT_OPT' : '','GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area,
+                  'GRASS_VECTOR_EXPORT_NOCAT' : False, '-a' : False, 'start_coordinates' : None,  '-n' : False,
+                  'input' : self.dem.dataProvider().dataSourceUri(),'-c' : True, 'drain' : namedrain, 'GRASS_MIN_AREA_PARAMETER' : 0.0001,
+                  'start_points' : self.source.dataProvider().dataSourceUri(), 'output' : namewatershed }
+   
+       waterwshed_proc = processing.run('grass7:r.drain', params)
+   
+   
+       #aggiungo per controllo la viewshed alla toc
+       #iface.addVectorLayer(namedrain,'watershed','ogr')
+       #watershed=QgsProject.instance().mapLayersByName('watershed.shp')
+   
+   
+       vdrain = QgsVectorLayer(namedrain, 'vdrain', 'ogr')
+   
+       idxlevel = self.source.fields().indexFromName(self.text_p)
+       idxcat = vdrain.fields().indexFromName('cat')
+   
+       idxtargetname = self.target.fields().indexFromName(self.text_targetfield)
+    """"""
+   
+   
+   
+   
+       features = agd.getgeom.(collect(agd.features(vdrain)))
+       nfeat = 0
+       polygons_t = collect(agd.getfeature(target)) 
+   
+       #   start_time = time.time()
+   
+       for f in features
+           length = agd.geomlength(f)
+           currentdistance = intervallo
+           nfeat += 1
+           featlines = []
+   
+   
+   
+           #   firstpoint=geom.interpolate(0)
+           firstpoint = agd.getpoint(geom, 0)
+           old_x = agd.getx(firstpoint, 0)
+           old_y = agd.gety(firstpoint, 0)
+   
+           fileoutput = folder * "\\drain$nfeat.shp"
+   
+   
+   
+        """ NON SO COSA FACCIA STA ROBA """
+           vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, "drain"+str(nfeat), "memory")
+   
+           prline = vline.dataProvider()
+           prlfield=prline.addAttributes( [ QgsField("concentrazione", QVariant.Double) ] )
+   
+           idf=f.attributes()[idxcat]
+           feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
+           p00=feat_drain.attributes()[idxlevel]
+        """"""
+   
+           
+           index_progress = 0
+           while currentdistance < length
+               if index_progress == 0
+                   p0 = p00
+               else
+                   p0 = pe
+               end
+   
+               #   point = geom.interpolate(currentdistance)
+               point = agd.getpoint(geom, currentdistance)
+               x = agd.getx(point, 0)
+               y = agd.gety(point, 1)
+               clc = extract_values(lc_layer, x, y)
+               if soil_control == 1
+                   r, c = toIndexes(soil_layer, x, y)
+                   soil = soil_layer[r, c]
+               else
+                   soil = text_soil
+               end
+               try
+                # MANCA "classisoil"
+                   cn = listaclc[clc][classisoil[soil]]
+                   S = calc_s(round(Int64, cn))
+               catch
+                   S = 0
+               end
+   
+               pcheck = (p0 - 0.2S)^2 / (p0 - 0.2S + S)
+               if pcheck > 0.2S
+                   pe = pcheck
+   
+   
+                """ NON SO COSA FACCIA STA ROBA """
+                  fetline = QgsFeature()
+                  fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
+                  fetline.initAttributes(1)
+                  fetline.setAttribute(0,pe)
+                  vline.updateFeature(fetline)
+   
+                  featlines.append(fetline)
+                """"""
+                
+   
+                   index_progress += 1
+   
+                   for polygon in polygons_t
+                       p_geom = agd.getgeom(polygon)
+                       if agd.within(point, p_geom)
+                           nometarget = pol_t.attributes()[idxtargetname]
+                        """ MESSAGIO
+                           messaggio = "\nIl vettore drain$nfeat ha raggiunto l'area bersaglio denominata $nometarget con un volume pari a: $(round(pe,3))mm\n"
+                           self.console.appendPlainText(messaggio)
+                        """
+                           currentdistance = length + 1
+                       end
+                   end
+               else
+                   pe = 0
+                   currentdistance = length + 1
+               end
+                   old_x = x
+                   old_y = y
+                   currentdistance += intervallo
+               end
+   
+   
+            """ NON SO COSA FACCIA STA ROBA """
+               prline.addFeatures(featlines)
+               vline.updateFields()
+               QgsProject.instance().addMapLayer(vline)
+            """"""
+   
+       end
+   end
+   

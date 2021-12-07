@@ -23,6 +23,7 @@ module Lakes
  ***************************************************************************/
 =#
 
+
 import ArchGDAL as agd
 using ArgParse
 using Dates
@@ -32,9 +33,9 @@ include("../Library/Functions.jl")
 
 export run_lake
 
-#= CON LA MODIFICA ALLE FUNZIONI QUESTO NON SERVE
+
+
 mutable struct Lake
-    """docstring for element"""
     concentration::Float64
     time::Time
     distance_x::Float64
@@ -49,34 +50,11 @@ mutable struct Lake
 
     Lake( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk ) = new( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
 end
-=#
-
-# QUESTI SI POSSONO SPOSTARE SU UN FILE A PARTE 
-srid = [ 3003, 3004, 32632, 32633, 3857, 4326 ]
-classiwind = Dict(
-    "N" => 0,
-    "NE" => 45,
-    "E" => 90,
-    "SE" => 135,
-    "S" => 180,
-    "SW" => 225,
-    "W" => 270,
-    "NW" => 315
-)
-classiwind2 = Dict(
-    0 => 180,
-    45 => 225,
-    90 => 270,
-    135 => 315,
-    180 => 0,
-    225 => 45,
-    270 => 90,
-    315 => 135
-)
 
 
-#= VERSIONE CON LO STRUCT
+
 function calc_concentration!( l::Lake )
+#=
     c1_1 = l.distance_x - ( l.velocity_x * l.time )
     c1_2 = c1_1^2
     c1_3 = c1_2 / ( 4 * l.fickian_x * l.time )
@@ -92,52 +70,80 @@ function calc_concentration!( l::Lake )
   
     c5 = l.ma / ( 4π * l.time * √(l.fickian_x * l.fickian_y) ) 
     l.C = c4 * c5
+=#
+    c1, c2 = ( (l.distance_x, l.distance_y) - ( (l.velocity_x, l.velocity_y) * l.time ) )^2 / ( 4 * (l.fickian_x, l.fickian_y) * l.time )
+    c3 = ℯ^( -(c1 + c2) - (l.λk * l.time) )
+    c4 = l.concentration / ( 4π * l.time * √(l.fickian_x * l.fickian_y) )
+    l.C = c4 * c3
     return l.C
 end
-=#
-function calc_concentration( concentration::Real, distance_x::Real, distance_y::Real, fickian_x::Real, fickian_y::Real, velocity_x::Real, velocity_y::Real, λk::Real, time )
-    c1, c2 = ( (distance_x, distance_y) - ( (velocity_x, velocity_y) * time ) )^2 / ( 4 * (fickian_x, fickian_y) * time )
-    c3 = ℯ^( -(c1 + c2) - (λk * time) )
-    c4 = concentration / ( 4π * time * √(fickian_x * fickian_y) )
-    return c4 * c3
+
+
+
+"""
+Recursively compute the concentration of each point and add the value and its indexes to positions
+"""
+function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, lake::Lake )
+    if (indx_x, indx_y) in positions
+        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+        expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, lake )
+        return nothing
+    else
+        Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
+        dir = deg2rad(plume.wind_direction)
+        sindir = sin(dir)
+        cosdir = cos(dir)
+        lake.distance_x = Δy * sindir + Δy * cosdir
+        lake.distance_y = Δx * cosdir - Δy * sindir
+        result = calc_concentration!(lake)
+
+        if round(result, digits=5) > 0
+            push!( positions, (ind_x, ind_y) )
+            push!( results, result )
+            xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
+            ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
+            expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, lake )
+        end
+        return nothing
+    end
 end
 
 
 
-function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
-                   fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\otput_model.tiff" )
-
-    if agd.getspatialref(area) != agd.getspatialref(source)
-        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
-    end
-
+function run_lake( source, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
+                   fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\lake_otput_model.tiff" )
 
     hours *= 3600
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
+    refsys = agd.getspatialref(source)
     velocity_x = √( round( flow_mean_speed * cos(deg2rad(xw)), digits=3 )^2 )
     velocity_y = √( round( flow_mean_speed * sin(deg2rad(xw)), digits=3 )^2 )
 
+    feature = collect(agd.getfeature(source))
+    geom = agd.getgeom(feature[1])
+    x_source = agd.getx(geom, 0)
+    y_source = agd.gety(geom, 0)
+    r_source, c_source = toIndexes(dem, x_source, y_source)
 
- """
-    path_layer = dialog.areastudio.dataProvider().dataSourceUri()
-    path = split( path_layer, "|" )
-    source_ds = ogr.Open(path[0])
-    area_layer = source_ds.GetLayer()
+    points = [ (r_source, c_source) ]
+    values = [ pollutant_mass ]
+    lake = Lake( pollutant_mass, hours, 0, 0, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+    expand!(points, values, dem,  r_source, c_source, lake)
 
-    x_min, y_min, x_max, y_max = round.( Int64, [ area_layer.GetExtent()[1], area_layer.GetExtent()[3], area_layer.GetExtent()[2], area_layer.GetExtent()[4] ] )
- """
-    area_layer = agd.getlayer(area, 0)
- # NON FUNZIONANTE / DA ELIMINARE
-    x_min, y_min, x_max, y_max = agd.envelope(area_layer)
+    maxR = maximum( point -> point[1], points )
+    minR = minimum( point -> point[1], points )
+    maxC = maximum( point -> point[2], points )
+    minC = minimum( point -> point[2], points )
+  
+    rows = maxR - minR
+    cols = maxC - minC
+    minX, maxY = toCoords(dtm, minR, maxC)
+
     valNoData = -9999
 
-    # Create the destination data source
-    x_res = ( x_max - x_min ) / resolution
-    y_res = ( y_max - y_min ) / resolution
-
     gtiff_driver = agd.getdriver("GTiff")
-    target_ds = agd.create( path_output, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!( target_ds, [ x_min, resolution, 0.0, y_max, 0.0, -resolution ] )
+    target_ds = agd.create( output_path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+    agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
     agd.setproj!(target_ds, refsys)
  """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
     target_ds.SetMetadata(
@@ -154,65 +160,13 @@ function run_lake( source, area, xw, pollutant_mass, flow_mean_speed, resolution
     agd.setnodatavalue!( band1, convert(Float64, valNoData) )
     band = agd.read(band1)
     agd.fillraster!(band, valNoData)
-    xsize = agd.width(band1)
-    ysize = agd.height(band1)
 
-    polygons = collect(agd.getfeature(area))
-    feature = collect(agd.getfeature(source))
-    geom = agd.getgeom(feature[1])
-    x_source = agd.getx(geom, 0)
-    y_source = agd.gety(geom, 0)
-
-    rows = ysize - 1
-    cols = xsize - 1
-
-    for row in 1:rows
-        for col in 1:cols
-            x, y = (col, row) * resolution + (x_min, y_min) .+ (resolution/2)
-            control_point = agd.createpoint(x,y)
-            for polygon in polygons
-                if agd.within( control_point, agd.getgeom(polygon) )
-                    Δx = x - x_source
-                    Δy = y - y_source
-                    true_x = Δx * cos(deg2rad(xw)) - Δy * sin(deg2rad(xw))
-                    true_y = Δx * sin(deg2rad(xw)) + Δy * cos(deg2rad(xw))
-
-                 #= VERSIONE CON STRUCT `Lake`
-                    element = Lakes.Lake( pollutant_mass, hours, true_x, true_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
-                    cfinal = calc_concentration!(element)
-                 =#
-                    cfinal = calc_concentration( pollutant_mass, true_x,  true_y, fickian_x, fickian_y, velocity_x, velocity_y, λk, hours)
-
-                    outData[row,col] = cfinal
-                else
-                    outData[row,col] = 0
-                end
-            end
-        end
+    for (point, value) in zip(points, values)
+        r, c = point - (minR, minC)
+        band[r, c] = value
     end
 
-
-
-    
-    outData_raster = outData[::-1]
-    band.WriteArray(outData_raster)
-    astats = band.GetStatistics(0, 1)
-
-    band = nothing
-    target_ds = nothing
-
-    base_raster_name = basename(path_output)
-    raster_name = splitext(base_raster_name)[0]
-    dialog.iface.addRasterLayer( dialog.path_output, raster_name )
-
-    layer = nothing
-    for lyr in collect( QgsProject.instance().mapLayers().values() )
-        if lyr.name() == raster_name
-            layer = lyr
-        end
-    end
-
-    functions.applystyle( layer, "gr", 0.5 )
+    agd.write!( target_ds, band )
 end
 
 

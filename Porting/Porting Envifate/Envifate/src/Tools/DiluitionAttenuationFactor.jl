@@ -295,7 +295,7 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
     geom = agd.getgeom(feature[1])
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
-    r_source, c_source = toIndexes( dtm, x_source, y_source ) 
+    r_source, c_source = toIndexes(dtm, x_source, y_source)
 
     tera_a, tera_w, effective_infiltration, tera_e, grain = Functions.texture_extract( texture, ["tot_por", "c_water_avg", "effective_infiltration", "por_eff", "grain"], ".\\..\\library\\" )
     if all(isempty.([tera_a, tera_w, effective_infiltration, tera_e, grain]))
@@ -402,13 +402,117 @@ end # module
 
 #------------------------------------------------ TESTING------------------------------------------------------------------------------
 
+
+
+import ArchGDAL as agd
+using Plots
+
+# Leggi il vettoriale
+cmn_file = "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
+cmn = agd.read(cmn_file)
+
+# Ottenere il layer; un layer raccoglie le features
+layer = agd.getlayer(cmn, 0)
+
+# Ottenere tutti i layers del vettoriale
+layers_num = agd.nlayer(cmn)
+layers = [ agd.getlayer(cmn, i) for i in 0:layers_num-1 ]
+
+# Per fare indexind sulle features bisogna fare collect sul layer
+features = collect(layer)
+# Altrimenti si può semplicemente iterare sul layer
+#   for feature in layer
+#       println(feature)
+#   end
+
+# Ritorna il campo geometry della feature
+geometry = agd.getgeom(features[1])
+
+# Plottare le geometrie del vettoriale
+ # Per i dati del vettoriale immagino che si debba selezionare il campo di
+  # interesse e plottare quello
+plot(geometry)
+for feature in features[2:end]
+    plot!( agd.getgeom(feature))
+end
+current()
+
+# Ritorna il primo campo della feature
+field0 = agd.getfield( features[1], 0 )
+
+# Per trovare l'indice dato il nome del campo
+fiel_index = agd.findfieldindex.( Ref(features[1]), [:id_stazion, :comune] )
+
+# Come sopra ma con simboli (nomi dei campi invece che loro indice)
+field0 = agd.getfield( features[1], :CODISTAT )
+
+# Testare se il layer di un vettore ha un certo tipo di geometria
+agd.getgeomtype(layer) == agd.wkbPolygon
+
+
+agd.getspatialref(layer)
+
+
+
+
+
+
+import ArchGDAL as agd
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+
+# Accedere al dataset e farci indexing direttamente
+dtm = agd.readraster(dtm_file)
+dtm[4000, 6000]
+
+# Per modificare è necessario leggere la band che si vuole modificare e poi leggerla di nuovo per ottenere una matrice modificabile
+ # getband lo apre in read only
+band1 = agd.getband(dtm, 1)
+band = agd.read(band1)
+
+# Per ottenere lo spatial reference system del dtm
+agd.importWKT(agd.getproj(dtm))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import ArchGDAL as agd
 import GeoArrays as ga
 
-# Raster
 
+
+vntst_file = "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Mappe\\Stazioni_Veneto\\Stazioni_Veneto.shp"
+vntst = agd.read(vntst_file)
+layer = agd.getlayer(vntst, 0)
+features = collect(layer)
+
+
+
+
+
+
+
+
+
+
+# Raster
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
-dtm = agd.read(dtm_file)
+dtm = agd.readraster(dtm_file)
 gdtm = ga.read(dtm_file)
 
 x, y = ga.coords(gdtm, [4000, 6000])

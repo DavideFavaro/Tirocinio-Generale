@@ -73,12 +73,12 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
 
 
 
-    if agd.geomdim(source) != 0
-        throw(DomainError(source, "`source` must be a point"))
-    end
+   if agd.geomdim(source) != 0
+       throw(DomainError(source, "`source` must be a point"))
+   end
  
 
-    time *= 3600 
+   time *= 3600 
 
 
  """ PRINT DI COSE
@@ -94,25 +94,25 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
     messaggio+='ALGORITMO UTILIZZATO: modello realizzato sfruttando r.gwflow e r.solute.transport di Grass GIS v.7 (Neteler and Mitasova, 2008). Per i dettagli matematici degli algoritmi vedere https://grass.osgeo.org/gdp/hydrology/gebbert2007_diplom_stroemung_grass_gis.pdf\n\n'
  """
 
-    # start_time = time.time()
+   # start_time = time.time()
 
 
-    self.areastudio_path=self.areastudio.dataProvider().dataSourceUri().split('|')
-    self.phead_path=self.phead.dataProvider().dataSourceUri().split('|')
-    self.source_path=self.source.dataProvider().dataSourceUri().split('|')
-    self.status_path=self.status.dataProvider().dataSourceUri().split('|')
+   self.areastudio_path=self.areastudio.dataProvider().dataSourceUri().split('|')
+   self.phead_path=self.phead.dataProvider().dataSourceUri().split('|')
+   self.source_path=self.source.dataProvider().dataSourceUri().split('|')
+   self.status_path=self.status.dataProvider().dataSourceUri().split('|')
 
 
-    #g.proj -c epsg=3003
-    run_command("g.proj", epsg=self.myepsg, flags = 'c')
+   #g.proj -c epsg=3003
+   run_command("g.proj", epsg=self.myepsg, flags = 'c')
 
-    # Carica e trasforma in raster "area"
-     # Inporta "areastudio" come vettoriale
-    run_command("v.in.ogr", input=self.areastudio_path[0], output="areastudio",overwrite=True, flags = 'o')
-     # Definisce la regione di "areastudio"
-    run_command("g.region", res=self.res, vector="areastudio")
-     # Trasforma "areastudio" in raster
-    run_command("v.to.rast", input="areastudio", output="areastudio",overwrite=True, use = 'val')
+   # Carica e trasforma in raster "area"
+    # Inporta "areastudio" come vettoriale
+   run_command("v.in.ogr", input=self.areastudio_path[0], output="areastudio",overwrite=True, flags = 'o')
+    # Definisce la regione di "areastudio"
+   run_command("g.region", res=self.res, vector="areastudio")
+    # Trasforma "areastudio" in raster
+   run_command("v.to.rast", input="areastudio", output="areastudio",overwrite=True, use = 'val')
 
 
 
@@ -124,13 +124,13 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
   # Trasforma "phead" in raster
     run_command("v.to.rast", input="phead", output="phead",overwrite=True, use = 'attr', attribute_column=self.text_campophead)
  """
-    pheadband = agd.getband(piezomatic_head, 1)
+   pheadband = agd.getband(piezomatic_head, 1)
 
  """ Carica e trasforma in raster "status" 
     run_command("v.in.ogr", input=self.status_path[0], output="status",overwrite=True, flags = 'o')
     run_command("v.to.rast", input="status", output="status",overwrite=True, use = 'attr', attribute_column=self.text_campostatus)
  """
-    statusband = agd.getband(status, 1)
+   statusband = agd.getband(status, 1)
 
  """ Carica source lo trasforma in raster e setta la cella corrispondente a 0/null
   # Inporta "source" come vettoriale
@@ -140,11 +140,11 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
   # Rimpiazza i null value in "source" con 0
     run_command("r.null", map="source", null=0)
  """
-    src_feature = collect(agd.getfeature(source))
-    src_geom = agd.getgeom(src_feature[1])
-    x_source = agd.getx(src_geom, 0)
-    y_source = agd.gety(src_geom, 0)
-    r_source, c_source = toIndexes( dtm, x_source, y_source )
+   src_feature = collect(agd.getfeature(source))
+   src_geom = agd.getgeom(src_feature[1])
+   x_source = agd.getx(src_geom, 0)
+   y_source = agd.gety(src_geom, 0)
+   r_source, c_source = toIndexes( dtm, x_source, y_source )
 
 
  """ CREDO STIA SOLO SETTANDO DEI VALORI
@@ -164,6 +164,11 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
     run_command("r.mapcalc", expression="diff = 0.0000001",overwrite=True)
     run_command("r.mapcalc", expression="R = "+str(self.delay),overwrite=True)
  """
+
+
+   # create solv les
+    # setup 
+   res = cg( phead, status )
 
 
 

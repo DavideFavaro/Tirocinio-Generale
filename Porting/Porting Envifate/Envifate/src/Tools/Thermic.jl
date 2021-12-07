@@ -219,15 +219,7 @@ module Thermic
 
 
 
-import ArchGDAL as agd
-
-function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
-    self.text_source_flow_rate = str(self.combo_source_q.currentText())
-    self.text_source_temperature = str(self.combo_source_t.currentText())
-    self.text_river_q = str(self.combo_river_q.currentText())
-    self.text_river_t = str(self.combo_river_t.currentText())
-
-
+function run_thermic( dem, source, river, source_temperature::Real, source_flow_rate::Real, river_temperature::Real, river_flow_rate::Real, output_path::AbstractString=".\\")
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
@@ -237,98 +229,106 @@ function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
         throw(DomainError(source, "`river` must be a line"))
     end
 
-    layers = agd.getlayers(river)
+    layer = agd.getlayer(river, 0)
     refsys = agd.getspatialref(source)
 
-    if agd.importWKT(agd.getproj(dem)) !=  refsys ||  agd.getspatialref(layers) != refsys
+    if agd.importWKT(agd.getproj(dem)) !=  refsys ||  agd.getspatialref(layer) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis." ))
     end
 
-
+    demband = agd.getband(dem, 1)
 
     #   start_time = time.time()
-
- """ NON HO CAPITO """
+    
+ """ CREDO STIA CONSIDERANDO UN'AREA DI 5 METRI(?) INTORNO ALLA SORGENTE
     buffer_sorgente = processing.run("native:buffer", {"INPUT": self.source, "DISTANCE": 5, "OUTPUT":"memory:"})
     sorgente = buffer_sorgente["OUTPUT"]
- """               """
+ """
+    # Consider a 5m area around the source
+    source_area = agd.buffer(source, 5.0)
+    # Find the portion of the river that intersects said area; there could be no intersection
+    for feature in layer
+        segment = agd.getgeom(feature)
+        if agd.intersects(source_area, segment)
+            intersection = agd.intersection(source_area, segment)
 
-    for f in agd.getfeature(sorgente)
-        for a in agd.getfeature(river)
-            geom_a = agd.getgeom(a)
-            geom_f = agd.getgeom(f)
-            if agd.intersects(geom_a, geom_f)
-                intersection = intersection(geom_a, geom_f)
-
-            
-                new_flow = Dict( :Flow => f[:portata] )
-                new_temperature = Dict( :Temperature => f[:temperature] )
-
-             """ """
-                nuova_portata = { a.fieldNameIndex(self.text_river_q): f[self.text_source_q]}
-                nuova_temp = { a.fieldNameIndex(self.text_river_t): f[self.text_source_t]}
-                self.river.dataProvider().changeAttributeValues({a.id(): nuova_portata})
-                self.river.dataProvider().changeAttributeValues({a.id(): nuova_temp})
-                break #only one or less intersection are possible
-             """ """
-            end
+         """ IN QUESTA PARTE SETTA I VALORI DI TEMPERATURA E PORTATA DEL FIUME A QUELLI DELLA FUNZIONANTE
+            nuova_portata = { a.fieldNameIndex(self.text_river_q): f[self.text_source_q]}
+            nuova_temp = { a.fieldNameIndex(self.text_river_t): f[self.text_source_t]}
+            self.river.dataProvider().changeAttributeValues({a.id(): nuova_portata})
+            self.river.dataProvider().changeAttributeValues({a.id(): nuova_temp})
+         """
+            # BISOGNA VEDERE COME GESTIRE L'INPUT DI source E river
+            new_flow = Dict("Portata" => source_flow_rate) 
+            new_temperature = Dict("Temperatura" => source_temperature)
+            flow_idx, temp_idx = agd.findfieldindex( Ref(feature), [:portata, :temperatura] )
+            agd.setfield!.( Ref(feature), [flow_idx, temp_idx], [new_flow, new_temperature] )
+            break
         end
     end
 
 
- """"""
-    param_point_intersect_all={ 'INPUT_FIELDS' : [], 'OUTPUT' : 'memory:', 'INTERSECT' : self.river, 'INTERSECT_FIELDS' : [], 'INPUT' : self.river }
-    point_intersect_all_result=processing.run('native:lineintersections',param_point_intersect_all)
-    point_intersect_all=point_intersect_all_result['OUTPUT']
+ """ STA PRENDENDO L'INTERSEZIONE CON river DI QUALCOSA, MA NON SO COSA """
+ # FORSE STA PRENDENDO LE CELLE DAL RASTER CHE CORRISPONDONO A river
+    param_point_intersect_all = Dict( :Input_Fields => [], :Output => :memory, :Intersect => river, :Intersect_Fields => [], :Input => river )
+    point_intersect_all_result = processing.run( "native:lineintersections", param_point_intersect_all )
+    point_intersect_all = point_intersect_all_result[:Output]
 
-    point_intersect_result=processing.run('qgis:deleteduplicategeometries',{ 'OUTPUT' : 'memory:', 'INPUT' : point_intersect_all })
-    point_intersect=point_intersect_result['OUTPUT']
-
-    features = point_intersect.getFeatures()
- """"""
-
-
-
-
-    count=1
-    qmain=0
-    diz={}
-
-    for f in features
-        x = agd.getx(f, 0)
-        y = agd.gety(f, 0)
-        z = self.dem.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
-        zresult=z.results()
-        diz[zresult[1]]=[f[self.text_river_q],f[self.text_river_t],f[self.text_river_q+"_2"],f[self.text_river_q+"_2"]]
+    point_intersect_result = processing.run( "qgis:deleteduplicategeometries", Dict( :Output => :memory, :Input => point_intersect_all ) )
+    point_intersect = point_intersect_result[:Output]
+ """                                                                 """
+    # NON E' CORRETTO, BISOGNA VEDERE COME OTTENIAMO point_intersect
+    features = agd.getfeatures(point_intersect)
 
 
 
-    for key in keys(diz)
+
+    count = 1
+    frmain = 0
+    dict = Dict()
+    for feature in features
+        geom = agd.getgeom(feature)
+        x = agd.getx(geom, 0)
+        y = agd.gety(geom, 0)
+        r, c = toIndexes(dtm, x, y) 
+        z = demband[r, c]
+
+        res = agd.getfield.( Ref(feature), [:portata_river, :temperatura_river, :portata_river_2, :temperatura_river_2] )
+        if z in keys(dict)
+            dict[z] = res
+        else
+            push!( dict, z => res )
+        end
+    end
+
+    flow_rate = 0.0
+    temperature = 0.0
+    for key in keys(dict)
         if count == 1
-            if diz[key][0] >= diz[key][2]
-                qmain = diz[key][0]
-                q = diz[key][0]
-                t = diz[key][1]
+            if dict[key][1] >= dict[key][3]
+                frmain = dict[key][1]
+                flow_rate = dict[key][1]
+                temperature = dict[key][2]
             else
-                qmain = diz[key][2]
-                q = diz[key][2]
-                t = diz[key][3]
+                frmain = dict[key][3]
+                flow_rate = diz[key][3]
+                temperature = diz[key][4]
             end
         end
-        if diz[key][0] == qmain
-            q1 = q
-            t1 = t
-            q2 = diz[key][2]
-            t2 = diz[key][3]
+        if dict[key][1] == frmain
+            flow_rate1 = flow_rate
+            temperature1 = temperature
+            flow_rate2 = dict[key][3]
+            temperature2 = dict[key][4]
         else
-            q2 = q
-            t2 = t
-            q1 = diz[key][0]
-            t1 = diz[key][1]
+            flow_rate1 = flow_rate
+            temperature1 = temperature
+            flow_rate2 = dict[key][1]
+            temperature2 = dict[key][2]
         end
 
-        q = q1 + q2
-        t = ( ( q1 * t1 ) + ( q2 * t2 ) ) / ( q1 + q2 )
+        flow_rate = flow_rate1 + flow_rate2
+        temperature = ( ( flow_rate1 * temperature1 ) + ( flow_rate2 * temperature2 ) ) / ( flow_rate1 + flow_rate2 )
         count += 1
     end
 
@@ -336,6 +336,7 @@ function run_thermic( dem, source, river,  output_path::AbstractString=".\\")
 
     #    tempoanalisi = time.time() - start_time
 end
+
 
 
 end # module

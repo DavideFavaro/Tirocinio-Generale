@@ -192,81 +192,6 @@ end
 
 
 
-
-
-
-
-#=
-    def popolacombo(self):
-        self.progressBar.setValue(0)
-        self.combo_source.clear()
-        self.combo_outdoor.clear()
-        self.combo_stability.clear()
-        self.combo_maindirwind.clear()
-        self.line_output.clear()
-        self.combo_contaminant.clear()
-
-        self.allLayers = self.canvas.layers()
-        self.listalayers=dict()
-        elementovuoto="No file"
-
-        for i in self.allLayers:
-            self.listalayers[i.name()]=i
-            if i.type() == QgsMapLayer.VectorLayer:
-                self.combo_source.addItem(str(i.name()))
-                self.combo_bound.addItem(str(i.name()))
-            if i.type()==QgsMapLayer.RasterLayer:
-                self.combo_dem.addItem(str(i.name()))
-
-        # pyqtRemoveInputHook()
-        # pdb.set_trace()
-        # conn = sqlite3.connect(os.path.dirname(__file__)+"/../library/substance.db")
-        # cursor=conn.cursor()
-        # query_substance="select id,nome from substance"
-        # conn.close()
-        # cursor.execute(query_substance)
-        # sql_fetch=cursor.fetchall()
-
-        # self.inquinanti=dict()
-        # for row in sql_fetch:
-        #     self.inquinanti[row[1]]=row[0]
-        #     self.combo_contaminant.addItem(row[1])
-        self.combo_stability.addItem("class a")
-        self.combo_stability.addItem("class b")
-        self.combo_stability.addItem("class c")
-        self.combo_stability.addItem("class d")
-        self.combo_stability.addItem("class e")
-        self.combo_stability.addItem("class f")
-
-        self.combo_outdoor.addItem("country")
-        self.combo_outdoor.addItem("urban")
-
-
-        self.combo_maindirwind.addItem("N")
-        self.combo_maindirwind.addItem("NE")
-        self.combo_maindirwind.addItem("E")
-        self.combo_maindirwind.addItem("SE")
-        self.combo_maindirwind.addItem("S")
-        self.combo_maindirwind.addItem("SW")
-        self.combo_maindirwind.addItem("W")
-        self.combo_maindirwind.addItem("NW")
-
-
-        conn = sqlite3.connect(os.path.dirname(__file__)+"/../library/substance.db")
-        cursor=conn.cursor()
-        query_substance="select id,nome from substance"
-        cursor.execute(query_substance)
-        self.sql_fetch_inq=cursor.fetchall()
-
-        self.inquinanti=dict()
-        for row in self.sql_fetch_inq:
-            self.inquinanti[row[1]]=row[0]
-            self.combo_contaminant.addItem(row[1])
-        conn.close()
-=#
-
-
-
          #                                                                                                x_w             q / text_conc        u / wspeed        h_s / height
 function run_plume( dem, source, stability::AbstractString, outdoor::AbstractString, resolution::Integer, wind_direction, concentration::Real, wind_speed::Real, stack_height::Real, 
                   # v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
@@ -302,11 +227,11 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
 
   toxic = Functions.substance_extract(contaminant, lst_fields, ".\\..\\Library\\")
 
-  feature = collect(agd.getfeature(source))
+  feature = collect(agd.getlayer(source, 0))
   geom = agd.getgeom(feature[1])
   x_source = agd.getx(geom, 0)
   y_source = agd.gety(geom, 0)
-  r_source, c_source = toCoords(dtm, x_source, y_source)
+  r_source, c_source = toIndexes(dtm, x_source, y_source)
 
   # start_time = time.time()
 
@@ -323,7 +248,7 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
 
   rows = maxR - minR
   cols = maxC - minC
-  minX, maxY = toCoords(dtm, minX, maxY)
+  minX, maxY = toCoords(dtm, minR, maxC)
 
   gtiff_driver = agd.getdriver("GTiff")
   target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )

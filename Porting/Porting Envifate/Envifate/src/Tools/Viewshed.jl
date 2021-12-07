@@ -26,12 +26,14 @@ function DDA( dtm, r0::Number, c0::Number, rn::Number, cn::Number )
 end
 
 # Given the number of points in a profile, the indexes of the source and the raster, generate 360 profiles 
-function generate_profiles( points_number, r0, c0, dtm )
+function generate_profiles( points_number, x0, y0, dtm )
     values_profiles = []
     indexes_profiles = []
+    r0, c0 = toIndexes( dtm, x0, y0 )
+    rn = r0+points_number
     for α in [0, 90, 180, 270]
         for β in 0:89
-            rn, cn = rotate_point( r0+points_number, c0, r0, c0, α+β )
+            rn, cn = rotate_point( rn, c0, r0, c0, α+β )
             values, indexes = DDA( dtm, x0, y0, rn, cn)
             push!( values_profiles, values )
             push!( indexes_profiles, indexes )

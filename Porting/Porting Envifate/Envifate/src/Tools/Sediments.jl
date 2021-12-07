@@ -189,15 +189,9 @@ function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_
  
     refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
 
-
- # SERVE UN ELEMENTO DI classwind
- #   self.dir=self.classiwind[self.combo_maindirwind.currentText()]
-
  # messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
 
-
-
-    feature = collect(agd.getfeature(source))
+    feature = collect(agd.getlayer(source, 0))
     geom = agd.getgeom(feature[1])
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
@@ -207,7 +201,7 @@ function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_
 
 
     points = [ (r_source, c_source) ]
- # NON CREDO SIA IL VALORE CORRETTO DA INSERIRE
+ # NON SO SE SIA IL VALORE CORRETTO DA INSERIRE
     values = [ dredged_mass ]
     element = Sediment( dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
     expand!( points, values, dem, r_source, c_source, element )

@@ -94,6 +94,8 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
         throw(DomainError(source, "`source` must be a point"))
     end
 
+    layer = agd.getlayer(river, 0)
+
  # NON SONO SICURO CHE IL CONTROLLO SIA EQUIVALENTE A: `self.river.wkbType()!=5`
     if agd.geomdim(river) != 1
         throw(DomainError(source, "`river` must be a line"))
@@ -101,7 +103,7 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
 
     refsys = agd.getspatialref(source)
 
-    if agd.getspatialref(river) != refsys || agd.importWKT(agd.getproj(slope)) != refsys || agd.importWKT(agd.getproj(dem)) != refsys
+    if agd.getspatialref(layer) != refsys || agd.importWKT(agd.getproj(slope)) != refsys || agd.importWKT(agd.getproj(dem)) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
 
@@ -110,32 +112,7 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
     end
 
 
- """ PRINT DI COSE
-    self.label_status.setText("Preparazione dati")
-    self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-    messaggio="Inizio elaborazione dispersione fiumi Envifate\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_source)+"\n"
-    messaggio+="DTM: "+str(self.text_dem)+"\n"
-    messaggio+="Mappa pendenza: "+str(self.text_slope)+"\n\n"
-
-    messaggio+="VARIABILI:\n"
-    messaggio+="Sezione bagnata: "+str(self.text_line_sez)+"\n"
-    messaggio+="Raggio idraulico medio: "+str(self.text_line_radius)+"\n"
-    messaggio+="Coefficiente Fickian: "+str(self.fickian_x)+"\n"
-    messaggio+="Coefficiente decadimento lamda: "+str(self.decay_coeff)+"\n"
-    messaggio+="Coefficiente di scabrezza: "+str(self.manning_coeff)+"\n"
-    messaggio+="Massa inquinante: "+str(self.concentration)+"\n"
-    messaggio+="Tempo iniziale dell'analisi: "+str(self.start_time)+"\n"
-    messaggio+="Tempo finale dell'iniezione: "+str(self.min_end)+"\n"
-    messaggio+="Intervallo temporale: "+str(self.min_int)+"\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-    messaggio+='ALGORITMO UTILIZZATO: Fickian Mixing Process (Hemond, Harold F., and Elizabeth J. Fechner. Chemical fate and transport in the environment. Elsevier, 2014.)\n\n'
-    messaggio+="---------------------------\n\n"
-    self.console.appendPlainText(messaggio)
- """
+ # messaggio+='ALGORITMO UTILIZZATO: Fickian Mixing Process (Hemond, Harold F., and Elizabeth J. Fechner. Chemical fate and transport in the environment. Elsevier, 2014.)\n\n'
 
     start_sec, end_sec, int_sec = 60( time_start, time_end, time_interval )
     #calcolo ciclo intervallo temporale di analisi
@@ -145,9 +122,9 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
     #   feature = next(self.river.getFeatures())
     #   geomfeature = feature.geometry()
     #   features = self.river.getFeatures()
-    features = agd.getgeom.(collect(agd.getfeature(river)))
+    features = agd.getgeom.(collect(layer))
 
-    src_feature = collect(agd.getfeature(source))
+    src_feature = collect(agd.getlayer(source))
     src_geom = agd.getgeom(src_feature[1])
     x_source = agd.getx(src_geom, 0)
     y_source = agd.gety(src_geom, 0)
@@ -179,10 +156,8 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
         old_c = c_source       
     end
  
-    for f in features
+    for geom in features
         length = agd.geomlength(geom)
-
-        currentdistance = 1
         avanzamento = 1
         realdistance = 0
         feats = [] 
@@ -191,42 +166,61 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
  
         #   start_time = time.time()  
         
-        if self.outputname == ""
-            self.outputname = "concentrazione"
+        if outputname == ""
+            outputname = "concentrazione"
         end
 
-
-
-
+        
+     """ CREA UN LAYER
         vl = QgsVectorLayer("Point?crs=EPSG:"+self.refsys,self.outputname, "memory")       
         pr = vl.dataProvider()  
         prfield = pr.addAttributes( [ QgsField("distance", QVariant.Int) ] )            
         prfield2 = pr.addAttributes( [ QgsField("vmedia", QVariant.Double) ] )
+     """
+     # NON FUNZIONA
+        vl = agd.createlayer( outputname, agd.wkbPoint, refsys )
 
-        list_vmedia=[]
 
+        list_vmedia = []
+
+
+
+     """ CREA UN'ALTRO LAYER
         vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, self.outputname, "memory")
         prline = vline.dataProvider()
         prlfield=prline.addAttributes( [ QgsField("distance", QVariant.Int) ] )            
         prlfield2=prline.addAttributes( [ QgsField("vmedia", QVariant.Double) ] )
+     """
+     # NON FUNZIONA
+        vline = agd.createlayer( outputname, agd.wkbLineString, refsys )
+
+
 
         sec_cicli = start_sec
         checknumcampo = 0
-        while sec_cicli <= end_sec  
+        for sec_cicli in start_sec:int_sec:end_sec 
             checknumcampo += 1
-            nomecampo = "conc $(sec_cicli/60)"              
+            fieldname = "conc $(sec_cicli/60)"
+            
+         """ AGGIUNGE CAMPI AI LAYER CREATI
             prfield1 = pr.addAttributes( [ QgsField(nomecampo, QVariant.Double) ] )
             prlfield1 = prline.addAttributes( [ QgsField(nomecampo, QVariant.Double) ] )
-            sec_cicli = sec_cicli + int_sec
+         """
+            agd.addfielddefn!(vl, fieldname, agd.OFTReal )
+            agd.addfielddefn!(vline, fieldname, agd.OFTReal )
         end
 
 
-        vl.updateFields()
-        vline.updateFields()
+     """ CREA UNA NUOVA FEATURE E LA AGGIUNGE A vline
         fetline = QgsFeature()
         fetline.setGeometry( QgsGeometry.fromPolyline( [s_geom] ))
         prline.addFeatures( [ fetline ] )
         geomline = fetline.geometry()
+     """
+        fetline = agd.createfeature( x -> x, vline )
+        agd.setgeom!(fetline, agd.wkbMultiLineString)
+        agd.addfeature!(vline, fetline)
+        geomline = agd.getgeom(fetline)
 
 
 
@@ -235,9 +229,9 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
             controllo = 0
         end
 
-        while currentdistance < length
-            
-            point = geom.interpolate(currentdistance)
+        for currentdistance in 1:length
+            #   point = geom.interpolate(currentdistance)
+            point = agd.getpoint(geom, currentdistance)
             x = agd.getx(point, 0)
             y = agd.gety(point, 0)
 
@@ -258,7 +252,7 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
                     push!( list_vmedia, v_inst )
                     mean_v = sum(list_vmedia) / count_index
 
-                 """ NON SO COSA RAPPRESENTINO QUESTE RIGHE
+                 """ STA INIZIALIZZANDO DELLE FEATURES
                     fet = QgsFeature()
                     fet.initAttributes(2+cicli)
 
@@ -271,28 +265,45 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
                     fetline.setAttribute(0,realdistance)
                     fetline.setAttribute(1,self.vmedia) 
                  """
-                    for (i,t) in enumerate(start_sec:int_sec:end_sec)
+                    fet = agd.createfeature(x->x, vl)
+                    agd.fillunsetwithdefault!(fet)
+                    agd.setfield!( Ref(fet), [0, 1], [realdistance, vmedia])
+
+                    fetline = agd.createfeature(x->x, vline)
+                    agd.fillunsetwithdefault!(fetline)
+                    agd.setfield!( Ref(fetline), [0, 1], [realdistance, vmedia])
+
+                    for (cicle,t) in enumerate(start_sec:int_sec:end_sec)
                         element = River( concentration, t, realdistance, fickian_x, mean_v, hydraulic_section, decay_coeff )                    
-                        Cfinal = calc_concentration!(element)
+                        finalC = calc_concentration!(element)
                         if i == 1
                             push!( list_result, Cfinal )
                         end
-                     """ NON SO COSA STIA FACENDO
+
+                     """ AGGIORNA I VALORI DELLE FEATURES
                         fet.setAttribute(1+ciclo,Cfinal)
                         fetline.setAttribute(1+ciclo,Cfinal)
-                     """   
+                     """
+                        agd.setfield!(fet, cicle+1, finalC )
+                        agd.setfield!(fetline, cicle+1, finalC )
                     end
                     
+                 """ AGGIORNA I VALORI DELLA FEATURE(?) E NE CAMBIA LA GEOMETRIA 
                     vl.updateFeature(fet)
                     fet.setGeometry(point)
+                 """
+                    agd.setgeom!(fet, point)
 
-        
+
+                 """ COME SOPRA
                     fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
-                    
                     vline.updateFeature(fetline)
+                 """
+                    line = agd.createlinestring( Flloat64.([old_x, old_y]), Flloat64.([x, y]) )
+                    agd.setgeom!(fetline, line)
 
-                    feats.append(fet)
-                    featlines.append(fetline)
+                    push!(feats, fet)
+                    push!(featlines, fetline)
 
                     old_x = x
                     old_y = y
@@ -300,17 +311,15 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
                 end
                 avanzamento += 1
             end
-            currentdistance += 1
         end    
 
-        pr.addFeatures(feats)
-        prline.addFeatures(featlines)
-        vl.updateFields()
-        vline.updateFields()
+        agd.addfeature!.(vl, feats)
+        agd.addfeature!.(vline, featlines)
 
+     """ AGGIUNGE I VETTORI APPENA CREATI
         QgsProject.instance().addMapLayer(vl)
         QgsProject.instance().addMapLayer(vline)
-
+     """
      """ PIRNT DI COSE
         tempoanalisi=time.time() - start_time
         tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
@@ -320,9 +329,11 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
         messaggio+="---------------------------------\n\n"
         self.console.appendPlainText(messaggio)             
      """
+     """ NON SO COSA FACCIA QUESTA PARTE
         self.tab_2.setEnabled(True)
 
         self.run_temp_river()
+     """
     end
 end
 
