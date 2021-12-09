@@ -16,7 +16,6 @@ include("..\\Library\\Functions.jl")
 
 
 repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
-
 # Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)" 
 rotate_x( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
 rotate_y( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
@@ -346,6 +345,45 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
     return (levturb, lnot)
 end
 
+
+
+
+#= VERSIONE CON IL CALCOLO DELLE ATTENUAZIONI PARZIALI (FORSE)
+function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
+    drefl = src_h * dists[end] / (src_h + rec_h)
+
+    srcInf = ground_type[1] == Soft ?
+             src_h > 3.0 ?
+                 (20.0 * src_h / 3.0 - 10.0) * src_h :
+                 10.0 * src_h :
+             30.0 * src_h
+       
+    recInf = ground_type[end] == Soft ?
+             rec_h > 3.0 ?
+                 (20.0 * rec_h / 3.0 - 10.0) * rec_h :
+                 10.0 * rec_h :
+             30.0 * rec_h
+    
+    srcInf = min( srcInf, 0.7*drefl )
+    recInf = min( recInf, 0.7*(dists[end]-drefl) )
+    recInf = dists[end] - recInf
+
+    results = []
+    Δl = sum = denom = 0
+    for i in 1:length(dists)
+        w1 = w2 = 0
+        if dists[i] > srcInf && dists[i] < recInf
+            w1 = dists[i] < drefl ? rec_h : src_h
+            w2, Δl = ground_type[i] == Hard ? (0.5, hard_atten) : (1.0, soft_atten)
+        end
+        sum += w1 * w2 * Δl
+        denom += w1 * w2
+        push!( results, sum/denom )
+    end
+
+    return results
+end
+=#
 function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
     drefl = src_h * dists[end] / (src_h + rec_h)
 
@@ -378,6 +416,9 @@ function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Re
 
     return sum / denom
 end
+
+
+
 
 function fres( y::Real )::Complex
     c = 0.797885
@@ -604,7 +645,7 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
 
     Δx, Δz = rec_loc[1] - src_loc[1]
     rd = √( Δx^2 + Δz^2 )
-    level = 4.34 * log( (rd * abs(pt))^2 )
+    level = 4.34log( (rd * abs(pt))^2 )
 
     return level
 end
@@ -674,7 +715,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
         pl += pb
     end
 
-    return 4.34 * log( (rd*abs(pl))^2 )
+    return 4.34log( (rd*abs(pl))^2 )
 end
 
 # FORSE VERSIONE MIGLIORATA
@@ -1137,13 +1178,13 @@ coords_profiles = [
 ]
 
 top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
-right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
+right_idxs = [ (row, col_end) for row in  row_begin+1:r0 ]
 # Vector containing the indexes of the points on first quadrant of the border of the area of interest
 endpoints = vcat( top_idxs, right_idxs )
 
 
 
-
+#=
 attenuations_points = []
 for point in endpoints
     if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
@@ -1166,11 +1207,6 @@ for point in endpoints
     end
 end
 
-
-
-
-
-#=
 mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
 for ( profile, results ) in zip( coords_profiles, attenuations )
     for (coords, atten) in zip(profile, results)
@@ -1180,9 +1216,6 @@ for ( profile, results ) in zip( coords_profiles, attenuations )
         end
     end
 end
-=#
-
-
 
 
 # DA SISTEMARE
@@ -1210,20 +1243,38 @@ for point in mat
     end
 end
 current()
+=#
 
 
 
+mat = Array{Union{Missing, Real}}( missing, row_end - row_begin, col_end - col_begin )
+for point in endpoints
+    for α in [0, 90, 180, 270]
+        rm, cm = rotate_point( point[1], point[2], r0, c0, α )
+        # Arrays of the heigths and the respective coordnates
+        heights, coords = DDA( dtm, r0, c0, rm, cm )
+        # Compute array of the distances of each point of the profile from the source
+        dists = map( p -> √( ( p[1] - x0 )^2 + ( p[2] - y0 )^2 ), coords )
+        # Array of the resulting attenuations for each point of a single profile
+        for j in 2:length(heights)
+            atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )[end]
+            r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+            if ismissing(mat[r, c]) || atten > mat[r, c]
+                mat[r, c] = atten
+            end
+        end
+    end
+end
+
+cmat = deepcopy(mat)
+#   cmat = map( x -> x = ismissing(x) ? -100.0 : x, deepcopy(mat) )
+cols, rows = size(cmat)
+heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
 
 
 
-
-
-
-
-
-
-
-
+cols, rows = size(dtm)
+heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
 
 
 

@@ -32,6 +32,15 @@ include("../Library/Functions.jl")
 
 
 
+function getFeatureByFid( features::Vector{agd.Feature}, fid )
+    for f in features
+        if agd.getfid(f) == fid
+            return f
+        end
+    end
+    return nothing
+end
+
 
 #=
     def help(self):
@@ -494,6 +503,8 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
     intervallo = max(getCellDims(dem))
 
 
+
+
     # NON SO SE FUNZIONI
     bbox_src = agd.boundingbox(source)
     bbox_trgt = agd.boundingbox(target)
@@ -502,9 +513,6 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
      # Se union non ritorna una geometria unica ma un'unica geometria composta di due elementi disgiunti
      #   area = agd.boundingbox(agd.union( bbox_src, bbox_trgt ))
     area = agd.union( bbox_src, bbox_trgt )
-
- 
-
 
  """ PRENDE LA PORZIONE DI `landcover` RAPPRESENTATA DA `area`
     lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
@@ -518,7 +526,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
     lc_layer = source_ds_lc.GetLayer()
  """
     # NON SONO CERTO PRESERVI LE INFORMAZIONI DI landcover
-    landcover_clip = agd.intersects( landcover, area )
+    landcover_clip = agd.intersects(landcover, area)
     landcover_layer = agd.getlayer(landcover_clip, 0)   
 
     rows = agd.height(landcover_layer)
@@ -542,7 +550,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
     lc_layer=QgsRasterLayer(self.path_temp_lc,"lc_layer")
  """"""
-    agd.gdalrasterize( x -> x, landcover_ds )
+    landcover_layer = agd.gdalrasterize( x -> x, landcover_ds )
 
 
 
@@ -568,10 +576,13 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
         soil_layer=QgsRasterLayer(self.path_temp_soil,"soil_layer")
      """"""
+        soil_layer = agd.gdalrasterize( x -> x, landcover_ds )
     end
 
     
- """ CALCOLA UN VETTORILE TRAMITE `r.drain` SI PUO' FARE CON Omniscape.jl O SIMILI"""
+ """ CALCOLA UN VETTORIALE TRAMITE `r.drain` SI PUO' FARE CON Omniscape.jl O SIMILI"""
+  # FORSE C'E' ANCHE Anasol E IL FRAMEWORK MADS
+
     grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
     # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
 
@@ -625,7 +636,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
 
 
-     """ NON SO COSA FACCIA STA ROBA """
+     """ CREA UN LAYER
         vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, "drain"+str(nfeat), "memory")
 
         prline = vline.dataProvider()
@@ -634,11 +645,15 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
         idf=f.attributes()[idxcat]
         feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
         p00=feat_drain.attributes()[idxlevel]
-     """"""
+     """
         vline = agd.createlayer( "drain$nfeat", agd.wkbLineString, refsys )
-
-
-
+        agd.addfielddefn!(vline, "concentrazione", agd.OFTReal)
+     # idxcat SI OTTIENE DA vdrain LA CUI GENERAZIONE NON E' ANCORA IMPLEMENTATA
+        idf = agd.getfield(f, idxcat)
+     # NON SONO SICURO DEL idf-1 E NEMMENO DELL'EFFETTO DI next
+        feat_drain = getFeatureByFid( collect(agd.getlayer(source)), idf )
+      # idxlevel SI OTTIENE DA vdrain LA CUI GENERAZIONE NON E' ANCORA IMPLEMENTATA  
+        p00 = agd.getfield(feat_drain, idxlevel)
         
         index_progress = 0
         while currentdistance < length
@@ -672,7 +687,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                 pe = pcheck
 
 
-             """ CREA UNA FEATURE """
+             """ CREA UNA FEATURE
                fetline = QgsFeature()
                fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
                fetline.initAttributes(1)
@@ -680,19 +695,22 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                vline.updateFeature(fetline)
 
                featlines.append(fetline)
-             """"""
-             
+             """
+                fetline = agd.createfeature( x -> x, vline )
+                line = agd.createlinestring( Flloat64.([old_x, old_y]), Flloat64.([x, y]) )
+                agd.setgeom!(fetline, line)
+                agd.fillunsetwithdefault!(fetline)
+                agd.setfield!(fetline, 0, pe)
+                push!(featlines, fetline)
 
                 index_progress += 1
 
                 for polygon in polygons_t
                     p_geom = agd.getgeom(polygon)
                     if agd.within(point, p_geom)
-                        nometarget = pol_t.attributes()[idxtargetname]
-                     """ MESSAGIO
-                        messaggio = "\nIl vettore drain$nfeat ha raggiunto l'area bersaglio denominata $nometarget con un volume pari a: $(round(pe,3))mm\n"
-                        self.console.appendPlainText(messaggio)
-                     """
+                        #   nometarget = pol_t.attributes()[idxtargetname]
+                        nometarget = agd.getfield(polygon, idxtargetname)
+                        println("\nIl vettore drain$nfeat ha raggiunto l'area bersaglio denominata $nometarget con un volume pari a: $(round(pe,3))mm\n")
                         currentdistance = length + 1
                     end
                 end
@@ -705,13 +723,12 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                 currentdistance += intervallo
             end
 
-
-         """ NON SO COSA FACCIA STA ROBA """
+         """ AGGIUNGE LE FEATURES CREATE
             prline.addFeatures(featlines)
             vline.updateFields()
             QgsProject.instance().addMapLayer(vline)
-         """"""
-
+         """
+            agd.addfeature!.(Ref(vline), featlines)
     end
 end
 

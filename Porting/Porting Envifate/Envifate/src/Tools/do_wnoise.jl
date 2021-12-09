@@ -67,40 +67,26 @@ function run_spread( dem, source, depth::Real, salinity::Real, pH::Real, tempera
     end
 
     refsys = agd.getspatialref(source)
-    layers = agd.getlayer(area, 0)
-
-    if agd.getspatialref(layers) != refsys
-        throw(DomainError("The reference systems are not uniform. Aborting analysis." ))
-    end
-
     measure_dist = 15.0
 
     path_temp_lc = folder*"\\temp_lc.tiff"
+
+
+
 
     for freq in frequencys
         output_path = folder*"\\sound_level_$freq.tiff"
 
         # messaggio+='ALGORITMO UTILIZZATO: Ainslie, M. A., & McColm, J. G. (1998). A simplified formula for viscous and chemical absorption in sea water. The Journal of the Acoustical Society of America, 103(3), 1671-1672.)\n\n'
 
-
-
-
-
-
-
-
         nfeature=0
-        features=self.source.getFeatures()
-
+        features = collect(agd.getlayer(source))
         for feature in features
             geom = agd.getgeom(feature)
             x_source = agd.getx(geom,0)
             y_source = agd.gety(geom,0)
-
-
-            idxlevel = self.source.fields().indexFromName('level')
-            soundlevel = feature.attributes()[idxlevel]
-
+ 
+            soundlevel = agd.getfield(feature, :level)
             nfeature+=1
 
             #   start_time = time.time()

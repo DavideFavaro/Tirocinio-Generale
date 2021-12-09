@@ -455,8 +455,6 @@ agd.getspatialref(layer)
 
 
 
-
-
 import ArchGDAL as agd
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"

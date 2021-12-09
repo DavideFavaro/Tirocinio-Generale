@@ -273,10 +273,10 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
                     agd.fillunsetwithdefault!(fetline)
                     agd.setfield!( Ref(fetline), [0, 1], [realdistance, vmedia])
 
-                    for (cicle,t) in enumerate(start_sec:int_sec:end_sec)
+                    for (cicle, t) in enumerate(start_sec:int_sec:end_sec)
                         element = River( concentration, t, realdistance, fickian_x, mean_v, hydraulic_section, decay_coeff )                    
                         finalC = calc_concentration!(element)
-                        if i == 1
+                        if cicle == 1
                             push!( list_result, Cfinal )
                         end
 
@@ -313,8 +313,8 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
             end
         end    
 
-        agd.addfeature!.(vl, feats)
-        agd.addfeature!.(vline, featlines)
+        agd.addfeature!.(Ref(vl), feats)
+        agd.addfeature!.(Ref(vline), featlines)
 
      """ AGGIUNGE I VETTORI APPENA CREATI
         QgsProject.instance().addMapLayer(vl)
