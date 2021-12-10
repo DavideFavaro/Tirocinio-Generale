@@ -404,11 +404,38 @@ end # module
 
 
 
+
+
+import ArchGDAL as agd
+using Plots
+# Leggi il vettoriale
+sat_file = split( @__DIR__, "\\Tirocinio\\")[1] * "\\Tirocinio\\Mappe\\sat\\sette_sorelle.shp"
+sat = agd.read(sat_file)
+sat_layer = agd.getlayer(sat, 0)
+plot(sat_layer)
+agd.imread(sat)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import ArchGDAL as agd
 using Plots
 
+
+
 # Leggi il vettoriale
-cmn_file = "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
+cmn_file = split( @__DIR__, "\\Tirocinio\\")[1] * "\\Tirocinio\\Mappe\\c0104011_Comuni\\c0104011_Comuni.shp"
 cmn = agd.read(cmn_file)
 
 # Ottenere il layer; un layer raccoglie le features
@@ -458,6 +485,8 @@ agd.getspatialref(layer)
 import ArchGDAL as agd
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.read(dtm_file)
+
 
 # Accedere al dataset e farci indexing direttamente
 dtm = agd.readraster(dtm_file)
@@ -477,10 +506,20 @@ agd.importWKT(agd.getproj(dtm))
 
 
 
+import ArchGDAL as agd
+import GDAL as gdl
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.read(dtm_file)
 
 
+split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+str = pointer("Center")
+opt = Base.unsafe_convert(Ptr{Cstring}, str)
+option = gdl.gdalinfooptionsnew(opt, C_NULL)
+gdl.gdalinfo(dtm, option)
 
-
+a = String["Center"]
+str = pointer(a)
 
 
 

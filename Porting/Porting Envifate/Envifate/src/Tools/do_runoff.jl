@@ -96,11 +96,6 @@ end
         self.popolafields(self.combo_source,self.combo_fieldp)
         self.popolafields(self.combo_target,self.combofield_target)
 
-    
-    
-    def calc_s(self,cn):
-        return(254.0*((100/cn)-1))
-
 
     def extract_values(self, raster,x,y):
         z=raster.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
@@ -455,6 +450,48 @@ end
         self.label_status.setStyleSheet('color : green; font-weight:bold')
         self.progressBar.setValue(max_progress)
 =#
+
+
+function expand!( map::AbstractArray, dtm, indx_x::Integer, indx_y::Integer )
+    # Adjacent cells
+    idxs = [
+        ( indx_x+1, indx_y   ),
+        ( indx_x+1, indx_y+1 ),
+        ( indx_x,   indx_y+1 ),
+        ( indx_x-1, indx_y+1 ),
+        ( indx_x-1, indx_y   ),
+        ( indx_x-1, indx_y-1 ),
+        ( indx_x,   indx_y-1 ),
+        ( indx_x+1, indx_y-1 ),
+    ]
+    # Limits of the raster
+    maxX, maxY = size(dtm)
+    # Adjacent existing cells
+    select!( (x, y) -> x < maxX && x > 0 && y < maxY && y > 0, indxs )
+
+    
+
+
+
+
+
+    if indx_x > size(dtm,1) || indx_y > size(dtm,2)
+        return nothing
+    else
+        xs = [ indx_x+1, indx_x+1, indx_x,   indx_x-1, indx_x-1, indx_x-1, indx_x,   indx_x+1, ]
+        ys = [ indx_y,   indx_y+1, indx_y+1, indx_y+1, indx_y,   indx_y-1, indx_y-1, indx_y-1, ]
+
+
+        for i in 1:8
+            if dtm[indx_x, indx_y] > dtm[xs[i], ys[i]]
+                map[xs[i], ys[i]] = 1
+                expand!( Ref(mapp), Ref(dtm), xs[i], ys[i] )
+            end
+        end
+    end
+end
+
+
 function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
 
  """ NON SO QUALE SIA L'EQUIVALENTE
@@ -505,7 +542,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
 
 
-    # NON SO SE FUNZIONI
+    # NON SO SE FUNZIONA
     bbox_src = agd.boundingbox(source)
     bbox_trgt = agd.boundingbox(target)
     area = agd.union( bbox_src, bbox_trgt )
@@ -646,7 +683,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
         feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
         p00=feat_drain.attributes()[idxlevel]
      """
-        vline = agd.createlayer( "drain$nfeat", agd.wkbLineString, refsys )
+        vline = agd.createlayer( x -> x,  name="drain$nfeat", geom=agd.wkbLineString, spatialref=refsys )
         agd.addfielddefn!(vline, "concentrazione", agd.OFTReal)
      # idxcat SI OTTIENE DA vdrain LA CUI GENERAZIONE NON E' ANCORA IMPLEMENTATA
         idf = agd.getfield(f, idxcat)
@@ -666,8 +703,9 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
             #   point = geom.interpolate(currentdistance)
             point = agd.getpoint(geom, currentdistance)
             x = agd.getx(point, 0)
-            y = agd.gety(point, 1)
-            clc = extract_values(lc_layer, x, y)
+            y = agd.gety(point, 0)
+            r, c = toIndexes(landcover_layer, x, y)
+            clc = landcover_layer[r, c]
             if soil_control == 1
                 r, c = toIndexes(soil_layer, x, y)
                 soil = soil_layer[r, c]
@@ -676,8 +714,8 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
             end
             try
              # MANCA "classisoil"
-                cn = listaclc[clc][classisoil[soil]]
-                S = calc_s(round(Int64, cn))
+                cn = listaclc[clc][ classisoil[soil] ]
+                S = 254.0((100 / cn) - 1)
             catch
                 S = 0
             end
@@ -696,7 +734,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
                featlines.append(fetline)
              """
-                fetline = agd.createfeature( x -> x, vline )
+                fetline = agd.createfeature( x -> x, agd.getfeaturedefn(vline) )
                 line = agd.createlinestring( Flloat64.([old_x, old_y]), Flloat64.([x, y]) )
                 agd.setgeom!(fetline, line)
                 agd.fillunsetwithdefault!(fetline)
@@ -1046,7 +1084,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                try
                 # MANCA "classisoil"
                    cn = listaclc[clc][classisoil[soil]]
-                   S = calc_s(round(Int64, cn))
+                   S = 254.0((100 / cn) - 1)
                catch
                    S = 0
                end

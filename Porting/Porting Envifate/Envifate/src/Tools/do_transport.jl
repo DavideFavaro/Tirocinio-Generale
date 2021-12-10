@@ -144,7 +144,7 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
    src_geom = agd.getgeom(src_feature[1])
    x_source = agd.getx(src_geom, 0)
    y_source = agd.gety(src_geom, 0)
-   r_source, c_source = toIndexes( dtm, x_source, y_source )
+   r_source, c_source = toIndexes(dtm, x_source, y_source)
 
 
  """ CREDO STIA SOLO SETTANDO DEI VALORI
