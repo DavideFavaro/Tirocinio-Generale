@@ -452,44 +452,167 @@ end
 =#
 
 
-function expand!( map::AbstractArray, dtm, indx_x::Integer, indx_y::Integer )
-    # Adjacent cells
-    idxs = [
-        ( indx_x+1, indx_y   ),
-        ( indx_x+1, indx_y+1 ),
-        ( indx_x,   indx_y+1 ),
-        ( indx_x-1, indx_y+1 ),
-        ( indx_x-1, indx_y   ),
-        ( indx_x-1, indx_y-1 ),
-        ( indx_x,   indx_y-1 ),
-        ( indx_x+1, indx_y-1 ),
-    ]
+
+
+
+
+
+
+
+
+
+
+
+import ArchGDAL as agd
+using Plots
+
+#= DANNO STACKOVERFLOW
+function flow!( map::AbstractArray, dem, row::Integer, col::Integer; old_height::Real=Inf )
     # Limits of the raster
-    maxX, maxY = size(dtm)
-    # Adjacent existing cells
-    select!( (x, y) -> x < maxX && x > 0 && y < maxY && y > 0, indxs )
-
-    
-
-
-
-
-
-    if indx_x > size(dtm,1) || indx_y > size(dtm,2)
-        return nothing
-    else
-        xs = [ indx_x+1, indx_x+1, indx_x,   indx_x-1, indx_x-1, indx_x-1, indx_x,   indx_x+1, ]
-        ys = [ indx_y,   indx_y+1, indx_y+1, indx_y+1, indx_y,   indx_y-1, indx_y-1, indx_y-1, ]
-
-
-        for i in 1:8
-            if dtm[indx_x, indx_y] > dtm[xs[i], ys[i]]
-                map[xs[i], ys[i]] = 1
-                expand!( Ref(mapp), Ref(dtm), xs[i], ys[i] )
+    maxR, maxC = size(dem)
+    # no data value for the raster
+ # DA SOSTITUIRE CON UN MODO PER OTTENERE IL VALORE DIRETTAMENTE DAL RASTER
+    noData = -9999.0
+    # If `row` and `col` are valid cell indexes for `dtm` and `map` and the raster has data in that cell while `map` has not
+    if ( row >= 1 && row <= maxR ) && ( col >= 1 && col <= maxC ) && dem[row, col] != noData && ismissing(map[row, col])
+        height = dem[row, col]
+        if height <= old_height
+            map[row, col] = true
+            # Adjacent cells
+            indexes = [
+                ( row+1, col   ),
+                ( row+1, col+1 ),
+                ( row,   col+1 ),
+                ( row-1, col+1 ),
+                ( row-1, col   ),
+                ( row-1, col-1 ),
+                ( row,   col-1 ),
+                ( row+1, col-1 )
+            ]
+            for (r,c) in indexes
+                flow!(map, dem, r, c, old_height=height)
+            end
+        else
+            map[row, col] = false
+        end
+    end
+    return nothing
+end
+=#
+function flow!( map::AbstractArray, dem, row::Integer, col::Integer )
+    # Limits of the raster
+    maxR, maxC = size(dem)
+    # no data value for the raster
+    noData = -9999.0
+    # Adjacent cells
+    indexes = [
+        ( row+1, col   ),
+        ( row+1, col+1 ),
+        ( row,   col+1 ),
+        ( row-1, col+1 ),
+        ( row-1, col   ),
+        ( row-1, col-1 ),
+        ( row,   col-1 ),
+        ( row+1, col-1 )
+    ]
+    for (r,c) in indexes
+        # If `r` and `c` are valid cell indexes for `dtm` and `map` and the raster has data in that cell while `map` has not
+        if ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c])
+            if dem[row, col] >= dem[r, c]
+                map[r, c] = true
+                flow!(map, dem, r, c)
+            else
+                map[r, c] = false
             end
         end
     end
+    return nothing
 end
+
+
+
+function flow!( map::AbstractArray, dem, row::Integer, col::Integer )
+    # Limits of the raster
+    maxR, maxC = size(dem)
+    # no data value for the raster
+    noData = -9999.0
+    # Adjacent cells
+    r = row
+    c = col
+    val = dem[row, col]
+    while ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c])
+        for i in  -1:1
+            for j in -1:1
+                if dem[r+i, c+j] <= val
+                    map[r+i, c+j] = true
+                    r, c += (i, j)
+                    val = dem[r, c]
+                else
+                    map[]
+end
+
+
+
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm = agd.readraster(dtm_file)
+band = agd.getband(dtm, 1)
+test1 = band[4001:5000, 6001:7000]
+test2 = band[4501:4600, 6501:6600]
+test3 = [ 10.0 10.0 10.0  3.0 10.0;
+          10.0 10.0  5.0 10.0 10.0;
+          10.0 10.0  8.0 10.0 10.0;
+          10.0 10.0  6.0  7.0 10.0;
+          10.0 10.0  4.0  6.0 10.0 ]
+
+
+heatmap( 1:1000, 1:1000, test1, c=cgrad([:blue, :white, :yellow, :red]) )
+
+mat = Array{Any}( missing, 1000, 1000 )
+flow!( mat, test1, 300, 300 )
+heatmap( 1:1000, 1:1000, mat )
+plot(mat)
+
+
+
+heatmap( 1:100, 1:100, test2, c=cgrad([:blue, :white, :yellow, :red]) )
+
+mat = Array{Any}( missing, 100, 100 )
+flow!( mat, test2, 30, 30 )
+heatmap( 1:100, 1:100, mat )
+plot(mat)
+
+
+mat = Array{Any}( missing, 5, 5 )
+flow!( mat, test3, 3, 3 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )

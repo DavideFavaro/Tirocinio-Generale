@@ -484,7 +484,7 @@ agd.getspatialref(layer)
 
 import ArchGDAL as agd
 
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 dtm = agd.read(dtm_file)
 
 
