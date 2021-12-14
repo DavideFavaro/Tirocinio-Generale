@@ -466,8 +466,64 @@ end
 import ArchGDAL as agd
 using Plots
 
-#= DANNO STACKOVERFLOW
-function flow!( map::AbstractArray, dem, row::Integer, col::Integer; old_height::Real=Inf )
+
+# Modificare scegliendo i/l cammino minimo e utilizzano un array dei punti risultanti (utilizzando anche un array dei punti scartati)
+
+function flow!( stream_points::Vector, other_points::Vector, dem, row::Integer, col::Integer, cicles::Integer )
+    if cicles <= 0
+        return nothing
+    end
+    # Limits of the raster
+    maxR, maxC = size(dem)
+    # no data value for the raster
+    noData = -9999.0
+    # Adjacent cells
+    indexes = [
+        ( row+1, col   ),
+        ( row+1, col+1 ),
+        ( row,   col+1 ),
+        ( row-1, col+1 ),
+        ( row-1, col   ),
+        ( row-1, col-1 ),
+        ( row,   col-1 ),
+        ( row+1, col-1 )
+    ]
+    # Valid adjacent cells
+ # USARE LA FUNZIONE DA ME DEFINITA CHE ELIMINA DEI VALORI E LI RITORNA
+    select!( (r, c) -> ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c]), indexes )
+    # Adjacent cells' minimum height
+    min_height =  minimum( (r,c) -> dem[r,c], indexes )
+
+    if height < min_height
+        return nothing
+    end
+
+    for (r, c) in indexes
+        if dem[r, c] == min_height
+            map[r, c] = true
+            push!( stream_points, (r,c) )
+            flow!(stream_points, other_points, dem, r, c, cicles-1)
+
+
+
+    mins = findall( (r,c) -> dem[r,c] == min_height )
+
+
+
+    
+end
+
+
+
+
+
+
+
+function flow!( map::AbstractArray, dem, row::Integer, col::Integer, cicles::Integer; old_height::Real=Inf )
+    if cicles <= 0
+        return nothing
+    end
+
     # Limits of the raster
     maxR, maxC = size(dem)
     # no data value for the raster
@@ -490,7 +546,7 @@ function flow!( map::AbstractArray, dem, row::Integer, col::Integer; old_height:
                 ( row+1, col-1 )
             ]
             for (r,c) in indexes
-                flow!(map, dem, r, c, old_height=height)
+                flow!(map, dem, r, c, cicles-1, old_height=height)
             end
         else
             map[row, col] = false
@@ -498,8 +554,13 @@ function flow!( map::AbstractArray, dem, row::Integer, col::Integer; old_height:
     end
     return nothing
 end
-=#
-function flow!( map::AbstractArray, dem, row::Integer, col::Integer )
+
+
+
+function flow!( map::AbstractArray, dem, row::Integer, col::Integer, cicles::Integer )
+    if cicles <= 0
+        return nothing
+    end
     # Limits of the raster
     maxR, maxC = size(dem)
     # no data value for the raster
@@ -520,7 +581,7 @@ function flow!( map::AbstractArray, dem, row::Integer, col::Integer )
         if ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c])
             if dem[row, col] >= dem[r, c]
                 map[r, c] = true
-                flow!(map, dem, r, c)
+                flow!(map, dem, r, c, cicles-1)
             else
                 map[r, c] = false
             end
@@ -569,22 +630,19 @@ test3 = [ 10.0 10.0 10.0  3.0 10.0;
 heatmap( 1:1000, 1:1000, test1, c=cgrad([:blue, :white, :yellow, :red]) )
 
 mat = Array{Any}( missing, 1000, 1000 )
-flow!( mat, test1, 300, 300 )
-heatmap( 1:1000, 1:1000, mat )
-plot(mat)
+flow!( mat, test1, 300, 300, 10000 )
+heatmap( 1:1000, 1:1000, mat, c =[:orange, :black, :blue] )
 
 
 
 heatmap( 1:100, 1:100, test2, c=cgrad([:blue, :white, :yellow, :red]) )
 
 mat = Array{Any}( missing, 100, 100 )
-flow!( mat, test2, 30, 30 )
-heatmap( 1:100, 1:100, mat )
-plot(mat)
-
+flow!( mat, test2, 60, 90, 10000000 )
+heatmap( 1:100, 1:100, mat, c =[:orange, :black, :blue] )
 
 mat = Array{Any}( missing, 5, 5 )
-flow!( mat, test3, 3, 3 )
+flow!( mat, test3, 3, 3, 100 )
 
 
 
