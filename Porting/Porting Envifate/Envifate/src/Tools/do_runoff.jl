@@ -458,25 +458,65 @@ end
 
 
 
+#   using ArchGDAL
+#   if !(@isdefined agd)
+#       const agd = ArchGDAL
+#   end
+#   using Plots
+#   using WhereTheWaterFlows
+#   if !(@isdefined wtwf)
+#       const wtwf = WhereTheWaterFlows
+#   end
 
 
-
-
-
-import ArchGDAL as agd
 using Plots
+import ArchGDAL as agd
+import WhereTheWaterFlows as wtwf
 
 
-# Modificare scegliendo i/l cammino minimo e utilizzano un array dei punti risultanti (utilizzando anche un array dei punti scartati)
-
-function flow!( stream_points::Vector, other_points::Vector, dem, row::Integer, col::Integer, cicles::Integer )
+function flow!( map::AbstractArray, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
     if cicles <= 0
         return nothing
     end
     # Limits of the raster
-    maxR, maxC = size(dem)
-    # no data value for the raster
-    noData = -9999.0
+    maxR, maxC = size(dem_band)
+    # Adjacent cells
+    indexes = [
+        ( dem_band[ row+i, col+j ], row+i, col+j )
+        for i in -1:1
+            for j in -1:1
+                if ( i != 0 || j != 0 ) &&
+                    ( row+i >= 1 && row+i <= maxR ) &&
+                    ( col+j >= 1 && col+j <= maxC ) &&
+                    dem_band[ row+i, col+j ] != noDataValue &&
+                    ismissing( map[ row+i, col+j ] )
+    ]
+    # Adjacent cells' minimum height
+    min_height =  minimum( t -> t[1], indexes )
+
+    if height < min_height
+        return nothing
+    end
+
+    for (h, r, c) in indexes
+        if h == min_height
+            map[r, c] = true
+            flow!(map, dem_band, r, c, noDataValue, cicles-1)
+        else
+            map[r, c] = false
+        end
+    end
+
+    return nothing
+end
+
+
+function flow!( stream_points::AbstractVector, visited_points::AbstractVecotr, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
+    if cicles <= 0
+        return nothing
+    end
+    # Limits of the raster
+    maxR, maxC = size(dem_band)
     # Adjacent cells
     indexes = [
         ( row+1, col   ),
@@ -489,148 +529,107 @@ function flow!( stream_points::Vector, other_points::Vector, dem, row::Integer, 
         ( row+1, col-1 )
     ]
     # Valid adjacent cells
- # USARE LA FUNZIONE DA ME DEFINITA CHE ELIMINA DEI VALORI E LI RITORNA
-    select!( (r, c) -> ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c]), indexes )
+    condition(a, b) = ( a >= 1 && a <= maxR ) && ( b >= 1 && b <= maxC ) && dem_band[a, b] != noDataValue && ( (a, b) ∉ stream_points || (a, b) ∉ visited_points )
+    visited = filter( (r, c) -> !condtion(r, c), indexes )
+    push!(visited_points, visited...)
+    filter!(condition, indexes)
     # Adjacent cells' minimum height
-    min_height =  minimum( (r,c) -> dem[r,c], indexes )
+    min_height =  minimum( (r,c) -> dem_band[r,c], indexes )
 
     if height < min_height
         return nothing
     end
 
     for (r, c) in indexes
-        if dem[r, c] == min_height
-            map[r, c] = true
-            push!( stream_points, (r,c) )
-            flow!(stream_points, other_points, dem, r, c, cicles-1)
-
-
-
-    mins = findall( (r,c) -> dem[r,c] == min_height )
-
-
-
-    
-end
-
-
-
-
-
-
-
-function flow!( map::AbstractArray, dem, row::Integer, col::Integer, cicles::Integer; old_height::Real=Inf )
-    if cicles <= 0
-        return nothing
-    end
-
-    # Limits of the raster
-    maxR, maxC = size(dem)
-    # no data value for the raster
- # DA SOSTITUIRE CON UN MODO PER OTTENERE IL VALORE DIRETTAMENTE DAL RASTER
-    noData = -9999.0
-    # If `row` and `col` are valid cell indexes for `dtm` and `map` and the raster has data in that cell while `map` has not
-    if ( row >= 1 && row <= maxR ) && ( col >= 1 && col <= maxC ) && dem[row, col] != noData && ismissing(map[row, col])
-        height = dem[row, col]
-        if height <= old_height
-            map[row, col] = true
-            # Adjacent cells
-            indexes = [
-                ( row+1, col   ),
-                ( row+1, col+1 ),
-                ( row,   col+1 ),
-                ( row-1, col+1 ),
-                ( row-1, col   ),
-                ( row-1, col-1 ),
-                ( row,   col-1 ),
-                ( row+1, col-1 )
-            ]
-            for (r,c) in indexes
-                flow!(map, dem, r, c, cicles-1, old_height=height)
-            end
+        if dem_band[r, c] == min_height
+            push!( stream_points, (r, c) )
+            flow!(stream_points, other_points, dem, r, c, noDataValue, cicles-1)
         else
-            map[row, col] = false
+            push!( visited_points, (r, c) )
         end
     end
-    return nothing
+
+    return nothing  
 end
 
 
-
-function flow!( map::AbstractArray, dem, row::Integer, col::Integer, cicles::Integer )
-    if cicles <= 0
-        return nothing
-    end
-    # Limits of the raster
-    maxR, maxC = size(dem)
-    # no data value for the raster
-    noData = -9999.0
-    # Adjacent cells
-    indexes = [
-        ( row+1, col   ),
-        ( row+1, col+1 ),
-        ( row,   col+1 ),
-        ( row-1, col+1 ),
-        ( row-1, col   ),
-        ( row-1, col-1 ),
-        ( row,   col-1 ),
-        ( row+1, col-1 )
-    ]
-    for (r,c) in indexes
-        # If `r` and `c` are valid cell indexes for `dtm` and `map` and the raster has data in that cell while `map` has not
-        if ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c])
-            if dem[row, col] >= dem[r, c]
-                map[r, c] = true
-                flow!(map, dem, r, c, cicles-1)
+function connectivity( dem_band, noDataValue::Real )
+    rows, cols = size(dem_band)
+    mat = Array{Any}( missing, rows, cols )
+    # For each cell of the dem's band
+    for r in 1:rows
+        for c in 1:cols
+            # Check wether the current cell holds a real value
+            if dem_band[r, c] == noDataValue
+                mat[r, c] = nothing
+                continue
             else
-                map[r, c] = false
+                mat[r, c] = []
+            end
+            # Height of the current cell
+            h = dem_band[r, c]
+            # For each of the 8 adjacent cells of the current one
+            for i in -1:1
+                for j in -1:1
+                    # Indexes of the adjacent cell
+                    row, col = (r, c) .+ (i, j)
+                    # If it's not the current cell, it's located within the raster boundaries and it has a real value
+                    if ( i != 0 || j != 0 ) && ( row >= 1 && row <= rows ) && ( col >= 1 && col <= cols ) && dem_band[row, col] != noDataValue
+                        # Height of the adjacent cell
+                        h_adj = dem_band[row, col]
+                        res = h > h_adj ? -1 :
+                                h < h_adj ? 1 : 0
+                        push!( mat[r, c], ( row, col, res ) )
+                    end
+                end
             end
         end
     end
-    return nothing
+    return mat
 end
-
-
-
-function flow!( map::AbstractArray, dem, row::Integer, col::Integer )
-    # Limits of the raster
-    maxR, maxC = size(dem)
-    # no data value for the raster
-    noData = -9999.0
-    # Adjacent cells
-    r = row
-    c = col
-    val = dem[row, col]
-    while ( r >= 1 && r <= maxR ) && ( c >= 1 && c <= maxC ) && dem[r, c] != noData && ismissing(map[r, c])
-        for i in  -1:1
-            for j in -1:1
-                if dem[r+i, c+j] <= val
-                    map[r+i, c+j] = true
-                    r, c += (i, j)
-                    val = dem[r, c]
-                else
-                    map[]
-end
-
 
 
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.readraster(dtm_file)
 band = agd.getband(dtm, 1)
+ndv = agd.getnodatavalue(band)
 test1 = band[4001:5000, 6001:7000]
 test2 = band[4501:4600, 6501:6600]
-test3 = [ 10.0 10.0 10.0  3.0 10.0;
-          10.0 10.0  5.0 10.0 10.0;
-          10.0 10.0  8.0 10.0 10.0;
-          10.0 10.0  6.0  7.0 10.0;
-          10.0 10.0  4.0  6.0 10.0 ]
+test3 = band[4001:4005, 6001:6005]
+test4 = [ 10.0 10.0 10.0  3.0 10.0; 10.0 10.0  5.0 10.0 10.0; 10.0 10.0  8.0 10.0 10.0; 10.0 10.0  6.0  7.0 10.0; 10.0 10.0  4.0  6.0 10.0 ]
+test5 = [ 
+     1.0  ndv 10.0  3.0 10.0;
+    10.0  ndv  5.0 10.0 10.0;
+     ndv 10.0  8.0 10.0 10.0;
+    16.0 10.0  6.0  7.0 10.0;
+    10.0  2.0  4.0  6.0 24.0
+        ]
+
+
+mat = connectivity(band, ndv)
+
+
+
+wtwf.heatmap( 1:size(test2, 1), 1:size(test2, 2), test2 )
+wtwf.waterflows()
+
+
+
+
+
+
+
+
+
+
+        
 
 
 heatmap( 1:1000, 1:1000, test1, c=cgrad([:blue, :white, :yellow, :red]) )
 
 mat = Array{Any}( missing, 1000, 1000 )
-flow!( mat, test1, 300, 300, 10000 )
+flow!( mat, test1, 300, 300, ndv, 10000 )
 heatmap( 1:1000, 1:1000, mat, c =[:orange, :black, :blue] )
 
 
@@ -638,11 +637,11 @@ heatmap( 1:1000, 1:1000, mat, c =[:orange, :black, :blue] )
 heatmap( 1:100, 1:100, test2, c=cgrad([:blue, :white, :yellow, :red]) )
 
 mat = Array{Any}( missing, 100, 100 )
-flow!( mat, test2, 60, 90, 10000000 )
+flow!( mat, test2, 60, 90, ndv, 1000 )
 heatmap( 1:100, 1:100, mat, c =[:orange, :black, :blue] )
 
 mat = Array{Any}( missing, 5, 5 )
-flow!( mat, test3, 3, 3, 100 )
+flow!( mat, test3, 3, 3, ndv, 50 )
 
 
 
