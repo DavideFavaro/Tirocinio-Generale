@@ -555,188 +555,44 @@ end
 
 
 
-
-
-
-
-
-#= Tutte più lente della connettivity già definita
-function create_connectivity_matrix( dem_band, noDataValue::Real )
-    rows, cols = size(dem_band)
-    mat = Array{Any}( missing, rows, cols )
-    for r in 1:rows
-        for c in 1:cols
-            if dem_band[r, c] == noDataValue
-                mat[r, c] = nothing
-            else
-                mat[r, c] = []
-            end
+function looseIn( tuple::Tuple{T, T}, tuples::Vector{ Tuple{T, T, T} } ) where {T <: Number}
+    for t in tuples
+        if tuple[1] == t[1] && tuple[2] == t[2]
+            return true
         end
     end
-    return mat
+    return false
 end
-
-function looseIn( ta::Tuple, tbs::AbstractVector )::Bool
-    return ta in map( tb -> (tb[1], tb[2]), tbs )
-end
-
-function connectivity!( mat, dem_band )
-    rows, cols = size(dem_band)
-    for r in 1:rows
-        for c in 1:cols
-            # For each of the 8 adjacent cells of the current one
-            if isnothing( mat[r, c] )
-                continue
-            end
-            for i in -1:1
-                for j in -1:1
-                    # If it's not the current cell, it's located within the raster boundaries, it has a real value
-                    #   and the edge between the current cel and its adjacent has yet to be computed
-                    if ( i != 0 || j != 0 ) && ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && !isnothing( mat[r+i, c+j] ) && !looseIn( (r+i,c+j), mat[r, c] )
-                        push!(
-                            mat[r, c],
-                            (
-                                r+i,
-                                c+j,
-                                dem_band[r, c] > dem_band[r+i, c+j] ? -1 :
-                                    dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0
-                            )
-                        )
-                        # An edge between A and B is the same edge between B and A ( A → B = B ← A )
-                        push!( mat[r+i, c+j], ( r, c, -mat[r,c][end][3] ) )
-                    end
-                end
-            end
-            if r % 1000 == 0 && r == c
-                println("Cell ($r, $c) Done!")
-            end
-        end
-    end
-end
-
-function connectivity( dem_band, noDataValue )
-    rows, cols = size(dem_band)
-    mat = Array{Any}(missing, rows, cols)
-    indexes = [ (-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1) ]
-    for r in 1:rows, c in 1:cols
-        # Check whether the connectivity of the cell is undefined
-        if ismissing(mat[r, c])
-            mat[r, c] = dem_band[r, c] == noDataValue ? nothing : []
-        end
-        # Check whether the cell has a value
-        isnothing(mat[r, c]) && continue
-        # For each of the 8 adjacent cells of the current one
-        for (i,j) in indexes
-            # If the indexes are valid cell indexes for the raster
-            if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols )
-                # Check whether the connectivity of the adjacent cell is undefined
-                if ismissing( mat[r+i, c+j] )
-                    mat[r+i, c+j] = dem_band[r+i, c+j] == noDataValue ? nothing : []
-                end
-                # Check that the adjacent cell has a value
-                isnothing( mat[r+i, c+j] ) && continue
-                # Insert the value for the flow in the array of the cell, if it's not in there already
-                !looseIn( (r+i,c+j), mat[r, c] ) && push!( mat[r, c], ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 ) )
-                # An edge between A and B is the same edge between B and A ( A → B = B ← A )
-                !looseIn( (r,c), mat[r+i, c+j] ) && push!( mat[r+i, c+j], ( r, c, -mat[r,c][end][3] ) )
-            end
-        end
-        r % 1000 == 0 && r == c && println("Cell ($r, $c) Done!")
-    end
-end
-
-function direct_connectivity!( mat, dem_band )
-    rows, cols = size(dem_band)
-    for r in 1:rows
-        for c in 1:cols
-            if isnothing( mat[r, c] )
-                continue
-            end
-            # For each of the 8 adjacent cells of the current one
-            for i in -1:1
-                for j in -1:1
-                    # If it's not the current cell, it's located within the raster boundaries, it has a real value
-                    #   and said value is different than that of the current cell
-                    if ( i != 0 || j != 0 ) && ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) &&
-                       !isnothing( mat[r+i, c+j] ) && dem_band[r, c] != dem_band[r+i, c+j]
-
-                       # If the current cell is higher than the adjacent the flow is from current to adjacent
-                        if dem_band[r, c] > dem_band[r+i, c+j] && (r+i, c+j) ∉ mat[r, c]
-                            push!( mat[r, c], (r+i, c+j) )
-                        end
-
-                        # Otherwise its from adjacent to current
-                        if dem_band[r, c] < dem_band[r+i, c+j] && (r, c) ∉ mat[r+i, c+j]
-                            push!( mat[r+i, c+j], (r, c) )
-                        end
-
-                    end
-                end
-            end
- #           if r % 1000 == 0 && r == c
- #               println("Cell ($r, $c) Done!")
- #           end
-        end
-    end
-end
-=#
-
-
-
 
 function connectivity( dem_band, noDataValue::Real )
     rows, cols = size(dem_band)
-    mat = Array{Any}( missing, rows, cols )
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # Create the resulting matrix
+    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = Vector{ Tuple{Int64, Int64, Int64} }()
+        end
+    end
+    # Indexes of adjacent cells
+    indexes = [ (-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1) ]
     # For each cell of the dem's band
     for r in 1:rows, c in 1:cols
-        mat[r, c] = dem_band[r, c] == noDataValue ?
-            nothing :
-            [
-                ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 )
-                for (i,j) in indexes
-                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-            ]
- #=
-        # Check whether the current cell holds a real value
-        if dem_band[r, c] == noDataValue
-            mat[r, c] = nothing
-        else
-            mat[r, c] = [
-                (
-                    r+i,
-                    c+j,
-                    dem_band[r, c] > dem_band[r+i, c+j] ? -1 :
-                                dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0
-                )
-                for (i,j) in indexes
-                    if ( i != 0 || j != 0 ) &&
-                        ( r+i >= 1 && r+i <= rows ) &&
-                        ( c+j >= 1 && c+j <= cols ) &&
-                        dem_band[r+i, c+j] != noDataValue
-            ]
-        end
- =#
- #=
-            mat[r, c] = []
-            # For each of the 8 adjacent cells of the current one
+        if dem_band[r, c] != noDataValue
             for (i, j) in indexes
-                # If it's not the current cell, it's located within the raster boundaries and it has a real value
-                if ( i != 0 || j != 0 ) && ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    push!(
-                        mat[r, c],
-                        (
-                            r+i,
-                            c+j,
-                            dem_band[r, c] > dem_band[r+i, c+j] ? -1 :
-                                dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0
-                        )
-                    )
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && !looseIn( (r+i, c+j), mat[r, c] ) 
+                    if dem_band[r, c] > dem_band[r+i, c+j]
+                        push!( mat[r, c], (r+i, c+j, -1) )
+                        push!( mat[r+i, c+j], (r, c, 1) )
+                    elseif dem_band[r, c] == dem_band[r+i, c+j]
+                        push!( mat[r, c], (r+i, c+j, 0) )
+                        push!( mat[r+i, c+j], (r, c, 0) )
+                    else
+                        push!( mat[r, c], (r+i, c+j, 1) )
+                        push!( mat[r+i, c+j], (r, c, -1) )
+                    end
                 end
-                
             end
         end
- =#
         if r % 1000 == 0 && r == c
             println("Cell ($r, $c) Done!")
         end 
@@ -747,26 +603,100 @@ end
 
 function direct_connectivity( dem_band, noDataValue::Real )
     rows, cols = size(dem_band)
-    mat = Array{Any}( missing, rows, cols )
+    # Create the resulting matrix
+    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = Vector{ Tuple{Int64, Int64} }()
+        end
+    end
+    # Indexes of adjacent cells
     indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # For each cell of the dem's band
     for r in 1:rows, c in 1:cols
-        mat[r, c] = dem_band[r, c] == noDataValue ?
-            nothing :
-            [
+        if dem_band[r, c] != noDataValue
+            for (i, j) in indexes
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && (r+i, c+j) ∉ mat[r, c] 
+                    if dem_band[r, c] > dem_band[r+i, c+j]
+                        push!( mat[r, c], (r+i, c+j) )
+                    end
+                    if dem_band[r, c] < dem_band[r+i, c+j]
+                        push!( mat[r+i, c+j], (r, c) )
+                    end
+                end
+            end
+        end
+        if r % 1000 == 0 && r == c
+            println("Cell ($r, $c) Done!")
+        end 
+    end
+    return mat
+end
+
+@code_warntype direct_connectivity(test2, ndv)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function connectivity( dem_band, noDataValue::Real )
+    rows, cols = size(dem_band)
+    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
+    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # For each cell of the dem's band
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = [
+                ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 )
+                for (i,j) in indexes
+                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+            ]
+        end
+ #      if r % 1000 == 0 && r == c
+ #          println("Cell ($r, $c) Done!")
+ #      end 
+    end
+    return mat
+end
+
+@code_warntype connectivity(test2, ndv)
+
+
+
+
+function direct_connectivity( dem_band, noDataValue::Real )
+    rows, cols = size(dem_band)
+    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
+    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # For each cell of the dem's band
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = [
                 (r+i, c+j)
                 for (i,j) in indexes
                     if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) &&
                         dem_band[r+i, c+j] != noDataValue && dem_band[r, c] > dem_band[r+i, c+j]
             ]
- #       if r % 1000 == 0 && r == c
- #           println("Cell ($r, $c) Done!")
- #       end 
+        end
+ #      if r % 1000 == 0 && r == c
+ #          println("Cell ($r, $c) Done!")
+ #      end 
     end
     return mat
 end
 
-
+@code_warntype direct_connectivity(test2, ndv)
 
 
 
@@ -793,22 +723,66 @@ test5 = [
 
 
 using BenchmarkTools
+using DataFrames
+using CSV
+
+
+
+
+prova = direct_connectivity(test5, ndv)
+
 
 @benchmark connectivity(test5, ndv)
 @benchmark direct_connectivity(test5, ndv)
 
+
 @benchmark connectivity(test2, ndv)
 @benchmark direct_connectivity(test2, ndv)
 
+
+@benchmark connectivity_X(test1, ndv)
 @benchmark connectivity(test1, ndv)
 @benchmark direct_connectivity(test1, ndv)
 
 
 
 
+# Vecchio connectivity: 985.208187 seconds (118.07 M allocations: 13.669 GiB, 90.02% garbage collection time, 0.02% compilation time)
+# Nuovo connectivity: 763.825265 seconds (88.54 M allocations: 11.471 GiB, 86.02% gc time, 0.01% compilation time)
+@time mat = connectivity(band_mat, ndv)
 
-mat = connectivity(band_mat, ndv)
+# 70.208267 seconds (71.14 M allocations: 7.088 GiB, 60.86% gc time, 0.11% compilation time)
+@time dmat = direct_connectivity(band_mat, ndv)
 
+
+df = DataFrame(dmat, :auto)
+CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
+
+
+
+
+for i in eachindex(mat)
+    if isnothing(mat[i])
+        mat[i] = missing
+    end
+end
+
+
+file = open("D:\\Connectivity Matrix\\connectivity2.txt", "w")
+for r in size(mat, 1)
+    for c in size(mat, 2)
+        if ismissing( mat[r,c] )
+            write(file, )
+        else
+            write(file, "[ ")
+            write(file, mat[r, c])
+            write(file, "]")
+        end
+        write(file, " ")
+    end
+    write(file, "\n")
+end
+close(file)
 
 
 
@@ -818,7 +792,6 @@ mat = connectivity(band_mat, ndv)
 
 wtwf.heatmap( 1:size(test2, 1), 1:size(test2, 2), test2 )
 wtwf.waterflows()
-
 
 
 
