@@ -146,7 +146,7 @@ end
 Return the dimentions of the cell of an ArchGDAL raster dataset
 """
 function getCellDims( dtm )
-    info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
+    info = split( agd.gdalinfo(dtm), "\n" , keepempty=false )
     pos = findfirst(occursin.("Pixel Size", info))
     size_pars = dims(info[pos])
     return size_pars[2], size_pars[4]

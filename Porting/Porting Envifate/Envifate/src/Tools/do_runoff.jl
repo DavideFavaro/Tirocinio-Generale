@@ -473,6 +473,8 @@ using Plots
 import ArchGDAL as agd
 import WhereTheWaterFlows as wtwf
 
+using DataLoaders
+
 
 function flow!( map::AbstractArray, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
     if cicles <= 0
@@ -555,7 +557,65 @@ end
 
 
 
-function looseIn( tuple::Tuple{T, T}, tuples::Vector{ Tuple{T, T, T} } ) where {T <: Number}
+
+
+
+
+
+
+
+
+#= VERSIONI VECCHIE
+    function connectivity( dem_band, noDataValue::Real )
+        rows, cols = size(dem_band)
+        mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
+        indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        # For each cell of the dem's band
+        for r in 1:rows, c in 1:cols
+            if dem_band[r, c] != noDataValue
+                mat[r, c] = [
+                    ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 )
+                    for (i,j) in indexes
+                        if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                ]
+            end
+    #      if r % 1000 == 0 && r == c
+    #          println("Cell ($r, $c) Done!")
+    #      end 
+        end
+        return mat
+    end
+
+    @code_warntype connectivity(test2, ndv)
+
+
+    function direct_connectivity( dem_band, noDataValue::Real )
+        rows, cols = size(dem_band)
+        mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
+        indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        # For each cell of the dem's band
+        for r in 1:rows, c in 1:cols
+            if dem_band[r, c] != noDataValue
+                mat[r, c] = [
+                    (r+i, c+j)
+                    for (i,j) in indexes
+                        if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) &&
+                            dem_band[r+i, c+j] != noDataValue && dem_band[r, c] > dem_band[r+i, c+j]
+                ]
+            end
+    #      if r % 1000 == 0 && r == c
+    #          println("Cell ($r, $c) Done!")
+    #      end 
+        end
+        return mat
+    end
+
+    @code_warntype direct_connectivity(test2, ndv)
+=#
+
+# VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
+
+function looseIn( tuple::Tuple{T1, T1}, tuples::Vector{ Tuple{T1, T1, T2} } ) where {T1 <: Number, T2 <: Number}
     for t in tuples
         if tuple[1] == t[1] && tuple[2] == t[2]
             return true
@@ -600,8 +660,8 @@ function connectivity( dem_band, noDataValue::Real )
     return mat
 end
 
-
-function direct_connectivity( dem_band, noDataValue::Real )
+#=
+function direct_connectivity( dem_band::Matrix{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     # Create the resulting matrix
     mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
@@ -632,36 +692,32 @@ function direct_connectivity( dem_band, noDataValue::Real )
     end
     return mat
 end
-
-@code_warntype direct_connectivity(test2, ndv)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function connectivity( dem_band, noDataValue::Real )
+=#
+function direct_connectivity( dem_band::Matrix{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
-    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
+    # Create the resulting matrix
+    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32}} } }(missing, rows, cols)
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
+        end
+    end
+    # Indexes of adjacent cells
     indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # For each cell of the dem's band
     for r in 1:rows, c in 1:cols
         if dem_band[r, c] != noDataValue
-            mat[r, c] = [
-                ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 )
-                for (i,j) in indexes
-                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-            ]
+            for (i, j) in indexes
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && !looseIn( (i, j), mat[r, c] )
+                    res = dem_band[r, c] - dem_band[r+i, c+j]
+                    if res > 0
+                        push!(mat[r, c], (i, j, res))
+                    end
+                    if res < 0
+                        push!(mat[r+i, c+j], (-i, -j, -res))
+                    end
+                end
+            end
         end
  #      if r % 1000 == 0 && r == c
  #          println("Cell ($r, $c) Done!")
@@ -670,33 +726,58 @@ function connectivity( dem_band, noDataValue::Real )
     return mat
 end
 
-@code_warntype connectivity(test2, ndv)
 
 
 
 
-function direct_connectivity( dem_band, noDataValue::Real )
-    rows, cols = size(dem_band)
-    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-    # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = [
-                (r+i, c+j)
-                for (i,j) in indexes
-                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) &&
-                        dem_band[r+i, c+j] != noDataValue && dem_band[r, c] > dem_band[r+i, c+j]
-            ]
-        end
- #      if r % 1000 == 0 && r == c
- #          println("Cell ($r, $c) Done!")
- #      end 
-    end
-    return mat
+
+
+function connectivity( mat::Matrix{ Union{ Missing, Vecotr{Tuple{Int64, Int64, Float32} } } }, dtm_band, batch_size::Integer, ndv::Real )
+    rows, cols = size(dtm_band)
+    n = ceil( Int64, rows / batch_size )
+    m = ceil( Int64, cols / batch_size )
+
+    for i in 1:n, j in 1:m
+        connectivity_batch!(mat, dtm_band, batch_size*i, ndv)
+    
+
+
 end
 
-@code_warntype direct_connectivity(test2, ndv)
+
+
+
+
+
+@code_warntype direct_connectivity(test1, ndv)
+
+# DataLoaders
+
+dummy = [ x+y for x in 1:512, y in 1:512 ]
+#= 0.063901 seconds (524.29 k allocations: 50.000 MiB)
+BenchmarkTools.Trial: 74 samples with 1 evaluation.
+ Range (min … max):  44.982 ms … 114.718 ms  ┊ GC (min … max):  0.00% … 44.64%
+ Time  (median):     65.009 ms               ┊ GC (median):     0.00%
+ Time  (mean ± σ):   67.607 ms ±  17.334 ms  ┊ GC (mean ± σ):  13.85% ± 18.12%
+
+ Memory estimate: 50.00 MiB, allocs estimate: 524290.
+=#
+dummy = [ x+y for x in 1:1024, y in 1:1024 ]
+#= 0.721008 seconds (2.26 M allocations: 209.911 MiB, 38.84% gc time, 12.09% compilation time)
+BenchmarkTools.Trial: 12 samples with 1 evaluation.
+ Range (min … max):  348.647 ms … 586.164 ms  ┊ GC (min … max):  0.00% … 36.82%
+ Time  (median):     431.355 ms               ┊ GC (median):    11.38%
+ Time  (mean ± σ):   448.153 ms ±  91.769 ms  ┊ GC (mean ± σ):  18.57% ± 16.71%
+=#
+dummy = [ x+y for x in 1:2048, y in 1:2048 ]
+#= 3.282289 seconds (8.39 M allocations: 800.000 MiB, 30.46% gc time)
+BenchmarkTools.Trial: 2 samples with 1 evaluation.
+ Range (min … max):  2.720 s …    3.315 s  ┊ GC (min … max): 18.03% … 30.56%
+ Time  (median):     3.017 s               ┊ GC (median):    24.91%
+ Time  (mean ± σ):   3.017 s ± 420.857 ms  ┊ GC (mean ± σ):  24.91% ±  8.87%
+=#
+@time mat = direct_connectivity(dummy ,ndv)
+@benchmark mat = direct_connectivity(dummy ,ndv)
 
 
 
@@ -727,25 +808,7 @@ using DataFrames
 using CSV
 
 
-
-
-prova = direct_connectivity(test5, ndv)
-
-
-@benchmark connectivity(test5, ndv)
-@benchmark direct_connectivity(test5, ndv)
-
-
-@benchmark connectivity(test2, ndv)
-@benchmark direct_connectivity(test2, ndv)
-
-
-@benchmark connectivity_X(test1, ndv)
-@benchmark connectivity(test1, ndv)
-@benchmark direct_connectivity(test1, ndv)
-
-
-
+@code_warntype direct_connectivity(test2, ndv)
 
 # Vecchio connectivity: 985.208187 seconds (118.07 M allocations: 13.669 GiB, 90.02% garbage collection time, 0.02% compilation time)
 # Nuovo connectivity: 763.825265 seconds (88.54 M allocations: 11.471 GiB, 86.02% gc time, 0.01% compilation time)
@@ -761,28 +824,68 @@ CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
 
 
 
-for i in eachindex(mat)
-    if isnothing(mat[i])
-        mat[i] = missing
-    end
-end
 
 
-file = open("D:\\Connectivity Matrix\\connectivity2.txt", "w")
-for r in size(mat, 1)
-    for c in size(mat, 2)
-        if ismissing( mat[r,c] )
-            write(file, )
-        else
-            write(file, "[ ")
-            write(file, mat[r, c])
-            write(file, "]")
+
+
+
+
+
+
+
+
+
+
+include("..\\Library\\Functions.jl")
+
+
+@time mat = direct_connectivity(band_mat, ndv)
+rows, cols = size(mat)
+dtm2 = agd.read(dtm_file)
+refsys = agd.getproj(dtm2)
+minX, maxY = Functions.toCoords(dtm2, 1, 8440)
+# maxX, minY = Functions.toCoords(dtm2, 4600, 6501)
+a,b = Functions.getCellDims(dtm2)
+gtiff_driver = agd.getdriver("GTiff")
+
+target_ds = agd.create( ".\\connectivity.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 )
+agd.setgeotransform!( target_ds, [ minX, a, 0.0, maxY, 0.0, b ] )
+agd.setproj!( target_ds, refsys )
+valNoData = -9999.0
+bands = [ agd.getband( target_ds, i ) for i in 1:8 ] 
+agd.setnodatavalue!.(bands, valNoData)
+agd.fillraster!.(bands, valNoData)
+band_mats = agd.read.(bands)
+
+index_dict = Dict( 
+    (-1, -1) => 1,
+    (-1, 0)  => 2,
+    (-1, 1)  => 3,
+    (0, -1)  => 4,
+    (0, 1)   => 5,
+    (1, -1)  => 6,
+    (1, 0)   => 7,
+    (1, 1)   => 8
+)
+for r in 1:1000, c in 1:1000
+    if iesmpty(mat[r,c])
+        for i in 1:8
+            bands_mat[i][r, c] = 0
         end
-        write(file, " ")
+    else
+        if !ismissing(mat[r, c])
+            for (i, j, res) in mat[r, c]
+                band_mats[ index_dict[(i, j)] ][r, c] = res
+            end
+        end
     end
-    write(file, "\n")
 end
-close(file)
+
+for i in 1:8
+    agd.write!( target_ds, band_mats[i], i )
+end
+
+agd.destroy(target_ds)
 
 
 
@@ -790,8 +893,13 @@ close(file)
 
 
 
-wtwf.heatmap( 1:size(test2, 1), 1:size(test2, 2), test2 )
-wtwf.waterflows()
+
+
+
+
+
+
+area, slen, dir, nout, nin, pits, c, bnds = wtwf.waterflows(band_mat)
 
 
 
