@@ -5,7 +5,6 @@ Module for the Download and processing of descriptors of satellitar data from th
 
 
 
-using ArchGDAL
 using CombinedParsers
 using CombinedParsers.Regexp
 using CSV
@@ -13,7 +12,9 @@ using Dates
 using DataFrames
 using Downloads
 using HTTP
-using Revise
+
+import ArchGDAL as agd
+
 
 
 test = [ "C:\\Users\\DAVIDE-FAVARO\\Desktop\\XML\\1.xml",
@@ -31,29 +32,30 @@ out = [ "D:\\Vario\\Stage",
 
 # Syntax to parse the XMl reppresentation of a product
 @syntax product = Repeat(
-                    Either(
-                        Sequence( "<",
-                                  :type    => re"[^< >]+ ",
-                                  :opening => re"name=\"[^<\">]+\">",
-                                  :content => re"[^<>]+",
-                                  :closing => re"</[^<>]+>"
-                        ),
-                        Sequence(
-                            re"<[^<>]+>",
-                            re"[^<>]+",
-                            re"</[^<>]+>"
-                        ),
-                        re"<[^<>]+>"
-                    )
-                  )
+    Either(
+        Sequence(
+            "<",
+            :type    => re"[^< >]+ ",
+            :opening => re"name=\"[^<\">]+\">",
+            :content => re"[^<>]+",
+            :closing => re"</[^<>]+>"
+        ),
+        Sequence(
+            re"<[^<>]+>",
+            re"[^<>]+",
+            re"</[^<>]+>"
+        ),
+        re"<[^<>]+>"
+    )
+)
 
 
 
-# Funzione presa da Stackoverflow https://stackoverflow.com/questions/48104390/julias-most-efficient-way-to-choose-longest-array-in-array-of-arrays
+# Funzione presa da: https://stackoverflow.com/questions/48104390/julias-most-efficient-way-to-choose-longest-array-in-array-of-arrays
 function maxLenIndex( vect::AbstractVector )
     len = 0
     index = 0
-    @inbounds for i in 1:length( vect )
+    @inbounds for i in 1:length(vect)
         l = length( vect[i] )
         l > len && ( index = i; len=l )
     end
@@ -104,6 +106,23 @@ end
 
 
 
+"""
+"""
+function getAoi( path::AbstractString )::AbstractString
+    data = agd.read(path)
+    layer = agd.getlayer(data, 0)
+    geometry = agd.getgeom(collect(layer)[1])
+    src_crs = agd.getspatialref(geometry)
+    trg_crs = agd.importEPSG(4326)
+    agd.createcoordtrans(src_crs, trg_crs) do transform
+        agd.transform!(geometry, transform)
+    end 
+    geom = agd.toWKT(geometry)
+    return geom[1:7] * replace( geom[9:end], " " => "%20" )
+end
+
+
+
 #||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 #                                                            DOWNLOAD DEI FILE XML COLLEGATI AI PRODOTTI
 #||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -113,14 +132,14 @@ end
 
 Obtain `maxNumber` XML description of products, starting from `start`, through `authToken`, returning the IOBuffer that contains them all
 """
-function getProductsBuffer( authToken::AbstractString; start::Integer=0, max::Union{Integer, Nothing} = nothing, last::Bool=false )
-# Definition of the components of The URL
-    aoi = "POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))"
-    query2 = "[NOW-6MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
+function getProductsBuffer( authToken::AbstractString; aoi::AbstractString="POLYGON((9.5000%2047.0000,%2014.0000%2047.0000,%2014.0000%2044.0000,%209.5000%2044.0000,%209.5000%2047.0000))",
+                            numMonths::Integer=6, start::Integer=0, max::Union{Integer, Nothing} = nothing, last::Bool=false )
+ # Definition of the components of The URL
+    query2 = "[NOW-$(numMonths)MONTHS%20TO%20NOW]%20AND%20footprint:\"Intersects($aoi)\""
     query = "search?start=0&rows=0&q=ingestiondate:$query2"
     iob = IOBuffer()
 
-# Get number of total products
+ # Get number of total products
     #Download the firs page (This way we can get the number we are interested in and also the first page that we would download anyway)
     Downloads.download( "https://scihub.copernicus.eu/dhus/$query", iob, headers = [ "Authorization" => "Basic $authToken" ] )
     lines = String(take!(iob))
@@ -134,7 +153,7 @@ function getProductsBuffer( authToken::AbstractString; start::Integer=0, max::Un
     end
 
     # Check if `maxNumber` has a sensible value
-    if !isnothing( max ) && max > 0 && max < val
+    if !isnothing(max) && max > 0 && max < val
         count = max
     end
 
@@ -145,9 +164,9 @@ function getProductsBuffer( authToken::AbstractString; start::Integer=0, max::Un
     count = [ count ÷ 100, count % 100 ]
 
 
-# Download the desired number pages and store the in an IOBuffer
+ # Download the desired number pages and store the in an IOBuffer
     if count[1] > 0
-        for i in range( 0, count[1] - 1, step=1 )
+        for i in 0:count[1]-1
             query = "search?start=$(start + ( i * 100 ))&rows=100&q=ingestiondate:$query2"
             Downloads.download( "https://scihub.copernicus.eu/dhus/$query", iob, headers = [ "Authorization" => "Basic $authToken" ] )
         end
@@ -173,7 +192,7 @@ function getProductsDicts( fileIO::IO )
     original = replace( String( take!(fileIO) ), "\n" => "" )
 
     # Split the downloaded files into pages
-    pages = split( original, r"<\?xml [^<>]+><[^<>]+>", keepempty=false )
+    pages = split(original, r"<\?xml [^<>]+><[^<>]+>", keepempty=false)
 
     # Split the result in a vector of ready-to-be-parsed strings representing single products
     vector = reduce( vcat, [ split( page, r"</?entry>", keepempty=false )[2:end-1] for page in pages ] )
@@ -183,11 +202,11 @@ function getProductsDicts( fileIO::IO )
 
     # Generate a vector of dictionaries containing the details for each product of the original page adding to each of them an additional value to account for the
         # original order of the data
-    return [push!(
+    return [ push!(
                 Dict( Symbol( join( prod[:opening][7] ) ) => parseConvert( join( prod[:type][1] ), join( prod[:content] ) ) for prod in products[i] ),
                 :orderNumber => i, 
             )
-            for i in 1:length(products)]
+            for i in 1:length(products) ]
 end
 
 #   dict = getProductsDicts(io)
@@ -203,32 +222,32 @@ end
 Generate the DataFrame containing the data of `maxNumber` products using `authToken`, if `maxNumber` is not specified, the df will include all available products,
 if `start` is specified the downloaded data will begin from that index
 """
-function getProductsDF( authToken::AbstractString; start::Integer = 0, max::Union{Integer, Nothing} = nothing, last::Bool=false )
-# Download "maxNumber" pages and return the buffer containing them
-    io = getProductsBuffer( authToken, start = start, max = max, last = last )
-# Create a vector of dictionaries of the products
-    dict_vect = getProductsDicts( io )
-# Obtain the existing subsets of attributes of the products
+function getProductsDF( authToken::AbstractString; aoi::AbstractString="", numMonths::Integer=6, start::Integer=0, max::Union{Integer, Nothing}=nothing, last::Bool=false )
+ # Download "maxNumber" pages and return the buffer containing them
+    io = getProductsBuffer(authToken, aoi=aoi, numMonths=numMonths, start=start, max=max, last=last)
+ # Create a vector of dictionaries of the products
+    dict_vect = getProductsDicts(io)
+ # Obtain the existing subsets of attributes of the products
     keys_groups = unique( keys.(dict_vect) )
-# Divide the dictionaries in groups homogeneus on their attributes
+ # Divide the dictionaries in groups homogeneus on their attributes
     grouped_vect = [ filter( x -> keys(x) == ks, dict_vect ) for ks in keys_groups ]
-# Turn each group in a DataFrame 
+ # Turn each group in a DataFrame 
     dfs_vect = DataFrame.(grouped_vect)
-# Merge all Dataframes using "DataFrames.append" to create a Dataframe with the union of all the possible columns and the right "missing" values 
+ # Merge all Dataframes using "DataFrames.append" to create a Dataframe with the union of all the possible columns and the right "missing" values 
     data = dfs_vect[1]
     for df in dfs_vect[2:end]
-        append!( data, df, cols=:union )
+        append!(data, df, cols=:union)
     end
 
-# Convert `footprint` e `gmlfootprint` columns in geometries
-    data[!, :footprint] = ArchGDAL.fromWKT.( data[:, :footprint] )
-    data[!, :gmlfootprint] = ArchGDAL.fromGML.( replace.( replace.( data[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
+ # Convert `footprint` e `gmlfootprint` columns in geometries
+    data[!, :footprint] = agd.fromWKT.( data[:, :footprint] )
+    data[!, :gmlfootprint] = agd.fromGML.( replace.( replace.( data[:, :gmlfootprint], "&lt;" => "<" ), "&gt;" => ">" ) )
 
-# Order the rows based on `orderNumber`, then remove said column
-    sort!(data, [:orderNumber] )
+ # Order the rows based on `orderNumber`, then remove said column
+    sort!( data, [:orderNumber] )
     select!( data, Not(:orderNumber) )
 
-# Create the column indicating wether a product has been downloaded 
+ # Create the column indicating wether a product has been downloaded 
     insertcols!( data, ( :available => fill( true, nrow(data) ) ) ),( :downloaded => fill( false, nrow(data) ) )
 
     return data
@@ -334,6 +353,24 @@ end
 #   odf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
 #   checkAvailabile()
 #   ndf = CSV.read( "C:\\Users\\Lenovo\\Documents\\GitHub\\Tirocinio\\Dati di prova\\data.csv", DataFrame )
+
+
+
+
+
+
+
+#   sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
+#   aoi = getAoi(sat_file)
+#   df = getProductsDF( authenticate("davidefavaro","Tirocinio"), aoi=aoi )
+#   idxs = []
+#   for month in 6:month(now())
+#       push!( idxs, findfirst( date -> month(date) == month, df[:, :beginposition] ) )
+#   end
+#   res = df[ idxs, : ]
+
+
+
 
 
 

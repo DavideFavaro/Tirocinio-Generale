@@ -473,6 +473,12 @@ using Plots
 import ArchGDAL as agd
 
 
+function flow( map::Matrix, sourceRow::Integer, sourceCol::Integer )
+    source = map[sourceRow, sourceCol]
+    
+end
+
+
 function flow!( map::AbstractArray, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
     if cicles <= 0
         return nothing
@@ -789,6 +795,30 @@ BenchmarkTools.Trial: 2 samples with 1 evaluation.
 
 
 
+function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # For each cell of the dem's band
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            # Indexes of adjacent cells
+            for (i, j) in indexes
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && !any( looseIn.( [(i, j), (-i, -j)], [mat[r, c], mat[r+i, c+j]] ) )
+                    if dem_band[r, c] > dem_band[r+i, c+j]
+                        push!( mat[r, c], (i, j, -1) )
+                        push!( mat[r+i, c+j], (-i, -j, 1) )
+                    elseif dem_band[r, c] < dem_band[r+i, c+j]
+                        push!( mat[r, c], (i, j, 1) )
+                        push!( mat[r+i, c+j], (-i, -j, -1) )
+                    else
+                        push!( mat[r, c], (i, j, 0) )
+                        push!( mat[r+i, c+j], (-i, -j, 0) )
+                    end
+                end
+            end
+        end
+    end
+end
 
 function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
@@ -852,13 +882,33 @@ using BenchmarkTools
 @benchmark mat = connectivity(test1, 4096, ndv)
 
 
+function f(x)
+    if x == 2
+        return [0]
+    else
+        a = x
+        b = x / 2
+        count = 0
+        while a > 0 && b > 0
+            if a % 10 == b % 10
+                count += 1
+                a /= 10
+                b /= 10
+            else
+                b /= 10
+            end
+        end
+        return push!( [count], f(x/2) )
+    end
+end
 
-@time mat = connectivity(band_mat, 2048, ndv)
-
-
+mat = connectivity(band_mat, 128, ndv)
+mat = nothing
+GC.gc()
 
 
 import ArchGDAL as agd
+
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 dtm = agd.readraster(dtm_file)
@@ -866,6 +916,7 @@ band = agd.getband(dtm, 1)
 band_mat = agd.read(band)
 ndv = agd.getnodatavalue(band)
 test1 = band[4001:5000, 6001:7000]
+test1b = band[4001:6050, 6001:8050]
 test2 = band[4501:4600, 6501:6600]
 test3 = band[4001:4005, 6001:6005]
 test4 = [ 10.0 10.0 10.0  3.0 10.0; 10.0 10.0  5.0 10.0 10.0; 10.0 10.0  8.0 10.0 10.0; 10.0 10.0  6.0  7.0 10.0; 10.0 10.0  4.0  6.0 10.0 ]
@@ -904,7 +955,7 @@ CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
 
 
 
-@time mat = direct_connectivity(band_mat, ndv)
+mat = connectivity(band_mat, 2048, ndv)
 rows, cols = size(mat)
 dtm2 = agd.read(dtm_file)
 refsys = agd.getproj(dtm2)
