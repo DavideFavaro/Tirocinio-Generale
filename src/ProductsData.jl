@@ -163,7 +163,6 @@ function getProductsBuffer( authToken::AbstractString; aoi::AbstractString="POLY
     end
     count = [ count ÷ 100, count % 100 ]
 
-
  # Download the desired number pages and store the in an IOBuffer
     if count[1] > 0
         for i in 0:count[1]-1
@@ -357,19 +356,44 @@ end
 
 
 
-
-
+# :footprint o :gmlfootprint ci dovrebbero dare il poligono
+#= La selezione dei prodotti potrebbe avvenire inbase a:
+    - :processinglevel / :productlevel ( livello 2A )
+    - :instrumentname / :instrumentshortname
+    - :size
+    - :cloudcoverpercentage + :platformname ( cc minima per Sentinel-2A )
+    - :status ?
+    - :available
+=#
 
 #   sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
 #   aoi = getAoi(sat_file)
 #   df = getProductsDF( authenticate("davidefavaro","Tirocinio"), aoi=aoi )
-#   idxs = []
-#   for month in 6:month(now())
-#       push!( idxs, findfirst( date -> month(date) == month, df[:, :beginposition] ) )
-#   end
+#
+# PRENDERE IL PRIMO PRODOTTO PER OGNI MESE POTREBBE NON ESSERE UNA BUON IDEA
+#   idxs = [ findfirst( date -> month(date) == m, df[:, :beginposition] ) for m in month( now() - Month(6) ) : month( now() ) ]
+#
 #   res = df[ idxs, : ]
+#
+#   aoi_geom = agd.fromWKT( replace(aoi, "%20" => " ") )
+#   
+#   intersections = agd.intersection.()
 
-
+function downloadProduct( authentication::AbstractString, aoi_path::AbstractString, num::Integer, from::Integer, to::Integer )
+    aoi = getAoi(aoi_path)
+ # DA AGGIUNGERE LA POSSIBILITA' DI SPECIFICARE IL MESE DA CUI INIZIARE A PRENDERE I PRODOTTI
+    df = getProductsDF( authentication, aoi=aoi, numMonths=to )
+    idxs = []
+    condition( date, platform, clouds, level, m ) = month(date) == m && (platform != "Sentinel-2" || ( !ismissing(clouds) && clouds < 30.0 )) && !ismissing(level) && level == "L2"
+    for m in month( now() - Month(6) ) : month( now() )
+        ind = 1
+        for i in 1:num
+            ind = findfirst( d, p, c, l -> condition(d, p, c, l, m), eachrow(df[ ind:end, [:beginposition, :platformname, :cloudcoverpercentage, :productlevel] ]) )
+            push!(idxs, ind)
+            ind += 1
+        end
+    end
+end
 
 
 

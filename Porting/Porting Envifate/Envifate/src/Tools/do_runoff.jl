@@ -803,16 +803,24 @@ function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{I
         if dem_band[r, c] != noDataValue
             # Indexes of adjacent cells
             for (i, j) in indexes
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && !any( looseIn.( [(i, j), (-i, -j)], [mat[r, c], mat[r+i, c+j]] ) )
-                    if dem_band[r, c] > dem_band[r+i, c+j]
-                        push!( mat[r, c], (i, j, -1) )
-                        push!( mat[r+i, c+j], (-i, -j, 1) )
-                    elseif dem_band[r, c] < dem_band[r+i, c+j]
-                        push!( mat[r, c], (i, j, 1) )
-                        push!( mat[r+i, c+j], (-i, -j, -1) )
-                    else
-                        push!( mat[r, c], (i, j, 0) )
-                        push!( mat[r+i, c+j], (-i, -j, 0) )
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                    if !looseIn((i, j), mat[r, c])    
+                        if dem_band[r, c] > dem_band[r+i, c+j]
+                            push!( mat[r, c], (i, j, -1) )
+                        elseif dem_band[r, c] < dem_band[r+i, c+j]
+                            push!( mat[r, c], (i, j, 1) )
+                        else
+                            push!( mat[r, c], (i, j, 0) )
+                        end
+                    end
+                    if !looseIn((-i, -j), mat[r+i, c+j])
+                        if dem_band[r, c] > dem_band[r+i, c+j]
+                            push!( mat[r+i, c+j], (-i, -j, 1) )
+                        elseif dem_band[r, c] < dem_band[r+i, c+j]
+                            push!( mat[r+i, c+j], (-i, -j, -1) )
+                        else
+                            push!( mat[r+i, c+j], (-i, -j, 0) )
+                        end
                     end
                 end
             end
@@ -820,7 +828,7 @@ function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{I
     end
 end
 
-function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # For each cell of the dem's band
@@ -858,53 +866,47 @@ function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Re
     end
     for i in 1:n, j in 1:m
         # Find the starting and ending indexes for the current slice of the matrix
-         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension 
+         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
+        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
+        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
         # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
         connectivity_batch!(
+ #= IL TIPO DEL VETTORE CHE CONTIENE mat E dem_band NON E' STABILE
             view.(
                 [mat, dem_band],
                 Ref( ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows ) ),
                 Ref( ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols ) )
             )...,
-            noDataValue
-        )
+ =#
+            view(mat, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+    end
+    return mat
+end
+
+function X_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
+    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, rows, cols)
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
+        end
+    end
+    for i in 1:n, j in 1:m
+        # Find the starting and ending indexes for the current slice of the matrix
+         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
+        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
+        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
+        # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
+        X_connectivity_batch!( view(mat, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
     end
     return mat
 end
 
 
-using BenchmarkTools
-
-@code_warntype connectivity(test1, 2048, ndv)
-
-@time mat = connectivity(test1, 2048, ndv)
-
-@benchmark mat = connectivity(test1, 4096, ndv)
 
 
-function f(x)
-    if x == 2
-        return [0]
-    else
-        a = x
-        b = x / 2
-        count = 0
-        while a > 0 && b > 0
-            if a % 10 == b % 10
-                count += 1
-                a /= 10
-                b /= 10
-            else
-                b /= 10
-            end
-        end
-        return push!( [count], f(x/2) )
-    end
-end
 
-mat = connectivity(band_mat, 128, ndv)
-mat = nothing
-GC.gc()
 
 
 import ArchGDAL as agd
@@ -924,6 +926,107 @@ test5 = [ 1.0  ndv 10.0  3.0 10.0; 10.0  ndv  5.0 10.0 10.0; ndv 10.0  8.0 10.0 
 
 
 
+mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, 1000, 1000)
+for r in 1:5, c in 1:5
+    if test1[r, c] != ndv
+        mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
+    end
+end
+
+
+
+using BenchmarkTools
+
+@code_warntype connectivity_batch!( mat, test5, ndv )
+@code_warntype X_connectivity_batch!( mat, test5, ndv )
+
+@code_warntype connectivity(test5, 5, ndv)
+@code_warntype X_connectivity(test5, 5, ndv)
+
+
+dim = 2048
+
+@time mat = connectivity(test1b, dim, ndv)
+@time mat = X_connectivity(test1b, dim, ndv)
+
+@benchmark mat = connectivity(test1b, dim, ndv)
+@benchmark mat = X_connectivity(test1b, dim, ndv)
+
+mat = nothing
+GC.gc()
+
+
+
+@time mat = connectivity( band_mat, 1024, ndv )
+@time mat = X_connectivity( band_mat, 1024, ndv )
+
+
+
+#=
+test1b
+    256
+        time
+            1.415754 seconds (5.65 M allocations: 764.729 MiB, 29.85% gc time)
+
+            0.831210 seconds (3.92 M allocations: 421.320 MiB, 42.32% gc time)
+
+        benchmark
+            BenchmarkTools.Trial: 3 samples with 1 evaluation.
+            Range (min … max):  1.671 s …    2.135 s  ┊ GC (min … max): 42.34% … 42.65%
+            Time  (median):     1.862 s               ┊ GC (median):    46.38%
+            Time  (mean ± σ):   1.889 s ± 233.568 ms  ┊ GC (mean ± σ):  43.78% ±  2.25%
+            Memory estimate: 764.73 MiB, allocs estimate: 5648918.
+
+            BenchmarkTools.Trial: 7 samples with 1 evaluation.
+            Range (min … max):  506.997 ms …    1.063 s  ┊ GC (min … max):  0.00% … 52.39%
+            Time  (median):     730.994 ms               ┊ GC (median):    33.78%
+            Time  (mean ± σ):   798.933 ms ± 192.962 ms  ┊ GC (mean ± σ):  36.31% ± 16.76%
+            Memory estimate: 421.32 MiB, allocs estimate: 3917713.
+    
+    1024
+        time
+            1.511550 seconds (5.65 M allocations: 764.716 MiB, 34.69% gc time)
+
+            0.891455 seconds (3.92 M allocations: 421.307 MiB, 43.98% gc time)
+            
+        benchmark
+            BenchmarkTools.Trial: 3 samples with 1 evaluation.
+            Range (min … max):  1.848 s …   2.010 s  ┊ GC (min … max): 42.80% … 42.39%
+            Time  (median):     1.934 s              ┊ GC (median):    44.05%
+            Time  (mean ± σ):   1.931 s ± 81.007 ms  ┊ GC (mean ± σ):  43.13% ±  0.95%
+            Memory estimate: 764.72 MiB, allocs estimate: 5648846.
+
+            BenchmarkTools.Trial: 7 samples with 1 evaluation.
+            Range (min … max):  501.153 ms …    1.011 s  ┊ GC (min … max):  0.00% … 50.24%
+            Time  (median):     748.714 ms               ┊ GC (median):    31.93%
+            Time  (mean ± σ):   774.821 ms ± 168.350 ms  ┊ GC (mean ± σ):  35.65% ± 16.72%
+            Memory estimate: 421.31 MiB, allocs estimate: 3917641.
+
+    2048
+        time
+            1.565435 seconds (5.65 M allocations: 764.715 MiB, 34.72% gc time)
+
+            0.907934 seconds (3.92 M allocations: 421.306 MiB, 42.38% gc time)
+
+        benchmark
+            BenchmarkTools.Trial: 3 samples with 1 evaluation.
+            Range (min … max):  2.009 s …   2.126 s  ┊ GC (min … max): 46.20% … 39.91%
+            Time  (median):     2.062 s              ┊ GC (median):    41.14%
+            Time  (mean ± σ):   2.066 s ± 58.489 ms  ┊ GC (mean ± σ):  42.20% ±  3.43%
+            Memory estimate: 764.72 MiB, allocs estimate: 5648841.
+
+            BenchmarkTools.Trial: 5 samples with 1 evaluation.
+            Range (min … max):  640.191 ms …    1.528 s  ┊ GC (min … max):  0.00% … 60.09%
+            Time  (median):        1.044 s               ┊ GC (median):    41.98%
+            Time  (mean ± σ):      1.060 s ± 335.365 ms  ┊ GC (mean ± σ):  44.70% ± 23.43%
+            Memory estimate: 421.31 MiB, allocs estimate: 3917636.
+
+full dtm
+    256
+        time
+            2429.382277 seconds (59.62 M allocations: 7.986 GiB, 86.59% gc time, 0.02% compilation time)
+=#
+
 
 
 using DataFrames
@@ -941,8 +1044,9 @@ using CSV
 @time dmat = direct_connectivity(band_mat, ndv)
 
 
-df = DataFrame(dmat, :auto)
+df = DataFrame(mat, :auto)
 CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
+CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
 
 
 
