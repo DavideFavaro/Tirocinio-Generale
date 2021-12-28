@@ -458,15 +458,9 @@ end
 
 
 
-#   using ArchGDAL
-#   if !(@isdefined agd)
-#       const agd = ArchGDAL
-#   end
-#   using Plots
-#   using WhereTheWaterFlows
-#   if !(@isdefined wtwf)
-#       const wtwf = WhereTheWaterFlows
-#   end
+
+
+
 
 
 using Plots
@@ -600,54 +594,6 @@ flow!( mat, test3, 3, 3, ndv, 50 )
 
 
 
-#= VERSIONI VECCHIE
-    function connectivity( dem_band, noDataValue::Real )
-        rows, cols = size(dem_band)
-        mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
-        indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-        # For each cell of the dem's band
-        for r in 1:rows, c in 1:cols
-            if dem_band[r, c] != noDataValue
-                mat[r, c] = [
-                    ( r+i, c+j, dem_band[r, c] > dem_band[r+i, c+j] ? -1 : dem_band[r, c] < dem_band[r+i, c+j] ? 1 : 0 )
-                    for (i,j) in indexes
-                        if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                ]
-            end
-    #      if r % 1000 == 0 && r == c
-    #          println("Cell ($r, $c) Done!")
-    #      end 
-        end
-        return mat
-    end
-
-    @code_warntype connectivity(test2, ndv)
-
-
-    function direct_connectivity( dem_band, noDataValue::Real )
-        rows, cols = size(dem_band)
-        mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
-        indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-        # For each cell of the dem's band
-        for r in 1:rows, c in 1:cols
-            if dem_band[r, c] != noDataValue
-                mat[r, c] = [
-                    (r+i, c+j)
-                    for (i,j) in indexes
-                        if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) &&
-                            dem_band[r+i, c+j] != noDataValue && dem_band[r, c] > dem_band[r+i, c+j]
-                ]
-            end
-    #      if r % 1000 == 0 && r == c
-    #          println("Cell ($r, $c) Done!")
-    #      end 
-        end
-        return mat
-    end
-
-    @code_warntype direct_connectivity(test2, ndv)
-=#
-
 
 # VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
 function looseIn( tuple::Tuple{T1, T1}, tuples::Vector{ Tuple{T1, T1, T2} } ) where {T1 <: Number, T2 <: Number}
@@ -659,142 +605,6 @@ function looseIn( tuple::Tuple{T1, T1}, tuples::Vector{ Tuple{T1, T1, T2} } ) wh
     return false
 end
 
-function connectivity( dem_band, noDataValue::Real )
-    rows, cols = size(dem_band)
-    # Create the resulting matrix
-    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64, Int64} } } }(missing, rows, cols)
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = Vector{ Tuple{Int64, Int64, Int64} }()
-        end
-    end
-    # Indexes of adjacent cells
-    indexes = [ (-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1) ]
-    # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            for (i, j) in indexes
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && !looseIn( (r+i, c+j), mat[r, c] ) 
-                    if dem_band[r, c] > dem_band[r+i, c+j]
-                        push!( mat[r, c], (r+i, c+j, -1) )
-                        push!( mat[r+i, c+j], (r, c, 1) )
-                    elseif dem_band[r, c] == dem_band[r+i, c+j]
-                        push!( mat[r, c], (r+i, c+j, 0) )
-                        push!( mat[r+i, c+j], (r, c, 0) )
-                    else
-                        push!( mat[r, c], (r+i, c+j, 1) )
-                        push!( mat[r+i, c+j], (r, c, -1) )
-                    end
-                end
-            end
-        end
-        if r % 1000 == 0 && r == c
-            println("Cell ($r, $c) Done!")
-        end 
-    end
-    return mat
-end
-
-
-#=
-function direct_connectivity( dem_band::Matrix{T}, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    # Create the resulting matrix
-    mat = Array{ Union{ Missing, Vector{ Tuple{Int64, Int64} } } }(missing, rows, cols)
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = Vector{ Tuple{Int64, Int64} }()
-        end
-    end
-    # Indexes of adjacent cells
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-    # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            for (i, j) in indexes
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue && (r+i, c+j) ∉ mat[r, c] 
-                    if dem_band[r, c] > dem_band[r+i, c+j]
-                        push!( mat[r, c], (r+i, c+j) )
-                    end
-                    if dem_band[r, c] < dem_band[r+i, c+j]
-                        push!( mat[r+i, c+j], (r, c) )
-                    end
-                end
-            end
-        end
-        if r % 1000 == 0 && r == c
-            println("Cell ($r, $c) Done!")
-        end 
-    end
-    return mat
-end
-=#
-function direct_connectivity( dem_band::Matrix{T}, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    # Create the resulting matrix
-    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32}} } }(missing, rows, cols)
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
-        end
-    end
-    # Indexes of adjacent cells
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-    # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            for (i, j) in indexes
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    res = dem_band[r, c] - dem_band[r+i, c+j]
-                    if res > 0 && !looseIn( (i, j), mat[r, c] )
-                        push!(mat[r, c], (i, j, res))
-                    end
-                    if res < 0  && !looseIn( (-i, -j), mat[r+i, c+j] )
-                        push!(mat[r+i, c+j], (-i, -j, -res))
-                    end
-                end
-            end
-        end
- #      if r % 1000 == 0 && r == c
- #          println("Cell ($r, $c) Done!")
-    end
-    return mat
-end
-
-@code_warntype direct_connectivity(test1, ndv)
-
-# DataLoaders
-
-dummy = [ x+y for x in 1:512, y in 1:512 ]
-#= 0.063901 seconds (524.29 k allocations: 50.000 MiB)
-BenchmarkTools.Trial: 74 samples with 1 evaluation.
- Range (min … max):  44.982 ms … 114.718 ms  ┊ GC (min … max):  0.00% … 44.64%
- Time  (median):     65.009 ms               ┊ GC (median):     0.00%
- Time  (mean ± σ):   67.607 ms ±  17.334 ms  ┊ GC (mean ± σ):  13.85% ± 18.12%
-
- Memory estimate: 50.00 MiB, allocs estimate: 524290.
-=#
-dummy = [ x+y for x in 1:1024, y in 1:1024 ]
-#= 0.721008 seconds (2.26 M allocations: 209.911 MiB, 38.84% gc time, 12.09% compilation time)
-BenchmarkTools.Trial: 12 samples with 1 evaluation.
- Range (min … max):  348.647 ms … 586.164 ms  ┊ GC (min … max):  0.00% … 36.82%
- Time  (median):     431.355 ms               ┊ GC (median):    11.38%
- Time  (mean ± σ):   448.153 ms ±  91.769 ms  ┊ GC (mean ± σ):  18.57% ± 16.71%
-=#
-dummy = [ x+y for x in 1:2048, y in 1:2048 ]
-#= 3.282289 seconds (8.39 M allocations: 800.000 MiB, 30.46% gc time)
-BenchmarkTools.Trial: 2 samples with 1 evaluation.
- Range (min … max):  2.720 s …    3.315 s  ┊ GC (min … max): 18.03% … 30.56%
- Time  (median):     3.017 s               ┊ GC (median):    24.91%
- Time  (mean ± σ):   3.017 s ± 420.857 ms  ┊ GC (mean ± σ):  24.91% ±  8.87%
-=#
-@time mat = direct_connectivity(dummy ,ndv)
-@benchmark mat = direct_connectivity(dummy ,ndv)
-
-
-
-
-
 function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -804,16 +614,21 @@ function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{I
             # Indexes of adjacent cells
             for (i, j) in indexes
                 if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if !looseIn((i, j), mat[r, c])    
-                        if dem_band[r, c] > dem_band[r+i, c+j]
+                    if !looseIn((i, j), mat[r, c])
+<<<<<<< HEAD
+                     #= E' INUTILE FARE CONTROLLI E POI INSERIRE UN VALORE POCO INFORMATIVO SI PUO' INSERIRE DEIRETTAMENTE LA DIFFERENZA DI ALTEZZA E CAPIRE SE E' IN ENTRATA O
+                        if dem_band[r, c] > dem_band[r+i, c+j]      USCITA GUARDANDO IL SEGNO
                             push!( mat[r, c], (i, j, -1) )
                         elseif dem_band[r, c] < dem_band[r+i, c+j]
                             push!( mat[r, c], (i, j, 1) )
                         else
                             push!( mat[r, c], (i, j, 0) )
                         end
+                     =#
+                        push!( mat[r, c], ( i, j, dem_band[r+i, c+j] - dem_band[r, c] ) )
                     end
                     if !looseIn((-i, -j), mat[r+i, c+j])
+                     #=
                         if dem_band[r, c] > dem_band[r+i, c+j]
                             push!( mat[r+i, c+j], (-i, -j, 1) )
                         elseif dem_band[r, c] < dem_band[r+i, c+j]
@@ -821,32 +636,18 @@ function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{I
                         else
                             push!( mat[r+i, c+j], (-i, -j, 0) )
                         end
-                    end
-                end
-            end
-        end
-    end
-end
-
-function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-    # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            # Indexes of adjacent cells
-            for (i, j) in indexes
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if dem_band[r, c] > dem_band[r+i, c+j] && !looseIn( (i, j), mat[r, c] )
+                     =#
+                        push!( mat[r+i, c+j], ( -i, -j, dem_band[r, c] - dem_band[r+i, c+j] ) )
+=======
                         push!(
                             mat[r, c],
-                            ( i, j, dem_band[r, c] - dem_band[r+i, c+j] )
+                            ( i, j, dem_band[r+i, c+j] - dem_band[r, c] )
                         )
                     end
-                    if dem_band[r, c] < dem_band[r+i, c+j] && !looseIn( (-i, -j), mat[r+i, c+j] )
+                    if !looseIn((-i, -j), mat[r+i, c+j])
                         push!(
                             mat[r+i, c+j],
-                            ( -i, -j, -(dem_band[r, c] - dem_band[r+i, c+j]) )
+                            ( -i, -j, dem_band[r+i, c+j] - dem_band[r, c] )
                         )
                     end
                 end
@@ -883,6 +684,95 @@ function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Re
     return mat
 end
 
+
+
+function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # For each cell of the dem's band
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            # Indexes of adjacent cells
+            for (i, j) in indexes
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                    if dem_band[r, c] > dem_band[r+i, c+j] && !looseIn( (i, j), mat[r, c] )
+                        push!(
+                            mat[r, c],
+                            ( i, j, dem_band[r, c] - dem_band[r+i, c+j] )
+                        )
+                    end
+                    if dem_band[r, c] < dem_band[r+i, c+j] && !looseIn( (-i, -j), mat[r+i, c+j] )
+                        push!(
+                            mat[r+i, c+j],
+                            ( -i, -j, -(dem_band[r, c] - dem_band[r+i, c+j]) )
+                        )
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
+                    end
+                end
+            end
+        end
+    end
+end
+
+<<<<<<< HEAD
+function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
+    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, rows, cols)
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
+        end
+    end
+    for i in 1:n, j in 1:m
+        # Find the starting and ending indexes for the current slice of the matrix
+         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
+        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
+        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
+        # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
+        connectivity_batch!(
+ #= IL TIPO DEL VETTORE CHE CONTIENE mat E dem_band NON E' STABILE
+            view.(
+                [mat, dem_band],
+                Ref( ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows ) ),
+                Ref( ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols ) )
+            )...,
+ =#
+            view(mat, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+    end
+    return mat
+end
+
+
+function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # For each cell of the dem's band
+    for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            # Indexes of adjacent cells
+            for (i, j) in indexes
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                    if dem_band[r, c] > dem_band[r+i, c+j] && !looseIn( (i, j), mat[r, c] )
+                        push!(
+                            mat[r, c],
+                            ( i, j, dem_band[r, c] - dem_band[r+i, c+j] )
+                        )
+                    end
+                    if dem_band[r, c] < dem_band[r+i, c+j] && !looseIn( (-i, -j), mat[r+i, c+j] )
+                        push!(
+                            mat[r+i, c+j],
+                            ( -i, -j, -(dem_band[r, c] - dem_band[r+i, c+j]) )
+                        )
+                    end
+                end
+            end
+        end
+    end
+end
+
+=======
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
 function X_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
@@ -912,7 +802,7 @@ end
 import ArchGDAL as agd
 
 
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 dtm = agd.readraster(dtm_file)
 band = agd.getband(dtm, 1)
 band_mat = agd.read(band)
@@ -957,7 +847,7 @@ GC.gc()
 
 
 
-@time mat = connectivity( band_mat, 1024, ndv )
+@time mat = connectivity( band_mat, 2048, ndv )
 @time mat = X_connectivity( band_mat, 1024, ndv )
 
 
@@ -1045,7 +935,7 @@ using CSV
 
 
 df = DataFrame(mat, :auto)
-CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
+CSV.write("D:\\Connectivity Matrix\\connectivity.csv", df)
 CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
 
 
@@ -1054,27 +944,46 @@ CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
 
 
 
+<<<<<<< HEAD
+=======
 
 
+import ArchGDAL as agd
 
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
+include("../Library/Functions.jl")
 
 
 mat = connectivity(band_mat, 2048, ndv)
+<<<<<<< HEAD
+mat = CSV.read( "D:\\Connectivity Matrix\\connectivity.csv", DataFrame )
+=======
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
+
 rows, cols = size(mat)
 dtm2 = agd.read(dtm_file)
 refsys = agd.getproj(dtm2)
-minX, maxY = Functions.toCoords(dtm2, 1, 8440)
-# maxX, minY = Functions.toCoords(dtm2, 4600, 6501)
-a,b = Functions.getCellDims(dtm2)
+geotransform = agd.getgeotransform(dtm2)
+#=
+#   minX, maxY = Functions.getSidesDistances(dtm2)
+minX, maxY = Functions.toCoords(dtm2, 4001, 7000)
+a, b = Functions.getCellDims(dtm2)
+=#
 gtiff_driver = agd.getdriver("GTiff")
 
-target_ds = agd.create( ".\\connectivity.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 )
+<<<<<<< HEAD
+target_ds = agd.create( "D:\\Connectivity Matrix\\connectivity.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 )
 agd.setgeotransform!( target_ds, [ minX, a, 0.0, maxY, 0.0, b ] )
+=======
+target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 )
+#   agd.setgeotransform!( target_ds, [ minX, a, 0.0, maxY, 0.0, b ] )
+agd.setgeotransform!( target_ds, geotransform )
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
 agd.setproj!( target_ds, refsys )
 valNoData = -9999.0
-bands = [ agd.getband( target_ds, i ) for i in 1:8 ] 
+bands = [ agd.getband( target_ds, i ) for i in 1:8 ]
 agd.setnodatavalue!.(bands, valNoData)
-agd.fillraster!.(bands, valNoData)
+agd.fillraster!.(bands, 0.0)
 band_mats = agd.read.(bands)
 
 index_dict = Dict( 
@@ -1087,19 +996,31 @@ index_dict = Dict(
     (1, 0)   => 7,
     (1, 1)   => 8
 )
-for r in 1:1000, c in 1:1000
-    if iesmpty(mat[r,c])
+
+<<<<<<< HEAD
+
+for r in 1:rows, c in 1:cols
+    if ismissing(mat[r, c])
         for i in 1:8
-            bands_mat[i][r, c] = 0
+            band_mats[i][r, c] = -9999.0
         end
     else
-        if !ismissing(mat[r, c])
-            for (i, j, res) in mat[r, c]
-                band_mats[ index_dict[(i, j)] ][r, c] = res
-            end
+        for (ri, ci, val) in mat[r, c]
+            band_mats[ index_dict[(ri, ci)] ][r, c] = val
+=======
+for r in 1:rows, c in 1:cols
+    if !ismissing(mat[r, c]) && !isempty(mat[r, c])
+        for (i, j, val) in mat[r, c]
+            band_mats[ index_dict[(i, j)] ][r, c] = val
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
         end
     end
 end
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
 for i in 1:8
     agd.write!( target_ds, band_mats[i], i )
 end
@@ -1109,20 +1030,96 @@ agd.destroy(target_ds)
 
 
 
-
-
-
-
+<<<<<<< HEAD
         
+=======
+
+
+function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractString )
+    mat = connectivity(band_mat, 2048, ndv)
+    dtm = agd.read(dtm_path)
+    rows, cols = size(mat)
+    res = agd.create( file, driver=agd.getdriver("GTiff"), width=rows, height=cols, nbands=8, dtype=Float32 )
+    agd.setgeotransform!( res, agd.getgeotransform(dtm) )
+    agd.setproj!( res, agd.getproj(dtm) )
+    valNoData = agd.getnodatavalue(dtm)
+    bands = [ agd.getband( res, i ) for i in 1:8 ]
+    agd.setnodatavalue!.(bands, valNoData)
+    agd.fillraster!.(bands, valNoData)
+    band_mats = agd.read.(bands)
+
+    index_dict = Dict( 
+        (-1, -1) => 1,
+        (-1, 0)  => 2,
+        (-1, 1)  => 3,
+        (0, -1)  => 4,
+        (0, 1)   => 5,
+        (1, -1)  => 6,
+        (1, 0)   => 7,
+        (1, 1)   => 8
+    )
+
+    for r in 1:rows, c in 1:cols
+        if !ismissing(mat[r, c]) && !isempty(mat[r, c])
+            for (i, j, val) in mat[r, c]
+                band_mats[ index_dict[(i, j)] ][r, c] = val
+            end
+        end
+    end
+
+    for i in 1:8
+        agd.write!( target_ds, band_mats[i], i )
+    end
+
+    agd.destroy(target_ds)
+end
+
+>>>>>>> 4113488a3fedf57148afd3191de998b6eb083165
 
 
 
+#= TENTATIVO DI SISTEMARE IL TIFF
+    import ArchGDAL as agd
 
+    dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+    dtm = agd.read(dtm_file)
+    res = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.tiff")
 
+    dtm_band = agd.getband(dtm, 1)
+    dtm_band_mat = agd.read(dtm_band)
 
+    res_bands = [ agd.getband(res, i) for i in 1:8 ]
+    res_band_mats = agd.read.(res_bands) 
 
+    rows, cols = size(dtm_band)
+    refsys = agd.getproj(dtm)
+    geotransform = agd.getgeotransform(dtm)
+    gtiff_driver = agd.getdriver("GTiff")
 
+    target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 ) 
+    agd.setgeotransform!( target_ds, geotransform )
+    agd.setproj!( target_ds, refsys )
+    valNoData = -9999.0
+    bands = [ agd.getband( target_ds, i ) for i in 1:8 ]
+    agd.setnodatavalue!.(bands, valNoData)
+    agd.fillraster!.(bands, valNoData)
+    band_mats = agd.read.(bands)
 
+    #=
+    for i in 1:8
+        for r in 1:rows, c in 1:cols
+            if res_band_mats != 0.0
+                band_mats[i][r, c] = res_band_mats[i][r, c]
+            end
+        end
+    end
+    =#
+    for i in 1:8
+        agd.write!( target_ds, res_band_mats[i], i )
+    end
+
+    agd.destroy(target_ds)
+=#
 
 
 
