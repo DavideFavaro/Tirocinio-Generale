@@ -134,6 +134,50 @@ end
 
 
 
+
+#=
+    def help(self):
+        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
+        #QMessageBox.about(self.dlg,"Credits", self.credits )
+        if platform.uname()[0]=="Windows":
+            os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_sedimentazione_marina.pdf")
+        if platform.uname()[0]=="Linux":
+            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_sedimentazione_marina.pdf")
+        else:
+            # pyqtRemoveInputHook()
+            # pdb.set_trace()
+            os.system("open "+os.path.join(os.path.dirname(__file__), "../tutorial/manuale_envifate_sedimentazione_marina.pdf"))
+
+
+    def popolacombo(self):
+        self.progressBar.setValue(0)
+        self.combo_source.clear()
+        self.combo_bound.clear()
+        self.combo_maindirwind.clear()
+        self.line_output.clear()
+
+        self.allLayers = self.canvas.layers()
+        self.listalayers=dict()
+        elementovuoto="No file"
+
+        for i in self.allLayers:
+            self.listalayers[i.name()]=i
+            if i.type() == QgsMapLayer.VectorLayer:
+                self.combo_source.addItem(str(i.name()))
+                self.combo_bound.addItem(str(i.name()))
+
+
+        self.combo_maindirwind.addItem("N")
+        self.combo_maindirwind.addItem("NE")
+        self.combo_maindirwind.addItem("E")
+        self.combo_maindirwind.addItem("SE")
+        self.combo_maindirwind.addItem("S")
+        self.combo_maindirwind.addItem("SW")
+        self.combo_maindirwind.addItem("W")
+        self.combo_maindirwind.addItem("NW")
+=#
+
+
                     #                                     v                      h                 dx                        dy                        q                   dir
 function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u

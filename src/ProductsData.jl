@@ -379,69 +379,21 @@ end
 #   
 #   intersections = agd.intersection.()
 
-function downloadProduct( authentication::AbstractString, aoi_path::AbstractString, num_per_month::Integer, from::Integer, to::Integer )
+function downloadProduct( authentication::AbstractString, aoi_path::AbstractString, num::Integer, from::Integer, to::Integer )
     aoi = getAoi(aoi_path)
  # DA AGGIUNGERE LA POSSIBILITA' DI SPECIFICARE IL MESE DA CUI INIZIARE A PRENDERE I PRODOTTI
     df = getProductsDF( authentication, aoi=aoi, numMonths=to )
     idxs = []
-    condition( date, platform, clouds, level, m, sat ) = month(date) == m && platform == sat && (platform != "Sentinel-2" || ( !ismissing(clouds) && clouds < 30.0 )) && !ismissing(level) && level == "L2"
+    condition( date, platform, clouds, level, m ) = month(date) == m && (platform != "Sentinel-2" || ( !ismissing(clouds) && clouds < 30.0 )) && !ismissing(level) && level == "L2"
     for m in month( now() - Month(6) ) : month( now() )
         ind = 1
-        for i in 1:num_per_month
-            for sat in ["Sentinel-1", "Sentinel-2", "Sentinel-3"]
-                first = findfirst( row -> condition(row..., m, sat), eachrow( df[ ind:end, [:beginposition, :platformname, :cloudcoverpercentage, :productlevel] ] ) )
-                if !isnothing(first)
-                    ind = first 
-                    push!(idxs, first)
-                    ind += 1
-                end
-            end
+        for i in 1:num
+            ind = findfirst( d, p, c, l -> condition(d, p, c, l, m), eachrow(df[ ind:end, [:beginposition, :platformname, :cloudcoverpercentage, :productlevel] ]) )
+            push!(idxs, ind)
+            ind += 1
         end
     end
-    return df[idxs, :]
 end
-
-# SI OTTENGONO SOLO Sentinel-3 PERCHE' TUTTI GLI ALTRI PRODOTTI HANNO :productlevel missing
-# PER MESE 6 SI HANNO SOLO Sentinel-3
-
-
-
-#   dir = "C:\\Users\\DAVIDE-FAVARO\\Desktop"
-#   authToken = authenticate("davidefavaro","Tirocinio")
-#   sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
-#   res = downloadProduct( authToken, sat_file, 1, 12, 6 )
-#= 
-    for id in res[:, :uuid]
-        Downloads.download( "https://scihub.copernicus.eu/dhus/odata/v1/Products('$id')/\$value", dir*"\\$id", headers = [ "Authorization" => "Basic $authToken" ] )
-    end
-=#
-# ArchGDAL NON HA UN DRIVER PER LEGGERE I FILE .nc
-
-
-
-
-# @code_warntype res = downloadProduct( authToken, sat_file, 1, 12, 6 )
-
-
-
-
-
-
-# Spiegazione di sta roba a https://rafaqz.github.io/Rasters.jl/stable/#Polygon-masking,-mosaic-and-plot
-
-using Rasters
-using Shapefile
-
-sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
-ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1409_S3B_SL_1_RBT"
-files = ncdf_files * "\\" .* readdir(ncdf_files)[1:end-1]
-
-shape = Shapefile.Handle(sat_file).shapes[1]
-ndcf = Rasters.RasterStack(files)
-
-
-
-
 
 
 
