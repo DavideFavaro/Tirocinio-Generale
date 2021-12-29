@@ -25,7 +25,6 @@ module Runoffs
 
 
 import ArchGDAL as agd
-using ArgParse
 using Dates
 
 include("../Library/Functions.jl")
@@ -103,497 +102,11 @@ end
         zvalue=zresult[1]
         return(zvalue)
 =#
-#=
-    def run_runoff(self):
-        self.text_vector = str(self.combo_source.currentText())
-        self.text_area = str(self.combo_bound.currentText())
-        self.text_dem = str(self.combo_dem.currentText())
-        self.text_lc = str(self.combo_lc.currentText())
-        self.text_lcfield = str(self.combofield_lc.currentText())
-        self.text_p = str(self.combo_fieldp.currentText())
-        self.text_target = str(self.combo_target.currentText())
-        self.text_targetfield = str(self.combofield_target.currentText())
-        self.text_lcfield = str(self.combofield_lc.currentText())
-        self.text_soil = str(self.combo_soil.currentText())
-        self.text_soilfield = str(self.combofield_soil.currentText())
 
-        self.res=int(self.spinRes.text())
 
 
 
-
-
-
-        # wkbType: 1:point, 6:multipolygon, 2: Linestring
-
-        self.dem=self.listalayers[self.text_dem]
-
-        if not self.dem.isValid():
-            QMessageBox.warning(self,"Warning", "The dem file is not valid" )
-            return
-
-        self.source=self.listalayers[self.text_vector]
-
-        if self.source.wkbType()!=1:
-            QMessageBox.warning(self,"Warning", "The source file must have point geometry" )
-            return
-
-        self.areastudio=self.listalayers[self.text_area]
-
-
-        if self.areastudio.wkbType()!=6:
-            QMessageBox.warning(self,"Warning", "The boundaries file must have polygon geometry" )
-            return
-
-        self.target=self.listalayers[self.text_target]
-
-        if self.target.wkbType()!=6:
-            QMessageBox.warning(self,"Warning", "L'area target deve avere geometria poligonale" )
-            return
-
-        self.lc=self.listalayers[self.text_lc]
-
-
-        if self.lc.wkbType()!=6:
-            QMessageBox.warning(self,"Warning", "Not a valid landcover geometry" )
-            return
-
-        # self.path_output=self.line_output.text()
-        # if self.path_output=="":
-        #     self.path_output=os.path.dirname(__file__)+"/runoff.tif"
-
-        if self.areastudio.crs().authid()!=self.source.crs().authid() or self.lc.crs().authid()!=self.source.crs().authid() or self.dem.crs().authid()!=self.source.crs().authid() or self.target.crs().authid()!=self.source.crs().authid():
-            QMessageBox.warning(self,"Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." )
-            return
-
-
-        self.refsys=self.source.crs().authid().split(':')[1]
-
-
-        self.path_working=self.line_folder.text()
-        if self.path_working=="":
-            self.path_working=os.path.dirname(__file__)
-
-        self.path_temp_lc=self.path_working+"/temp_lc.tif"
-        self.path_temp_soil=self.path_working+"/temp_soil.tif"
-
-
-        #recupero dati database
-
-        listaclc=functions.cn_list_extract()
-
-
-        controllo_soil=0
-
-        messaggio="Inizio elaborazione analisi dispersione per ruscellamento\n"
-        messaggio+="---------------------------\n\n"
-        messaggio+="FILE DI INPUT:\n"
-        messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-        messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-        messaggio+="Vettoriale target: "+str(self.text_target)+"\n"
-        messaggio+="DTM: "+str(self.text_dem)+"\n\n"
-
-        messaggio+="VARIABILI:\n"
-        messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-        messaggio+='ALGORITMO UTILIZZATO: calcolo della separazione delle componenti infiltrazione e ruscellamento tramite metodo SCS-CN; US Department of Agriculture Soil Conservation Service, 1972. National Engineering Handbook, Section 4, Hydrology. US Government Printing Office, Washington, DC, 544pp.\n\n'
-        messaggio+="---------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-
-        self.label_status.setText("Preparazione dati")
-        self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-        self.path_working=self.line_folder.text()
-        if self.path_working=="":
-            self.path_working=os.path.dirname(__file__)
-
-        self.path_output=self.path_working+"/runoff.tif"
-
-
-
-        path_layer=self.areastudio.dataProvider().dataSourceUri()
-        path=path_layer.split("|")
-        source_ds = ogr.Open(path[0])
-        area_layer = source_ds.GetLayer()
-        x_min=int(area_layer.GetExtent()[0])
-        y_min=int(area_layer.GetExtent()[2])
-        x_max=int(area_layer.GetExtent()[1])
-        y_max=int(area_layer.GetExtent()[3])
-
-        drivermem = gdal.GetDriverByName('MEM')
-        pixel_size = self.res
-        NoData_value = -9999
-
-        # Create the destination data source
-        x_res = (x_max - x_min) / pixel_size
-        y_res = (y_max - y_min) / pixel_size
-
-        target_ds = gdal.GetDriverByName('GTiff').Create(self.path_output, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-        target_ds.SetGeoTransform((x_min, pixel_size, 0, y_max, 0, -pixel_size))
-        projectionfrom = target_ds.GetProjection()
-
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(int(self.refsys))
-        target_ds.SetProjection( srs.ExportToWkt() )
-
-        target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
-                               'modulo':'Analisi ruscellamento',
-                               'descrizione':'Analisi di ruscellamento di un inquinante attraverso il metodo della separazione delle componenti',
-                               'srs':self.source.crs().authid(),
-                               'data':datetime.datetime.now().strftime("%d-%m-%y")})
-
-        # geotransform = target_ds.GetGeoTransform()
-
-
-        band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(float(NoData_value))
-        band.Fill(NoData_value)
-        xsize = band.XSize
-        ysize = band.YSize
-
-
-        intervallo=int(self.dem.rasterUnitsPerPixelX())
-
-        outData = np.array(band.ReadAsArray(0, 0, xsize,ysize).astype(np.float))
-
-        lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
-        lc_clip=QgsVectorLayer(lc_clip_proc['OUTPUT'], 'lc_clip', 'ogr')
-        lc_clip.setCrs(self.source.crs())
-
-
-        #path__layer_lc=lc_clip['OUTPUT'].dataProvider().dataSourceUri()
-        path__layer_lc=lc_clip.dataProvider().dataSourceUri()
-        path_lc=path__layer_lc.split("|")
-        source_ds_lc = ogr.Open(path_lc[0])
-        lc_layer = source_ds_lc.GetLayer()
-        lc_ds = gdal.GetDriverByName('GTiff').Create(self.path_temp_lc, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-        lc_ds.SetGeoTransform((x_min, 25, 0, y_max, 0, -25))
-        lc_ds.SetProjection( srs.ExportToWkt() )
-        band_lc = lc_ds.GetRasterBand(1)
-        band_lc.SetNoDataValue(float(-9999))
-        band_lc.Fill(-9999)
-        xsize = band_lc.XSize
-        ysize = band_lc.YSize
-        gdal.RasterizeLayer(lc_ds, [1], lc_layer,options=["ATTRIBUTE="+self.text_lcfield])
-        lc_ds=None
-
-        lc_layer=QgsRasterLayer(self.path_temp_lc,"lc_layer")
-
-
-
-        if self.text_soil=="Valore campo":
-            controllo_soil=1
-
-            source_ds_soil = ogr.Open(path_lc[0])
-            soil_layer = source_ds_soil.GetLayer()
-            soil_ds = gdal.GetDriverByName('GTiff').Create(self.path_temp_soil, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-            soil_ds.SetGeoTransform((x_min, 25, 0, y_max, 0, -25))
-            soil_ds.SetProjection( srs.ExportToWkt() )
-            band_soil = soil_ds.GetRasterBand(1)
-            band_soil.SetNoDataValue(float(-9999))
-            band_soil.Fill(-9999)
-            gdal.RasterizeLayer(lc_ds, [1], soil_layer,options=["ATTRIBUTE="+self.text_soilfield])
-            soil_ds=None
-
-            soil_layer=QgsRasterLayer(self.path_temp_soil,"soil_layer")
-
-
-        grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
-        # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
-
-        namewatershed=self.path_working+'/watershed'
-        namedrain=self.path_working+'/wshed.shp'
-
-        params = { 'GRASS_RASTER_FORMAT_OPT' : '','GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area,
-                   'GRASS_VECTOR_EXPORT_NOCAT' : False, '-a' : False, 'start_coordinates' : None,  '-n' : False,
-                   'input' : self.dem.dataProvider().dataSourceUri(),'-c' : True, 'drain' : namedrain, 'GRASS_MIN_AREA_PARAMETER' : 0.0001,
-                   'start_points' : self.source.dataProvider().dataSourceUri(), 'output' : namewatershed }
-
-
-
-        waterwshed_proc = processing.run('grass7:r.drain', params)
-
-
-        #aggiungo per controllo la viewshed alla toc
-        #iface.addVectorLayer(namedrain,'watershed','ogr')
-        #watershed=QgsProject.instance().mapLayersByName('watershed.shp')
-
-
-        vdrain = QgsVectorLayer(namedrain, 'vdrain', 'ogr')
-
-        idxlevel = self.source.fields().indexFromName(self.text_p)
-        idxcat = vdrain.fields().indexFromName('cat')
-
-        idxtargetname = self.target.fields().indexFromName(self.text_targetfield)
-
-
-
-        # pyqtRemoveInputHook()
-        # pdb.set_trace()
-
-        features = vdrain.getFeatures()
-
-        nfeat=0
-
-        polygons_t = [feature_t for feature_t in self.target.getFeatures()]
-
-
-        start_time = time.time()
-
-        for f in features:
-            geom = f.geometry()
-            length = geom.length()
-            currentdistance=intervallo
-            nfeat+=1
-
-            featlines=[]
-
-
-            firstpoint=geom.interpolate(0)
-
-            old_x=firstpoint.asPoint()[0]
-            old_y=firstpoint.asPoint()[1]
-
-            fileoutput=self.path_working+'/drain'+str(nfeat)+'.shp'
-
-
-            max_progress=length/intervallo
-            self.progressBar.setMaximum(max_progress)
-
-
-
-            vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, "drain"+str(nfeat), "memory")
-
-            prline = vline.dataProvider()
-            prlfield=prline.addAttributes( [ QgsField("concentrazione", QVariant.Double) ] )
-
-            self.label_status.setText("Processing data")
-            self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-            idf=f.attributes()[idxcat]
-            feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
-            p00=feat_drain.attributes()[idxlevel]
-
-            index_progress=0
-
-            while currentdistance < length:
-                if index_progress==0:
-                    p0=p00
-                else:
-                    p0=pe
-
-
-                point = geom.interpolate(currentdistance)
-                x=point.asPoint()[0]
-                y=point.asPoint()[1]
-                clc=self.extract_values(lc_layer,x,y)
-                if controllo_soil==1:
-                    soil=self.extract_values(soil_layer,x,y)
-                else:
-                    soil=self.text_soil
-
-                try:
-                    cn=listaclc[clc][self.classisoil[soil]]
-                    S=self.calc_s(int(cn))
-                except Exception as e:
-                    S=0
-
-                pcheck=(math.pow((p0-(0.2*S)),2))/(p0-(0.2*S)+S)
-                if pcheck>(0.2*S):
-                    pe=pcheck
-                    fetline = QgsFeature()
-                    fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
-                    fetline.initAttributes(1)
-                    fetline.setAttribute(0,pe)
-                    vline.updateFeature(fetline)
-
-                    featlines.append(fetline)
-                    index_progress+=1
-
-                    for pol_t in polygons_t:
-                        poly_t = pol_t.geometry()
-                        if poly_t.contains(point):
-                            nometarget=pol_t.attributes()[idxtargetname]
-                            messaggio="\nIl vettore drain"+str(nfeat)+" ha raggiunto l'area bersaglio denominata '"+str(nometarget)+"' con un volume pari a: "+str(round(pe,3))+" mm\n"
-                            self.console.appendPlainText(messaggio)
-                            currentdistance=length+1
-
-                else:
-                    pe=0
-                    currentdistance=length+1
-                self.progressBar.setValue(max_progress)
-                # pyqtRemoveInputHook()
-                # pdb.set_trace()
-
-                old_x=x
-                old_y=y
-
-                currentdistance = currentdistance + intervallo
-
-
-            prline.addFeatures(featlines)
-            vline.updateFields()
-            QgsProject.instance().addMapLayer(vline)
-
-
-
-
-        tempoanalisi=time.time() - start_time
-        tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-        messaggio="---------------------------------\n"
-        messaggio+="Fine modellazione\n"
-        messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-        messaggio+="---------------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
-        self.progressBar.setValue(max_progress)
-=#
-
-
-
-
-
-
-
-
-
-
-
-
-
-using Plots
 import ArchGDAL as agd
-
-
-function flow( map::Matrix, sourceRow::Integer, sourceCol::Integer )
-    source = map[sourceRow, sourceCol]
-    
-end
-
-
-function flow!( map::AbstractArray, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
-    if cicles <= 0
-        return nothing
-    end
-    # Limits of the raster
-    maxR, maxC = size(dem_band)
-    # Adjacent cells
-    indexes = [
-        ( dem_band[ row+i, col+j ], row+i, col+j )
-        for i in -1:1
-            for j in -1:1
-                if ( i != 0 || j != 0 ) &&
-                    ( row+i >= 1 && row+i <= maxR ) &&
-                    ( col+j >= 1 && col+j <= maxC ) &&
-                    dem_band[ row+i, col+j ] != noDataValue &&
-                    ismissing( map[ row+i, col+j ] )
-    ]
-    # Adjacent cells' minimum height
-    min_height =  minimum( t -> t[1], indexes )
-
-    if height < min_height
-        return nothing
-    end
-
-    for (h, r, c) in indexes
-        if h == min_height
-            map[r, c] = true
-            flow!(map, dem_band, r, c, noDataValue, cicles-1)
-        else
-            map[r, c] = false
-        end
-    end
-
-    return nothing
-end
-
-
-function flow!( stream_points::AbstractVector, visited_points::AbstractVecotr, dem_band, row::Integer, col::Integer, noDataValue::Real, cicles::Integer )
-    if cicles <= 0
-        return nothing
-    end
-    # Limits of the raster
-    maxR, maxC = size(dem_band)
-    # Adjacent cells
-    indexes = [
-        ( row+1, col   ),
-        ( row+1, col+1 ),
-        ( row,   col+1 ),
-        ( row-1, col+1 ),
-        ( row-1, col   ),
-        ( row-1, col-1 ),
-        ( row,   col-1 ),
-        ( row+1, col-1 )
-    ]
-    # Valid adjacent cells
-    condition(a, b) = ( a >= 1 && a <= maxR ) && ( b >= 1 && b <= maxC ) && dem_band[a, b] != noDataValue && ( (a, b) ∉ stream_points || (a, b) ∉ visited_points )
-    visited = filter( (r, c) -> !condtion(r, c), indexes )
-    push!(visited_points, visited...)
-    filter!(condition, indexes)
-    # Adjacent cells' minimum height
-    min_height =  minimum( (r,c) -> dem_band[r,c], indexes )
-
-    if height < min_height
-        return nothing
-    end
-
-    for (r, c) in indexes
-        if dem_band[r, c] == min_height
-            push!( stream_points, (r, c) )
-            flow!(stream_points, other_points, dem, r, c, noDataValue, cicles-1)
-        else
-            push!( visited_points, (r, c) )
-        end
-    end
-
-    return nothing  
-end
-
-
-
-heatmap( 1:1000, 1:1000, test1, c=cgrad([:blue, :white, :yellow, :red]) )
-
-mat = Array{Any}( missing, 1000, 1000 )
-flow!( mat, test1, 300, 300, ndv, 10000 )
-heatmap( 1:1000, 1:1000, mat, c =[:orange, :black, :blue] )
-
-
-
-heatmap( 1:100, 1:100, test2, c=cgrad([:blue, :white, :yellow, :red]) )
-
-mat = Array{Any}( missing, 100, 100 )
-flow!( mat, test2, 60, 90, ndv, 1000 )
-heatmap( 1:100, 1:100, mat, c =[:orange, :black, :blue] )
-
-mat = Array{Any}( missing, 5, 5 )
-flow!( mat, test3, 3, 3, ndv, 50 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
 function looseIn( tuple::Tuple{T1, T1}, tuples::Vector{ Tuple{T1, T1, T2} } ) where {T1 <: Number, T2 <: Number}
@@ -680,7 +193,7 @@ function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple
                     if dem_band[r, c] < dem_band[r+i, c+j] && !looseIn( (-i, -j), mat[r+i, c+j] )
                         push!(
                             mat[r+i, c+j],
-                            ( -i, -j, -(dem_band[r, c] - dem_band[r+i, c+j]) )
+                            ( -i, -j, dem_band[r+i, c+j] - dem_band[r, c] )
                         )
                     end
                 end
@@ -839,51 +352,66 @@ using DataFrames
 using CSV
 
 
-
-
-
-# Vecchio connectivity: 985.208187 seconds (118.07 M allocations: 13.669 GiB, 90.02% garbage collection time, 0.02% compilation time)
-# Nuovo connectivity: 763.825265 seconds (88.54 M allocations: 11.471 GiB, 86.02% gc time, 0.01% compilation time)
-@time mat = connectivity(band_mat, ndv)
-
-# 70.208267 seconds (71.14 M allocations: 7.088 GiB, 60.86% gc time, 0.11% compilation time)
-@time dmat = direct_connectivity(band_mat, ndv)
-
-
+@time mat = connectivity(band_mat, 2048, ndv)
 df = DataFrame(mat, :auto)
 CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
 CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
 
 
 
+function f( n::Integer )
+    ns = []
+    while n > 0
+        pushfirst!( ns, n % 10 )
+        n ÷= 10
+    end
+    return ns
+end
 
+function g( n::Integer )
+    a, b = f.([n, n÷2])
+    count = 0
+    last = 0
 
+    for fa in a
+        for (i, fb) in enumerate(b)
+            if fa == fb && i > last
+                count += 1
+                last = i
+                continue
+            end
+        end
+    end
+    return count
+end
+
+function h( n::Integer )
+    res = []
+    while n > 2
+        pushfirst!( res, g(n) )
+        n ÷= 2
+    end
+    return res
+end
 
 
 
 
 import ArchGDAL as agd
 
+
 include("../Library/Functions.jl")
+
 
 
 mat = connectivity(band_mat, 2048, ndv)
 
 rows, cols = size(mat)
 dtm2 = agd.read(dtm_file)
-refsys = agd.getproj(dtm2)
-geotransform = agd.getgeotransform(dtm2)
-#=
-#   minX, maxY = Functions.getSidesDistances(dtm2)
-minX, maxY = Functions.toCoords(dtm2, 4001, 7000)
-a, b = Functions.getCellDims(dtm2)
-=#
-gtiff_driver = agd.getdriver("GTiff")
-
-target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 )
+target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=agd.getdriver("GTiff"), width=rows, height=cols, nbands=8, dtype=Float32 )
 #   agd.setgeotransform!( target_ds, [ minX, a, 0.0, maxY, 0.0, b ] )
-agd.setgeotransform!( target_ds, geotransform )
-agd.setproj!( target_ds, refsys )
+agd.setgeotransform!( target_ds, agd.getgeotransform(dtm2) )
+agd.setproj!( target_ds, agd.getproj(dtm2) )
 valNoData = -9999.0
 bands = [ agd.getband( target_ds, i ) for i in 1:8 ]
 agd.setnodatavalue!.(bands, valNoData)
@@ -900,6 +428,7 @@ index_dict = Dict(
     (1, 0)   => 7,
     (1, 1)   => 8
 )
+
 
 for r in 1:rows, c in 1:cols
     if !ismissing(mat[r, c]) && !isempty(mat[r, c])
@@ -921,6 +450,17 @@ agd.destroy(target_ds)
 
 
 function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractString )
+    index_dict = Dict( 
+        (-1, -1) => 1,
+        (-1, 0)  => 2,
+        (-1, 1)  => 3,
+        (0, -1)  => 4,
+        (0, 1)   => 5,
+        (1, -1)  => 6,
+        (1, 0)   => 7,
+        (1, 1)   => 8
+    )
+
     mat = connectivity(band_mat, 2048, ndv)
     dtm = agd.read(dtm_path)
     rows, cols = size(mat)
@@ -932,17 +472,6 @@ function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractS
     agd.setnodatavalue!.(bands, valNoData)
     agd.fillraster!.(bands, valNoData)
     band_mats = agd.read.(bands)
-
-    index_dict = Dict( 
-        (-1, -1) => 1,
-        (-1, 0)  => 2,
-        (-1, 1)  => 3,
-        (0, -1)  => 4,
-        (0, 1)   => 5,
-        (1, -1)  => 6,
-        (1, 0)   => 7,
-        (1, 1)   => 8
-    )
 
     for r in 1:rows, c in 1:cols
         if !ismissing(mat[r, c]) && !isempty(mat[r, c])
@@ -962,58 +491,70 @@ end
 
 
 
-#= TENTATIVO DI SISTEMARE IL TIFF
-    import ArchGDAL as agd
 
-    dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
-    dtm = agd.read(dtm_file)
-    res = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.tiff")
 
-    dtm_band = agd.getband(dtm, 1)
-    dtm_band_mat = agd.read(dtm_band)
 
-    res_bands = [ agd.getband(res, i) for i in 1:8 ]
-    res_band_mats = agd.read.(res_bands) 
+using Plots
 
-    rows, cols = size(dtm_band)
-    refsys = agd.getproj(dtm)
-    geotransform = agd.getgeotransform(dtm)
-    gtiff_driver = agd.getdriver("GTiff")
+import ArchGDAL as agd
 
-    target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=gtiff_driver, width=rows, height=cols, nbands=8, dtype=Float32 ) 
-    agd.setgeotransform!( target_ds, geotransform )
-    agd.setproj!( target_ds, refsys )
-    valNoData = -9999.0
-    bands = [ agd.getband( target_ds, i ) for i in 1:8 ]
-    agd.setnodatavalue!.(bands, valNoData)
-    agd.fillraster!.(bands, valNoData)
-    band_mats = agd.read.(bands)
+include("../Library/Functions.jl")
 
-    #=
-    for i in 1:8
-        for r in 1:rows, c in 1:cols
-            if res_band_mats != 0.0
-                band_mats[i][r, c] = res_band_mats[i][r, c]
-            end
+
+
+function mindir( mat, r::Int64, c::Int64 )
+    dir = 1
+    min = mat[1][r, c]
+    @inbounds for i in 2:8
+        #   println( "$i) $(mat[i][r, c])" )
+        if mat[i][r, c] < min
+            dir = i
+            min = mat[i][r, c]
         end
     end
-    =#
-    for i in 1:8
-        agd.write!( target_ds, res_band_mats[i], i )
+    return (dir, min)
+end
+
+function flow( x::Real, y::Real, file::AbstractString )::Vector{Tuple{Int64, Int64}}
+    delta_dict = Dict(
+        1 => (-1, -1),
+        2 => (-1, 0),
+        3 => (-1, 1),
+        4 => (0, -1),
+        5 => (0, 1),
+        6 => (1, -1),
+        7 => (1, 0),
+        8 => (1, 1)
+    )
+
+    mat = agd.read(file)
+    bands = [ agd.getband(mat, i) for i in 1:8 ]
+    rows, cols = size(bands[1])
+    flowpoints = Vector{Tuple{Int64, Int64}}()
+    r, c = Functions.toIndexes(mat, x, y)
+    val = -Inf
+ # SONO DA AGGIUNGERE LE CONDIZIONI FISICHE SI STOP
+    while r < rows && c < cols && val < 0
+        dir, val = mindir( bands, r, c )
+        #   println()
+        #   println(val)
+        #   println()
+        #   println()
+        Δr, Δc = delta_dict[dir]
+        push!(flowpoints, (r, c))
+        r += Δr
+        c += Δc
     end
 
-    agd.destroy(target_ds)
-=#
+    return flowpoints
+end
 
 
-
-
-
-
-
-
-
-
+#   x = 726467.4299990014
+#   y = 5.025981399455068e6
+#   path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
+#
+#   res = flow( x, y, path )
 
 
 
@@ -1028,12 +569,6 @@ end
 
 
 function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
-
- """ NON SO QUALE SIA L'EQUIVALENTE
-    if not self.dem.isValid():
-        QMessageBox.warning(self,"Warning", "The dem file is not valid" )
-        return
- """
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
@@ -1057,11 +592,6 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
     path_temp_landcover = folder * "\\temp_lc.tiff"
     path_temp_soil = folder * "\\temp_soil.tiff"
-
-
- """ NON SO COSA SIANO QUESTE VARIABILI
-    self.text_p = str(self.combo_fieldp.currentText())
- """
 
     clc_list = Functions.cn_list_extract()
 
@@ -1103,18 +633,17 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
 
     rows = agd.height(landcover_layer)
     cols = agd.width(landcover_layer)
+    valNoData = -9999.0
+    gtiff_driver = agd.getdriver("GTiff")
 
-    # NON SO COME OTTENERE minX E maxY
-    minX, maxY = ?
 
-    landcover_ds = agd.create( path_temp_landcover, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
-    agd.setgeotransform!(landcover_ds, [ minX, 25.0, 0.0, maxY, 0.0, -25.0 ])
+    landcover_ds = agd.create( path_temp_landcover, driver=gtiff_driver, width=rows, height=cols, nbands=1, dtype=Float32 )
+    agd.setgeotransform!( landcover_ds, agd.getgeotransform(dem) )
     agd.setproj!(landcover_ds, refsys)
     band_lc = agd.getband(landcover_ds, 1)
-    agd.setnodatavalue!( band_lc, Float64(valNoData) )
+    agd.setnodatavalue!(band_lc, valNoData)
+    agd.fillraster!(band_lc, valNoData)
     bandlc = agd.read(band_lc)
-    agd.fillraster!(bandlc, valNoData)
-
     
  """ TRASFORMA IN RASTER LA PORZIONE DI `landcover` PRESA PRIMA """
     gdal.RasterizeLayer(lc_ds, [1], lc_layer,options=["ATTRIBUTE="+self.text_lcfield])
@@ -1129,13 +658,10 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
     if soil_text == "Valore campo"
         soil_control = 1
 
-     # NON SO SE SIA EQUIVALENTE
-        #   source_ds_soil = ogr.Open(path_lc[0])
-        #   soil_layer = source_ds_soil.GetLayer()
         agd.getlayer(path_lc, 0)
 
-        soil_ds = agd.create( path_temp_soil, gtiff_driver, round(Int64, x_res), round(Int64, y_res), 1, agd.GDAL.GDT_Float32 )
-        agd.setgeotransform!(soil_ds, [ x_min, 25.0, 0.0, y_max, 0.0, -25.0 ])
+        soil_ds = agd.create( path_temp_soil, driver=gtiff_driver, width=round(Int64, x_res), height=round(Int64, y_res), nbands=1, dtype=Float32 )
+        agd.setgeotransform!( soil_ds, agd.getgeotransform(dem) )
         agd.setproj!(soil_ds, refsys)
         band_sl = agd.getband(soil_ds, 1)
         agd.setnodatavalue!( band_sl, Float64(valNoData) )

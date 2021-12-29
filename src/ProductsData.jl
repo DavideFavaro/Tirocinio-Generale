@@ -433,17 +433,19 @@ using Rasters
 using Shapefile
 
 sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
-ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1409_S3B_SL_1_RBT"
+ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1609_S3B_OL_1_EFR"
 files = ncdf_files * "\\" .* readdir(ncdf_files)[1:end-1]
+files = NamedTuple( Symbol(f) = ncdf_files * "\\" * f for f in readdir(ncdf_files)[1:end-1] )
+
+
+ncdfs = [ Rasters.Raster(f) for f in files ]
+
 
 shape = Shapefile.Handle(sat_file).shapes[1]
-ndcf = Rasters.RasterStack(files)
+ndcf = Rasters.Raster(files)
 
 
 
 
-
-
-
-
+ 
 end #module
