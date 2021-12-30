@@ -515,7 +515,7 @@ function mindir( mat, r::Int64, c::Int64 )
     return (dir, min)
 end
 
-function flow( x::Real, y::Real, file::AbstractString )::Vector{Tuple{Int64, Int64}}
+function flow( quantity::Real, x::Real, y::Real, file::AbstractString )::Vector{Tuple{Int64, Int64}}
     delta_dict = Dict(
         1 => (-1, -1),
         2 => (-1, 0),
@@ -532,18 +532,27 @@ function flow( x::Real, y::Real, file::AbstractString )::Vector{Tuple{Int64, Int
     rows, cols = size(bands[1])
     flowpoints = Vector{Tuple{Int64, Int64}}()
     r, c = Functions.toIndexes(mat, x, y)
+
+    # x₁ = x₀ - <quantità che scende> - <quantità che fluisce al di fuori> + <quantità in entrata (ad es. per pioggia)>
+    x₀ = quantity
     val = -Inf
  # SONO DA AGGIUNGERE LE CONDIZIONI FISICHE SI STOP
-    while r < rows && c < cols && val < 0
+    while r < rows && c < cols && val < 0 && x > 0
         dir, val = mindir( bands, r, c )
         #   println()
         #   println(val)
         #   println()
         #   println()
+
+        # flow from (r, c) to (r+Δr, c+Δc) 
+        x₁ = x₀ - desc - out + in
+        x₀ = x₁
+
         Δr, Δc = delta_dict[dir]
         push!(flowpoints, (r, c))
         r += Δr
         c += Δc
+
     end
 
     return flowpoints
@@ -568,13 +577,13 @@ end
 
 
 
-function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
+function run_runoff( dem, ccs, source, target, resolution::Integer, folder::AbstractString=".\\" )
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    target_layer, landcover_layer, soil_layer = agd.getlayer([target, landcover, soil], 0) 
+    target_layer, landcover_layer = agd.getlayer([target, ccs], 0) 
 
     if agd.geomdim(target_layer) != 2
         throw(DomainError(source, "`target` must be a polygon"))
@@ -610,11 +619,11 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
     # NON SO SE FUNZIONA
     bbox_src = agd.boundingbox(source)
     bbox_trgt = agd.boundingbox(target)
-    area = agd.union( bbox_src, bbox_trgt )
     # Geometry containing both the source and the target
-     # Se union non ritorna una geometria unica ma un'unica geometria composta di due elementi disgiunti
-     #   area = agd.boundingbox(agd.union( bbox_src, bbox_trgt ))
-    area = agd.union( bbox_src, bbox_trgt )
+    # area = agd.union( bbox_src, bbox_trgt )
+    # Se union non ritorna una geometria unica ma un'unica geometria composta di due elementi disgiunti
+    area = agd.boundingbox(agd.union( bbox_src, bbox_trgt ))
+    
 
  """ PRENDE LA PORZIONE DI `landcover` RAPPRESENTATA DA `area`
     lc_clip_proc = processing.run('qgis:clip', {'INPUT':self.lc, 'OVERLAY':self.areastudio, 'OUTPUT':self.path_working+'/clip.gpkg'})
@@ -628,7 +637,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
     lc_layer = source_ds_lc.GetLayer()
  """
     # NON SONO CERTO PRESERVI LE INFORMAZIONI DI landcover
-    landcover_clip = agd.intersects(landcover, area)
+    landcover_clip = agd.intersection(landcover, area)
     landcover_layer = agd.getlayer(landcover_clip, 0)   
 
     rows = agd.height(landcover_layer)
@@ -677,158 +686,45 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
         soil_layer = agd.gdalrasterize( x -> x, landcover_ds )
     end
 
-    
- """ CALCOLA UN VETTORIALE TRAMITE `r.drain` SI PUO' FARE CON Omniscape.jl O SIMILI"""
-  # FORSE C'E' ANCHE Anasol E IL FRAMEWORK MADS
-
-    grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
-    # grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
-
-    namewatershed=self.path_working+'/watershed'
-    namedrain=self.path_working+'/wshed.shp'
-
-    params = { 'GRASS_RASTER_FORMAT_OPT' : '','GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area,
-               'GRASS_VECTOR_EXPORT_NOCAT' : False, '-a' : False, 'start_coordinates' : None,  '-n' : False,
-               'input' : self.dem.dataProvider().dataSourceUri(),'-c' : True, 'drain' : namedrain, 'GRASS_MIN_AREA_PARAMETER' : 0.0001,
-               'start_points' : self.source.dataProvider().dataSourceUri(), 'output' : namewatershed }
-
-    waterwshed_proc = processing.run('grass7:r.drain', params)
 
 
-    #aggiungo per controllo la viewshed alla toc
-    #iface.addVectorLayer(namedrain,'watershed','ogr')
-    #watershed=QgsProject.instance().mapLayersByName('watershed.shp')
+ # ASSUMENDO CHE target VENGA PASSATO COME FILE VETTORIALE
+    target_layer = collect(agd.getlayer(target, 0))
+    target_geom = agd.getgeom(agd.getgeom(target_layer[1], 0), 0)
+ # SE target VIENE PASSATO COME GEOMETRIA ELIMINARE LE DUE RIGHE SOPRA
+    length = agd.ngeom(target_geom)
+    target_points = [ agd.getpoint(target_geom, i)[1:2] for i in 1:length ]
 
+    x_source = agd.getx(source, 0)
+    y_source = agd.gety(source, 0)
+    mat = agd.read(".\\connectivity.tiff")
+    res = flow(mat, x_source, y_source)
 
-    vdrain = QgsVectorLayer(namedrain, 'vdrain', 'ogr')
-
-    idxlevel = self.source.fields().indexFromName(self.text_p)
-    idxcat = vdrain.fields().indexFromName('cat')
-
-    idxtargetname = self.target.fields().indexFromName(self.text_targetfield)
- """"""
-
-
-
-
-    features = agd.getgeom.(collect(agd.getlayer(vdrain)))
-    nfeat = 0
-    polygons_t = collect(target_layer) 
-
-    #   start_time = time.time()
-
-    for f in features
-        length = agd.geomlength(f)
-        currentdistance = intervallo
-        nfeat += 1
-        featlines = []
-
-
-
-        #   firstpoint=geom.interpolate(0)
-        firstpoint = agd.getpoint(geom, 0)
-        old_x = agd.getx(firstpoint, 0)
-        old_y = agd.gety(firstpoint, 0)
-
-        fileoutput = folder * "\\drain$nfeat.shp"
-
-
-
-     """ CREA UN LAYER
-        vline = QgsVectorLayer("LineString?crs=EPSG:"+self.refsys, "drain"+str(nfeat), "memory")
-
-        prline = vline.dataProvider()
-        prlfield=prline.addAttributes( [ QgsField("concentrazione", QVariant.Double) ] )
-
-        idf=f.attributes()[idxcat]
-        feat_drain = next(self.source.getFeatures(QgsFeatureRequest().setFilterFid(idf-1)))
-        p00=feat_drain.attributes()[idxlevel]
-     """
-        vline = agd.createlayer( x -> x,  name="drain$nfeat", geom=agd.wkbLineString, spatialref=refsys )
-        agd.addfielddefn!(vline, "concentrazione", agd.OFTReal)
-     # idxcat SI OTTIENE DA vdrain LA CUI GENERAZIONE NON E' ANCORA IMPLEMENTATA
-        idf = agd.getfield(f, idxcat)
-     # NON SONO SICURO DEL idf-1 E NEMMENO DELL'EFFETTO DI next
-        feat_drain = getFeatureByFid( collect(agd.getlayer(source)), idf )
-      # idxlevel SI OTTIENE DA vdrain LA CUI GENERAZIONE NON E' ANCORA IMPLEMENTATA  
-        p00 = agd.getfield(feat_drain, idxlevel)
-        
-        index_progress = 0
-        while currentdistance < length
-            if index_progress == 0
-                p0 = p00
-            else
-                p0 = pe
-            end
-
-            #   point = geom.interpolate(currentdistance)
-            point = agd.getpoint(geom, currentdistance)
-            x = agd.getx(point, 0)
-            y = agd.gety(point, 0)
-            r, c = toIndexes(landcover_layer, x, y)
-            clc = landcover_layer[r, c]
-            if soil_control == 1
-                r, c = toIndexes(soil_layer, x, y)
-                soil = soil_layer[r, c]
-            else
-                soil = text_soil
-            end
-            try
-             # MANCA "classisoil"
-                cn = listaclc[clc][ classisoil[soil] ]
-                S = 254.0((100 / cn) - 1)
-            catch
-                S = 0
-            end
-
-            pcheck = (p0 - 0.2S)^2 / (p0 - 0.2S + S)
-            if pcheck > 0.2S
-                pe = pcheck
-
-
-             """ CREA UNA FEATURE
-               fetline = QgsFeature()
-               fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
-               fetline.initAttributes(1)
-               fetline.setAttribute(0,pe)
-               vline.updateFeature(fetline)
-
-               featlines.append(fetline)
-             """
-                fetline = agd.createfeature( x -> x, agd.getfeaturedefn(vline) )
-                line = agd.createlinestring( Flloat64.([old_x, old_y]), Flloat64.([x, y]) )
-                agd.setgeom!(fetline, line)
-                agd.fillunsetwithdefault!(fetline)
-                agd.setfield!(fetline, 0, pe)
-                push!(featlines, fetline)
-
-                index_progress += 1
-
-                for polygon in polygons_t
-                    p_geom = agd.getgeom(polygon)
-                    if agd.within(point, p_geom)
-                        #   nometarget = pol_t.attributes()[idxtargetname]
-                        nometarget = agd.getfield(polygon, idxtargetname)
-                        println("\nIl vettore drain$nfeat ha raggiunto l'area bersaglio denominata $nometarget con un volume pari a: $(round(pe,3))mm\n")
-                        currentdistance = length + 1
-                    end
-                end
-            else
-                pe = 0
-                currentdistance = length + 1
-            end
-                old_x = x
-                old_y = y
-                currentdistance += intervallo
-            end
-
-         """ AGGIUNGE LE FEATURES CREATE
-            prline.addFeatures(featlines)
-            vline.updateFields()
-            QgsProject.instance().addMapLayer(vline)
-         """
-            agd.addfeature!.(Ref(vline), featlines)
+    volumes = []
+    for point in res
+        lc = landcover_layer[point...]
+        if soil_control == 1
+            soil = soil_layer[point...]
+        else
+            soil = text_soil
+        end
+        # IL BLOCCO TRY CATCH NON LO VEDO PARTICOLARMENTE NECESSARIO
+        try
+         # DA MODIFICARE TENENDO CONTO DEI VETTORIALI DEL SUOLO
+         # PER LA CLASSE DEL SUOLO SI PUO' FAR RIFERIMENTO AL DIZIONARIO DEL FILE
+         # CREDO STIA PRENDENDO LA RESISTENZA DEL SUOLO NEL PUNTO CORRENTE
+            # Se passiamo come parameto un raster delle resisteze questa riga va sostituita
+            cn = listaclc[lc][ classisoil[soil] ] # Classisoi ottenuto da "substance.db"
+            S = 254.0((100 / cn) - 1)
+        catch
+            S = 0
+        end
+        pcheck = (p0 - 0.2S)^2 / (p0 - 0.2S + S)
+        push!(volumes, pcheck > 0.2S ? pcheck : 0 )
     end
+
+
+
 end
 
 
@@ -1135,7 +1031,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                point = agd.getpoint(geom, currentdistance)
                x = agd.getx(point, 0)
                y = agd.gety(point, 1)
-               clc = extract_values(lc_layer, x, y)
+               clc = lc_layer[x, y]
                if soil_control == 1
                    r, c = toIndexes(soil_layer, x, y)
                    soil = soil_layer[r, c]
@@ -1143,7 +1039,6 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                    soil = text_soil
                end
                try
-                # MANCA "classisoil"
                    cn = listaclc[clc][classisoil[soil]]
                    S = 254.0((100 / cn) - 1)
                catch
@@ -1154,7 +1049,7 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                if pcheck > 0.2S
                    pe = pcheck
    
-   
+
                 """ NON SO COSA FACCIA STA ROBA """
                   fetline = QgsFeature()
                   fetline.setGeometry( QgsGeometry.fromPolyline( [QgsPoint(old_x,old_y),QgsPoint(x,y)] ))
@@ -1164,8 +1059,8 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
    
                   featlines.append(fetline)
                 """"""
-                
-   
+
+
                    index_progress += 1
    
                    for polygon in polygons_t
@@ -1187,8 +1082,8 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
                    old_y = y
                    currentdistance += intervallo
                end
-   
-   
+
+
             """ NON SO COSA FACCIA STA ROBA """
                prline.addFeatures(featlines)
                vline.updateFields()
