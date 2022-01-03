@@ -105,39 +105,35 @@ end
 
 
 
-
 import ArchGDAL as agd
 
 # VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
-function looseIn( tuple::Tuple{T1, T1}, tuples::Vector{ Tuple{T1, T1, T2} } ) where {T1 <: Number, T2 <: Number}
-    for t in tuples
-        if tuple[1] == t[1] && tuple[2] == t[2]
-            return true
-        end
-    end
-    return false
-end
 
-function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+
+# 3 DIMENSIONAL MATRIX
+function m_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    indexes = Dict(
+        (-1, -1) => 1,
+        (-1, 0)  => 2,
+        (-1, 1)  => 3,
+        (0, -1)  => 4,
+        (0, 1)   => 5,
+        (1, -1)  => 6,
+        (1, 0)   => 7,
+        (1, 1)   => 8
+    )
     # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
+    @inbounds for r in 1:rows, c in 1:cols
         if dem_band[r, c] != noDataValue
             # Indexes of adjacent cells
-            for (i, j) in indexes
+            for (i, j) in keys(indexes)
                 if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if !looseIn((i, j), mat[r, c])
-                        push!(
-                            mat[r, c],
-                            ( i, j, dem_band[r+i, c+j] - dem_band[r, c] )
-                        )
+                    if mat[ r, c, indexes[(i,j)] ] == noDataValue
+                        mat[ r, c, indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
                     end
-                    if !looseIn((-i, -j), mat[r+i, c+j])
-                        push!(
-                            mat[r+i, c+j],
-                            ( -i, -j, dem_band[r+i, c+j] - dem_band[r, c] )
-                        )
+                    if mat[ r+i, c+j, indexes[(-i, -j)] ] == noDataValue
+                        mat[ r+i, c+j, indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
                     end
                 end
             end
@@ -145,56 +141,52 @@ function connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{I
     end
 end
 
-function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+function m_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
-    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, rows, cols)
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
-        end
-    end
+    mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
     for i in 1:n, j in 1:m
         # Find the starting and ending indexes for the current slice of the matrix
          # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
         rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
         cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
         # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-        connectivity_batch!(
- #= IL TIPO DEL VETTORE CHE CONTIENE mat E dem_band NON E' STABILE
-            view.(
-                [mat, dem_band],
-                Ref( ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows ) ),
-                Ref( ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols ) )
-            )...,
- =#
-            view(mat, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+        m_connectivity_batch!( view(mat, rows_range, cols_range, :), view(dem_band, rows_range, cols_range), noDataValue )
     end
     return mat
 end
 
+@time mat = m_connectivity( band_mat, 1024, ndv )
+dims = size(mat)
+flattened = reshape(mat, dims[1], :, 1)[:, :, 1]
+io = open("D:\\Connectivity Data\\connectivity.txt", "w")
+write(io, flattened)
+close(io)
 
 
-function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+function direct_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
-    indexes = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    indexes = Dict(
+        (-1, -1) => 1,
+        (-1, 0)  => 2,
+        (-1, 1)  => 3,
+        (0, -1)  => 4,
+        (0, 1)   => 5,
+        (1, -1)  => 6,
+        (1, 0)   => 7,
+        (1, 1)   => 8
+    )
     # For each cell of the dem's band
-    for r in 1:rows, c in 1:cols
+    @inbounds for r in 1:rows, c in 1:cols
         if dem_band[r, c] != noDataValue
             # Indexes of adjacent cells
-            for (i, j) in indexes
+            for (i, j) in keys(indexes)
                 if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if dem_band[r, c] > dem_band[r+i, c+j] && !looseIn( (i, j), mat[r, c] )
-                        push!(
-                            mat[r, c],
-                            ( i, j, dem_band[r, c] - dem_band[r+i, c+j] )
-                        )
+                    if dem_band[r, c] > dem_band[r+i, c+j] && mat[ r, c, indexes[(i,j)] ] == noDataValue
+                        mat[ r, c, indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
                     end
-                    if dem_band[r, c] < dem_band[r+i, c+j] && !looseIn( (-i, -j), mat[r+i, c+j] )
-                        push!(
-                            mat[r+i, c+j],
-                            ( -i, -j, dem_band[r+i, c+j] - dem_band[r, c] )
-                        )
+                    if dem_band[r, c] < dem_band[r+i, c+j] && mat[ r+i, c+j, indexes[(-i, -j)] ] == noDataValue
+                        mat[ r+i, c+j, indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
                     end
                 end
             end
@@ -202,25 +194,24 @@ function X_connectivity_batch!( mat::AbstractArray{ Union{ Missing, Vector{Tuple
     end
 end
 
-function X_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+function direct_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
-    mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, rows, cols)
-    for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
-        end
-    end
+    mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
     for i in 1:n, j in 1:m
         # Find the starting and ending indexes for the current slice of the matrix
          # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
         rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
         cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
         # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-        X_connectivity_batch!( view(mat, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+        direct_connectivity_batch!( view(mat, rows_range, cols_range, :), view(dem_band, rows_range, cols_range), noDataValue )
     end
     return mat
 end
+
+@time matd = direct_connectivity( band_mat, 1024, ndv )
+
+
 
 
 
@@ -276,8 +267,7 @@ GC.gc()
 
 
 
-@time mat = connectivity( band_mat, 1024, ndv )
-@time mat = X_connectivity( band_mat, 1024, ndv )
+
 
 
 
@@ -359,40 +349,7 @@ CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
 
 
 
-function f( n::Integer )
-    ns = []
-    while n > 0
-        pushfirst!( ns, n % 10 )
-        n ÷= 10
-    end
-    return ns
-end
 
-function g( n::Integer )
-    a, b = f.([n, n÷2])
-    count = 0
-    last = 0
-
-    for fa in a
-        for (i, fb) in enumerate(b)
-            if fa == fb && i > last
-                count += 1
-                last = i
-                continue
-            end
-        end
-    end
-    return count
-end
-
-function h( n::Integer )
-    res = []
-    while n > 2
-        pushfirst!( res, g(n) )
-        n ÷= 2
-    end
-    return res
-end
 
 
 
@@ -502,20 +459,33 @@ include("../Library/Functions.jl")
 
 
 
+
+
+
+
+
+# "flow" E "mindir" CHE TENGONO CONTO DELLA POSSIBILITA' CHE CI SIANO PIU' CAMMINI MINIMI
 function mindir( mat, r::Int64, c::Int64 )
-    dir = 1
-    min = mat[1][r, c]
-    @inbounds for i in 2:8
+    dir = [0]
+    min = Inf
+
+    @inbounds for i in 1:8
         #   println( "$i) $(mat[i][r, c])" )
-        if mat[i][r, c] < min
-            dir = i
-            min = mat[i][r, c]
+        if mat[r, c, i] != -9999.0
+            if mat[r, c, i] < min
+                dir = [i]
+                min = mat[r, c, i]
+                continue
+            end
+            if mat[r, c, i] == min
+                push!(dir, i)
+            end
         end
     end
     return (dir, min)
 end
 
-function flow( quantity::Real, x::Real, y::Real, file::AbstractString )::Vector{Tuple{Int64, Int64}}
+function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
     delta_dict = Dict(
         1 => (-1, -1),
         2 => (-1, 0),
@@ -532,29 +502,186 @@ function flow( quantity::Real, x::Real, y::Real, file::AbstractString )::Vector{
     rows, cols = size(bands[1])
     flowpoints = Vector{Tuple{Int64, Int64}}()
     r, c = Functions.toIndexes(mat, x, y)
+    r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
+    r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
 
-    # x₁ = x₀ - <quantità che scende> - <quantità che fluisce al di fuori> + <quantità in entrata (ad es. per pioggia)>
-    x₀ = quantity
+    x₀ = source_volumes[1]
+    push!(flowpoints, (r, c, x₀))
     val = -Inf
- # SONO DA AGGIUNGERE LE CONDIZIONI FISICHE SI STOP
-    while r < rows && c < cols && val < 0 && x > 0
-        dir, val = mindir( bands, r, c )
+    for rain_i in source_volumes[2:end]
+        if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
+           r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
+           val > 0 || x₀ <= 0 ||                               # If the flow stops
+            break
+        end 
+        # flow from (r, c) to (r+Δr, c+Δc)
+        dir, val = mindir(bamds, r, c)
+        for d in dir
+            Δr, Δc = delta_dict[d]
+            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+            x₁ = x₀ - desc - out + rain_i
+            x₀ = x₁
+            push!(flowpoints, (r+Δr, c+Δc, x₀))
+        end
+    end
+    # If the cicle ends because the flow exits the rain zone or the rainfall stops
+    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        dir, val = mindir(bands, r, c)
+        for d in dir
+            Δr, Δc = delta_dict[d]
+            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+            x₁ = x₀ - desc - out
+            x₀ = x₁
+            push!(flowpoints, (r+Δr, c+Δc, x₀))
+        end
+    end
+    return flowpoints
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Find the direction with the greatest difference in height from (r, c)
+function mindir( mat, r::Int64, c::Int64 )
+    dir = 0
+    min = Inf
+    @inbounds for i in 1:8
+        #   println( "$i) $(mat[i][r, c])" )
+        if mat[r, c, i] != -9999.0 && mat[r, c, i] < min
+            dir = i
+            min = mat[i][r, c]
+        end
+    end
+    return (dir, min)
+end
+ #= MINDIR TEST VALUES 
+    arr = [
+        [ 1  2  -9999.0; 1  2  3 ],
+        [ 3  4  -9999.0; 4  5  6 ],
+        [ 5  6  -9999.0; 7  8  9 ],
+        [ 7  8  -9999.0; 10 11 12 ],
+        [ 9  10 -9999.0; 13 14 15 ],
+        [ 11 12 -9999.0; 16 17 18 ],
+        [ 13 14 -9999.0; 19 20 21 ],
+        [ 17 16 -9999.0; 22 23 24 ]
+    ]
+ =#
+
+# "source_volumes" sarà un vettore contenente la quantità di pioggia caduta all'istante "i", si assume che la pioggia cada in modo uniforme in tutta l'area
+ # interessata dal fenomeno
+# "x_interval" contiene i valori minimo e massimo della dimensione "x" dell'area interessata dalla pioggia
+# Similmente "y_interval" contiene i valori su "y"
+function flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
+    delta_dict = Dict(
+        1 => (-1, -1),
+        2 => (-1, 0),
+        3 => (-1, 1),
+        4 => (0, -1),
+        5 => (0, 1),
+        6 => (1, -1),
+        7 => (1, 0),
+        8 => (1, 1)
+    )
+
+    mat = agd.read(file)
+    bands = [ agd.getband(mat, i) for i in 1:8 ]
+    rows, cols = size(bands[1])
+    flowpoints = Vector{Tuple{Int64, Int64}}()
+    r, c = Functions.toIndexes(mat, x, y)
+    r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
+    r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
+
+    x₀ = source_volumes[1]
+    push!(flowpoints, (r, c, x₀))
+    val = -Inf
+    for rain_i in source_volumes[2:end]
+        if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
+           r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
+           val > 0 || x₀ <= 0 ||                               # If the flow stops
+            break
+        end 
+        # flow from (r, c) to (r+Δr, c+Δc)
+        dir, val = mindir(bamds, r, c)
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
+
+        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+        x₁ = x₀ - desc - out + rain_i
+        x₀ = x₁
+        push!(flowpoints, (r, c, x₀))
+    end
+    # If the cicle ends because the flow exits the rain zone or the rainfall stops
+    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+        dir, val = mindir(bands, r, c)
         #   println()
         #   println(val)
         #   println()
         #   println()
-
-        # flow from (r, c) to (r+Δr, c+Δc) 
-        x₁ = x₀ - desc - out + in
-        x₀ = x₁
-
+        
+        # Flow from (r, c) to (r+Δr, c+Δc)
         Δr, Δc = delta_dict[dir]
-        push!(flowpoints, (r, c))
         r += Δr
         c += Δc
-
+        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+        x₁ = x₀ - desc - out
+        x₀ = x₁
+        push!(flowpoints, (r, c, x₀))
     end
+    return flowpoints
+end
 
+# "flow" to apply whene there is a singular source
+# NON SO SE SI DEBBA SOMMARE AD OGNI PASSO IL VALORE INZIALE O SE SI DEBBA CONSIDERARE COMUNQUE IL FATTORE TEMPORALE (SE NELLA FONTE ARRIVA ACQUA PER UN CERTO TEMPO)
+function flow( source_volume::Real, x::Real, y::Real, file::AbstractString )
+    delta_dict = Dict(
+        1 => (-1, -1),
+        2 => (-1, 0),
+        3 => (-1, 1),
+        4 => (0, -1),
+        5 => (0, 1),
+        6 => (1, -1),
+        7 => (1, 0),
+        8 => (1, 1)
+    )
+
+    mat = agd.read(file)
+    bands = [ agd.getband(mat, i) for i in 1:8 ]
+    rows, cols = size(bands[1])
+    flowpoints = Vector{Tuple{Int64, Int64}}()
+    r, c = Functions.toIndexes(mat, x, y)
+    x₀ = source_volume
+    push!(flowpoints, (r, c, x₀))
+    val = -Inf
+    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+        dir, val = mindir(bands, r, c)
+        #   println()
+        #   println(val)
+        #   println()
+        #   println()
+        
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
+        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+        x₁ = x₀ - desc - out
+        x₀ = x₁
+        push!(flowpoints, (r, c, x₀))
+    end
     return flowpoints
 end
 
@@ -688,6 +815,10 @@ function run_runoff( dem, ccs, source, target, resolution::Integer, folder::Abst
 
 
 
+
+
+ # VANNO PASSATI A flow I RANGE DELL'AREA IN CUI PIOVE 
+
  # ASSUMENDO CHE target VENGA PASSATO COME FILE VETTORIALE
     target_layer = collect(agd.getlayer(target, 0))
     target_geom = agd.getgeom(agd.getgeom(target_layer[1], 0), 0)
@@ -801,7 +932,7 @@ end # module
 
 
 
-
+#=
 function run_runoff( dem, source, target, landcover, soil_text::AbstractString, resolution::Integer, folder::AbstractString=".\\" )
 
     """ NON SO QUALE SIA L'EQUIVALENTE
@@ -1092,4 +1223,4 @@ function run_runoff( dem, source, target, landcover, soil_text::AbstractString, 
    
        end
    end
-   
+=#
