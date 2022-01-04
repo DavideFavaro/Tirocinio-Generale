@@ -111,7 +111,7 @@ import ArchGDAL as agd
 
 
 # 3 DIMENSIONAL MATRIX
-function m_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     indexes = Dict(
         (-1, -1) => 1,
@@ -141,22 +141,22 @@ function m_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Re
     end
 end
 
-function m_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
     mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
-    for i in 1:n, j in 1:m
+    @inbounds for i in 1:n, j in 1:m
         # Find the starting and ending indexes for the current slice of the matrix
          # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
         rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
         cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
         # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-        m_connectivity_batch!( view(mat, rows_range, cols_range, :), view(dem_band, rows_range, cols_range), noDataValue )
+        connectivity_batch!( view(mat, rows_range, cols_range, :), view(dem_band, rows_range, cols_range), noDataValue )
     end
     return mat
 end
 
-@time mat = m_connectivity( band_mat, 1024, ndv )
+@time mat = connectivity( band_mat, 1024, ndv )
 dims = size(mat)
 flattened = reshape(mat, dims[1], :, 1)[:, :, 1]
 io = open("D:\\Connectivity Data\\connectivity.txt", "w")
@@ -164,6 +164,14 @@ write(io, flattened)
 close(io)
 
 
+using BenchmarkTools
+
+@benchmark mat = connectivity( test1b, 256, ndv )
+@benchmark mat = connectivity( test1b, 1024, ndv )
+@benchmark mat = connectivity( test1b, 2048, ndv )
+
+
+#=
 function direct_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     indexes = Dict(
@@ -210,7 +218,7 @@ function direct_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataVa
 end
 
 @time matd = direct_connectivity( band_mat, 1024, ndv )
-
+=#
 
 
 
@@ -691,6 +699,55 @@ end
 #   path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
 #
 #   res = flow( x, y, path )
+
+
+
+
+
+
+
+
+
+
+
+function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
+    delta_dict = Dict(
+        1 => (-1, -1),
+        2 => (-1, 0),
+        3 => (-1, 1),
+        4 => (0, -1),
+        5 => (0, 1),
+        6 => (1, -1),
+        7 => (1, 0),
+        8 => (1, 1)
+    )
+
+    rows, cols = size(band)
+    flowpoints = Vector{Tuple{Int64, Int64}}()
+    r, c = Functions.toIndexes(mat, x, y)
+    x = rain_band[r, c]
+    val = -Inf
+    while 1 < r < rows && 1 < c < cols && val < 0
+        dir, val = mindir(bands, r, c)
+        #   println()
+        #   println(val)
+        #   println()
+        #   println()
+        
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
+        push!(flowpoints, (r, c, x))
+        x = x + rain_band[r, c] - ( x * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle  
+    end
+    return flowpoints
+end
+
+
+
+
+
 
 
 
