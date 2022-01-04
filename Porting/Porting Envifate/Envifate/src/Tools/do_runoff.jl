@@ -223,6 +223,73 @@ end
 
 
 
+import ArchGDAL as agd
+using StatsBase
+
+function x_connectivity_batch!( mat, heights_ranks::AbstractArray{Int64}, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    indexes = Dict(
+        (-1, -1) => 1,
+        (-1, 0)  => 2,
+        (-1, 1)  => 3,
+        (0, -1)  => 4,
+        (0, 1)   => 5,
+        (1, -1)  => 6,
+        (1, 0)   => 7,
+        (1, 1)   => 8
+    )
+    # For each cell of the dem's band
+    @inbounds for r in 1:rows, c in 1:cols
+        if dem_band[r, c] != noDataValue
+            # Indexes of adjacent cells
+            for (i, j) in keys(indexes)
+                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                    if mat[ r, c, heights_ranks[r, c], indexes[(i,j)] ] == noDataValue
+                        mat[ r, c, heights_ranks[r, c], indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
+                    end
+                    if mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] == noDataValue
+                        mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
+                    end
+                end
+            end
+        end
+    end
+end
+
+function x_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+    rows, cols = size(dem_band)
+    heights_ranks = denserank(dem_band)
+    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
+    mat = fill( convert(Float32, noDataValue) , rows, cols, maximum(heights_ranks), 8 )
+    @inbounds for i in 1:n, j in 1:m
+        # Find the starting and ending indexes for the current slice of the matrix
+         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
+        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
+        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
+        # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
+        x_connectivity_batch!( view(mat, rows_range, cols_range, :, :), view(heights_ranks, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+    end
+    return mat
+end
+
+
+@time mat = x_connectivity( band_mat, 100, ndv )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -473,13 +540,12 @@ include("../Library/Functions.jl")
 
 
 # "flow" E "mindir" CHE TENGONO CONTO DELLA POSSIBILITA' CHE CI SIANO PIU' CAMMINI MINIMI
-function mindir( mat, r::Int64, c::Int64 )
+function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
     dir = [0]
     min = Inf
-
     @inbounds for i in 1:8
         #   println( "$i) $(mat[i][r, c])" )
-        if mat[r, c, i] != -9999.0
+        if mat[r, c, i] != noDataValue
             if mat[r, c, i] < min
                 dir = [i]
                 min = mat[r, c, i]
@@ -493,8 +559,9 @@ function mindir( mat, r::Int64, c::Int64 )
     return (dir, min)
 end
 
-function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
-    delta_dict = Dict(
+#= VECCHIO multi_flow 
+    function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
+        delta_dict = Dict(
         1 => (-1, -1),
         2 => (-1, 0),
         3 => (-1, 1),
@@ -503,20 +570,20 @@ function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, f
         6 => (1, -1),
         7 => (1, 0),
         8 => (1, 1)
-    )
-
-    mat = agd.read(file)
-    bands = [ agd.getband(mat, i) for i in 1:8 ]
-    rows, cols = size(bands[1])
-    flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(mat, x, y)
-    r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
-    r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
-
-    x₀ = source_volumes[1]
-    push!(flowpoints, (r, c, x₀))
-    val = -Inf
-    for rain_i in source_volumes[2:end]
+        )
+    
+        mat = agd.read(file)
+        bands = [ agd.getband(mat, i) for i in 1:8 ]
+        rows, cols = size(bands[1])
+        flowpoints = Vector{Tuple{Int64, Int64}}()
+        r, c = Functions.toIndexes(mat, x, y)
+        r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
+        r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
+    
+        x₀ = source_volumes[1]
+        push!(flowpoints, (r, c, x₀))
+        val = -Inf
+        for rain_i in source_volumes[2:end]
         if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
            r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
            val > 0 || x₀ <= 0 ||                               # If the flow stops
@@ -531,9 +598,9 @@ function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, f
             x₀ = x₁
             push!(flowpoints, (r+Δr, c+Δc, x₀))
         end
-    end
-    # If the cicle ends because the flow exits the rain zone or the rainfall stops
-    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+        end
+        # If the cicle ends because the flow exits the rain zone or the rainfall stops
+        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
         # Flow from (r, c) to (r+Δr, c+Δc)
         dir, val = mindir(bands, r, c)
         for d in dir
@@ -543,11 +610,42 @@ function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, f
             x₀ = x₁
             push!(flowpoints, (r+Δr, c+Δc, x₀))
         end
+        end
+        return flowpoints
     end
+=#
+function multi_flow!( flowpoints, v₀::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32}, delta_dict::Dict )
+    v = v₀
+    val = -Inf
+
+    # Singular strem
+    while 1 < r < rows && 1 < c < cols && val < 0
+        dir, val = mindir(band, r, c, -9999.0)
+        #   println()
+        #   println(val)
+        #   println()
+        #   println()
+
+        if length(dir) > 1
+            for d in dir 
+                multi_flow( flowpoints, v, r, c, ros, cols, times-1 )
+
+
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        Δr, Δc = delta_dict[dir[1]]
+        r += Δr
+        c += Δc
+        push!(flowpoints, (r, c, x))
+        if times > 0
+            v = v + rain_band[r, c] - ( x * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
+            times -= 1;
+        else
+            v = v - ( v * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
+        end
+    end
+
     return flowpoints
 end
-
-
 
 
 
@@ -588,127 +686,119 @@ end
     ]
  =#
 
-# "source_volumes" sarà un vettore contenente la quantità di pioggia caduta all'istante "i", si assume che la pioggia cada in modo uniforme in tutta l'area
- # interessata dal fenomeno
-# "x_interval" contiene i valori minimo e massimo della dimensione "x" dell'area interessata dalla pioggia
-# Similmente "y_interval" contiene i valori su "y"
-function flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
-    delta_dict = Dict(
-        1 => (-1, -1),
-        2 => (-1, 0),
-        3 => (-1, 1),
-        4 => (0, -1),
-        5 => (0, 1),
-        6 => (1, -1),
-        7 => (1, 0),
-        8 => (1, 1)
-    )
+#= flow VECCHIE VERSIONI
+    # "source_volumes" sarà un vettore contenente la quantità di pioggia caduta all'istante "i", si assume che la pioggia cada in modo uniforme in tutta l'area
+     # interessata dal fenomeno
+    # "x_interval" contiene i valori minimo e massimo della dimensione "x" dell'area interessata dalla pioggia
+    # Similmente "y_interval" contiene i valori su "y"
+    function flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
+        delta_dict = Dict(
+            1 => (-1, -1),
+            2 => (-1, 0),
+            3 => (-1, 1),
+            4 => (0, -1),
+            5 => (0, 1),
+            6 => (1, -1),
+            7 => (1, 0),
+            8 => (1, 1)
+        )
 
-    mat = agd.read(file)
-    bands = [ agd.getband(mat, i) for i in 1:8 ]
-    rows, cols = size(bands[1])
-    flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(mat, x, y)
-    r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
-    r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
+        mat = agd.read(file)
+        bands = [ agd.getband(mat, i) for i in 1:8 ]
+        rows, cols = size(bands[1])
+        flowpoints = Vector{Tuple{Int64, Int64}}()
+        r, c = Functions.toIndexes(mat, x, y)
+        r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
+        r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
 
-    x₀ = source_volumes[1]
-    push!(flowpoints, (r, c, x₀))
-    val = -Inf
-    for rain_i in source_volumes[2:end]
-        if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
-           r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
-           val > 0 || x₀ <= 0 ||                               # If the flow stops
-            break
-        end 
-        # flow from (r, c) to (r+Δr, c+Δc)
-        dir, val = mindir(bamds, r, c)
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-
-        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-        x₁ = x₀ - desc - out + rain_i
-        x₀ = x₁
+        x₀ = source_volumes[1]
         push!(flowpoints, (r, c, x₀))
+        val = -Inf
+        for rain_i in source_volumes[2:end]
+            if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
+               r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
+               val > 0 || x₀ <= 0 ||                               # If the flow stops
+                break
+            end 
+            # flow from (r, c) to (r+Δr, c+Δc)
+            dir, val = mindir(bamds, r, c)
+            Δr, Δc = delta_dict[dir]
+            r += Δr
+            c += Δc
+
+            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+            x₁ = x₀ - desc - out + rain_i
+            x₀ = x₁
+            push!(flowpoints, (r, c, x₀))
+        end
+        # If the cicle ends because the flow exits the rain zone or the rainfall stops
+        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+            dir, val = mindir(bands, r, c)
+            #   println()
+            #   println(val)
+            #   println()
+            #   println()
+
+            # Flow from (r, c) to (r+Δr, c+Δc)
+            Δr, Δc = delta_dict[dir]
+            r += Δr
+            c += Δc
+            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+            x₁ = x₀ - desc - out
+            x₀ = x₁
+            push!(flowpoints, (r, c, x₀))
+        end
+        return flowpoints
     end
-    # If the cicle ends because the flow exits the rain zone or the rainfall stops
-    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
-        dir, val = mindir(bands, r, c)
-        #   println()
-        #   println(val)
-        #   println()
-        #   println()
-        
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-        x₁ = x₀ - desc - out
-        x₀ = x₁
+
+    # "flow" to apply whene there is a singular source
+    # NON SO SE SI DEBBA SOMMARE AD OGNI PASSO IL VALORE INZIALE O SE SI DEBBA CONSIDERARE COMUNQUE IL FATTORE TEMPORALE (SE NELLA FONTE ARRIVA ACQUA PER UN CERTO TEMPO)
+    function flow( source_volume::Real, x::Real, y::Real, file::AbstractString )
+        delta_dict = Dict(
+            1 => (-1, -1),
+            2 => (-1, 0),
+            3 => (-1, 1),
+            4 => (0, -1),
+            5 => (0, 1),
+            6 => (1, -1),
+            7 => (1, 0),
+            8 => (1, 1)
+        )
+
+        mat = agd.read(file)
+        bands = [ agd.getband(mat, i) for i in 1:8 ]
+        rows, cols = size(bands[1])
+        flowpoints = Vector{Tuple{Int64, Int64}}()
+        r, c = Functions.toIndexes(mat, x, y)
+        x₀ = source_volume
         push!(flowpoints, (r, c, x₀))
+        val = -Inf
+        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
+            dir, val = mindir(bands, r, c)
+            #   println()
+            #   println(val)
+            #   println()
+            #   println()
+
+            # Flow from (r, c) to (r+Δr, c+Δc)
+            Δr, Δc = delta_dict[dir]
+            r += Δr
+            c += Δc
+            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
+            x₁ = x₀ - desc - out
+            x₀ = x₁
+            push!(flowpoints, (r, c, x₀))
+        end
+        return flowpoints
     end
-    return flowpoints
-end
-
-# "flow" to apply whene there is a singular source
-# NON SO SE SI DEBBA SOMMARE AD OGNI PASSO IL VALORE INZIALE O SE SI DEBBA CONSIDERARE COMUNQUE IL FATTORE TEMPORALE (SE NELLA FONTE ARRIVA ACQUA PER UN CERTO TEMPO)
-function flow( source_volume::Real, x::Real, y::Real, file::AbstractString )
-    delta_dict = Dict(
-        1 => (-1, -1),
-        2 => (-1, 0),
-        3 => (-1, 1),
-        4 => (0, -1),
-        5 => (0, 1),
-        6 => (1, -1),
-        7 => (1, 0),
-        8 => (1, 1)
-    )
-
-    mat = agd.read(file)
-    bands = [ agd.getband(mat, i) for i in 1:8 ]
-    rows, cols = size(bands[1])
-    flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(mat, x, y)
-    x₀ = source_volume
-    push!(flowpoints, (r, c, x₀))
-    val = -Inf
-    while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
-        dir, val = mindir(bands, r, c)
-        #   println()
-        #   println(val)
-        #   println()
-        #   println()
-        
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-        # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-        x₁ = x₀ - desc - out
-        x₀ = x₁
-        push!(flowpoints, (r, c, x₀))
-    end
-    return flowpoints
-end
 
 
-#   x = 726467.4299990014
-#   y = 5.025981399455068e6
-#   path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
-#
-#   res = flow( x, y, path )
-
-
-
-
-
-
-
-
-
-
+    #   x = 726467.4299990014
+    #   y = 5.025981399455068e6
+    #   path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
+    #
+    #   res = flow( x, y, path )
+=#
 
 function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
     delta_dict = Dict(
@@ -722,25 +812,63 @@ function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float3
         8 => (1, 1)
     )
 
-    rows, cols = size(band)
+    rows, cols, times = size(rain_band)
     flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(mat, x, y)
-    x = rain_band[r, c]
-    val = -Inf
-    while 1 < r < rows && 1 < c < cols && val < 0
-        dir, val = mindir(bands, r, c)
+    r, c = Functions.toIndexes(band, x, y) # USANDO LA MATRICE TRIDIMENSIONALE AL POSTO DEL RASTER toIndexes VA CAMBIATO
+    v = rain_band[r, c, 1]
+    push!(flowpoints, (r, c, v))
+    Δhmin = -Inf
+    i = 2
+    while 1 < r < rows && 1 < c < cols && Δhmin < 0 && i <= times
+        dir, Δhmin = mindir(band, r, c)
         #   println()
         #   println(val)
         #   println()
         #   println()
-        
         # Flow from (r, c) to (r+Δr, c+Δc)
         Δr, Δc = delta_dict[dir]
         r += Δr
         c += Δc
-        push!(flowpoints, (r, c, x))
-        x = x + rain_band[r, c] - ( x * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle  
+        # MANCA et PARAMETRO DI EVOTRASPIRAZIONE
+        v += sum(rain_band[r, c, 1:i]) * (1 - permeability_band[r, c])   # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
+        i += 1
+        push!(flowpoints, (r, c, v))
     end
+
+
+
+
+
+
+
+
+
+    while 1 < r < rows && 1 < c < cols && v > 0 && i <= times
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        dir, Δhmin = mindir(band, r, c)
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
+        # MANCA "et" PARAMETRO DI EVOTRASPIRAZIONE
+        v += sum(rain_band[r, c, 1:i]) * (1 - permeability_band[r, c])
+        if Δhmin > 0
+            if Δhmin - v < 0
+                v = Δhmin - v
+            else
+                break
+            end  
+        end
+        i += 1
+        push!(flowpoints, (r, c, v))
+    end
+
+
+
+
+
+
+
+
     return flowpoints
 end
 
