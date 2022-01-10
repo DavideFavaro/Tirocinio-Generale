@@ -25,6 +25,7 @@ module Runoffs
 
 
 import ArchGDAL as agd
+
 using Dates
 
 include("../Library/Functions.jl")
@@ -41,76 +42,109 @@ function getFeatureByFid( features::Vector{agd.Feature}, fid )
 end
 
 
-#=
-    def help(self):
-        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-        #QMessageBox.about(self.dlg,"Credits", self.credits )
-        if platform.uname()[0]=="Windows":
-            os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
+# Given a tuple with both values in "-1:1" (except "(0, 0)") return a value in "1:8"
+function hash_adjacent( t::Tuple{Int64, Int64} )
+    # 3x3 matrix linearization
+     # Its necessary to sum 2 to both values of t as they reppresent index displacements from the center of the matrix
+      # the linearization process is based on starting index 0, hence the need to sum 2 instead of 3
+      # for the same reason 1 needs to be substracted from the first index, ending up with "t[1] + 1"  
+    res = 3(t[1] + 1) + (t[2] + 2)
+    # The cell of index 5 is the center and it's not needed
+    return res >= 5 ? res - 1 : res 
+end
+
+# Given two values in "-1:1" (except "0" and "0") return a value in "1:8"
+function hash_adjacent( r::Int64, c::Int64 )
+    # 3x3 matrix linearization
+     # Its necessary to sum 2 to both values of t as they reppresent index displacements from the center of the matrix
+      # the linearization process is based on starting index 0, hence the need to sum 2 instead of 3
+      # for the same reason 1 needs to be substracted from the first index, ending up with "t[1] + 1"  
+    res = 3(r + 1) + (c + 2)
+    # The cell of index 5 is the center and it's not needed
+    return res >= 5 ? res - 1 : res 
+end
+
+# Given a value in "1:8" return the corresponding tuple with both values in "-1:1", except "(0, 0)"
+function hash_adjacent( i::Int64 )
+    # To account for the fact that "i" = 5 for the tuple "(0, 0)" 
+    if i > 4
+        i += 1
+    end
+    r = ceil(Int64, i / 3)
+    c = ((i - 1) % 3) + 1
+    # Substract 2 to obtain the index displacement from the center
+    return r - 2, c - 2 
+end
 
 
-        d.exec_()
-
-    def popolacombo(self):
-        self.combo_source.clear()
-        self.combo_dem.clear()
-        self.combo_soil.clear()
-        self.combo_bound.clear()
-        self.combofield_lc.clear()
-        self.combo_target.clear()
-        self.combofield_soil.clear()
-        self.combofield_target.clear()
-        self.combo_fieldp.clear()
-        self.combo_lc.clear()
-        self.line_folder.clear()
-        self.progressBar.setValue(0)
 
 
-        self.allLayers = self.canvas.layers()
-        self.listalayers=dict()
-        #elementovuoto="No required"
-        for i in self.allLayers:
-            if i.type() == QgsMapLayer.VectorLayer:
-                self.listalayers[i.name()]=i
-                self.combo_source.addItem(str(i.name()))
-                self.combo_bound.addItem(str(i.name()))
-                self.combo_lc.addItem(str(i.name()))
-                self.combo_target.addItem(str(i.name()))
-            if i.type()==QgsMapLayer.RasterLayer:
-                self.listalayers[i.name()]=i
-                self.combo_dem.addItem(str(i.name()))
-
-        self.combo_soil.addItem("Valore campo")
-        self.combo_soil.addItem("A")
-        self.combo_soil.addItem("B")
-        self.combo_soil.addItem("C")
-        self.combo_soil.addItem("D")
-
-        self.popolafields(self.combo_lc,self.combofield_lc)
-        self.popolafields(self.combo_lc,self.combofield_soil)
-        self.popolafields(self.combo_source,self.combo_fieldp)
-        self.popolafields(self.combo_target,self.combofield_target)
 
 
-    def extract_values(self, raster,x,y):
-        z=raster.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
-        zresult=z.results()
-        zvalue=zresult[1]
-        return(zvalue)
+
+
+
+
+
+
+
+
+#= 4D Matrix
+    import ArchGDAL as agd
+    using StatsBase
+
+    function x_connectivity_batch!( mat, heights_ranks::AbstractArray{Int64}, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
+        rows, cols = size(dem_band)
+        indexes = Dict(
+            (-1, -1) => 1,
+            (-1, 0)  => 2,
+            (-1, 1)  => 3,
+            (0, -1)  => 4,
+            (0, 1)   => 5,
+            (1, -1)  => 6,
+            (1, 0)   => 7,
+            (1, 1)   => 8
+        )
+        # For each cell of the dem's band
+        @inbounds for r in 1:rows, c in 1:cols
+            if dem_band[r, c] != noDataValue
+                # Indexes of adjacent cells
+                for (i, j) in keys(indexes)
+                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
+                        if mat[ r, c, heights_ranks[r, c], indexes[(i,j)] ] == noDataValue
+                            mat[ r, c, heights_ranks[r, c], indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
+                        end
+                        if mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] == noDataValue
+                            mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    function x_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
+        rows, cols = size(dem_band)
+        heights_ranks = denserank(dem_band)
+        n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
+        mat = fill( convert(Float32, noDataValue) , rows, cols, maximum(heights_ranks), 8 )
+        @inbounds for i in 1:n, j in 1:m
+            # Find the starting and ending indexes for the current slice of the matrix
+            # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
+            rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
+            cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
+            # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
+            x_connectivity_batch!( view(mat, rows_range, cols_range, :, :), view(heights_ranks, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
+        end
+        return mat
+    end
+
+
+    @time mat = x_connectivity( band_mat, 100, ndv )
 =#
 
-
-
-import ArchGDAL as agd
-
-# VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
-
-
 # 3 DIMENSIONAL MATRIX
+# VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
 function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     indexes = Dict(
@@ -129,11 +163,11 @@ function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real
             # Indexes of adjacent cells
             for (i, j) in keys(indexes)
                 if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if mat[ r, c, indexes[(i,j)] ] == noDataValue
-                        mat[ r, c, indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
+                    if mat[ r, c, hash_adjacent(i, j) ] == noDataValue
+                        mat[ r, c, hash_adjacent(i, j) ] = dem_band[r, c] - dem_band[r+i, c+j]
                     end
-                    if mat[ r+i, c+j, indexes[(-i, -j)] ] == noDataValue
-                        mat[ r+i, c+j, indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
+                    if mat[ r+i, c+j, hash_adjacent(-i, -j) ] == noDataValue
+                        mat[ r+i, c+j, hash_adjacent(-i, -j) ] = dem_band[r+i, c+j] - dem_band[r, c]
                     end
                 end
             end
@@ -143,8 +177,12 @@ end
 
 function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
-    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
     mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
+    if batch_size == 1
+        connectivity_batch!(mat, dem_band, noDataValue)
+        return mat
+    end
+    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
     @inbounds for i in 1:n, j in 1:m
         # Find the starting and ending indexes for the current slice of the matrix
          # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
@@ -156,141 +194,100 @@ function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Re
     return mat
 end
 
-@time mat = connectivity( band_mat, 1024, ndv )
+@time mat = connectivity( band_mat, 64, ndv )
 dims = size(mat)
 flattened = reshape(mat, dims[1], :, 1)[:, :, 1]
 io = open("D:\\Connectivity Data\\connectivity.txt", "w")
 write(io, flattened)
 close(io)
 
-
-using BenchmarkTools
-
-@benchmark mat = connectivity( test1b, 256, ndv )
-@benchmark mat = connectivity( test1b, 1024, ndv )
-@benchmark mat = connectivity( test1b, 2048, ndv )
-
-
-#=
-function direct_connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    indexes = Dict(
-        (-1, -1) => 1,
-        (-1, 0)  => 2,
-        (-1, 1)  => 3,
-        (0, -1)  => 4,
-        (0, 1)   => 5,
-        (1, -1)  => 6,
-        (1, 0)   => 7,
-        (1, 1)   => 8
-    )
-    # For each cell of the dem's band
-    @inbounds for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            # Indexes of adjacent cells
-            for (i, j) in keys(indexes)
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if dem_band[r, c] > dem_band[r+i, c+j] && mat[ r, c, indexes[(i,j)] ] == noDataValue
-                        mat[ r, c, indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
-                    end
-                    if dem_band[r, c] < dem_band[r+i, c+j] && mat[ r+i, c+j, indexes[(-i, -j)] ] == noDataValue
-                        mat[ r+i, c+j, indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
-                    end
-                end
-            end
-        end
-    end
-end
-
-function direct_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
-    mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
-    for i in 1:n, j in 1:m
-        # Find the starting and ending indexes for the current slice of the matrix
-         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
-        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
-        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
-        # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-        direct_connectivity_batch!( view(mat, rows_range, cols_range, :), view(dem_band, rows_range, cols_range), noDataValue )
-    end
-    return mat
-end
-
-@time matd = direct_connectivity( band_mat, 1024, ndv )
+#= PERFORMANCE CON MATRICE 3D
+band_mat
+    1
+        time
+            28.607769 seconds (227.76 k allocations: 2.104 GiB, 1.13% gc time, 1.78% compilation time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 27.651 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.09 GiB, over 6 allocations.
+    2
+        time
+            85.976766 seconds (280.88 M allocations: 47.085 GiB, 5.26% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 91.990 s (5.11% GC) to evaluate,
+            with a memory estimate of 47.09 GiB, over 280875584 allocations.
+    4
+        time
+            33.851321 seconds (31.22 M allocations: 7.094 GiB, 3.21% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 32.214 s (2.76% GC) to evaluate,
+            with a memory estimate of 7.09 GiB, over 31223344 allocations.
+    8
+        time
+            24.684055 seconds (5.74 M allocations: 3.012 GiB, 2.81% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 23.653 s (2.18% GC) to evaluate,
+            with a memory estimate of 3.01 GiB, over 5736484 allocations.
+    16
+        time
+            22.066191 seconds (1.25 M allocations: 2.293 GiB, 2.49% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 20.717 s (0.27% GC) to evaluate,
+            with a memory estimate of 2.29 GiB, over 1249420 allocations.
+    32
+        time
+            20.231624 seconds (293.17 k allocations: 2.140 GiB, 0.24% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 19.487 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.14 GiB, over 293172 allocations.
+ => 64
+        time
+            19.921554 seconds (71.43 k allocations: 2.104 GiB, 1.60% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 18.981 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.10 GiB, over 71428 allocations.
+    128
+        time
+            20.705979 seconds (17.86 k allocations: 2.096 GiB, 0.02% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 21.046 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.10 GiB, over 17860 allocations.
+    256
+        time
+            24.267431 seconds (4.47 k allocations: 2.093 GiB, 1.80% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 23.505 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.09 GiB, over 4468 allocations.
+    1024
+        time
+            28.605657 seconds (292 allocations: 2.093 GiB, 0.01% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 24.290 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.09 GiB, over 292 allocations.
+    2048
+        time
+            26.041493 seconds (84 allocations: 2.093 GiB, 1.88% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 24.635 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.09 GiB, over 84 allocations.
+    4096
+        time
+            27.898768 seconds (28 allocations: 2.093 GiB, 1.23% gc time)
+        benchmark
+            BenchmarkTools.Trial: 1 sample with 1 evaluation.
+            Single result which took 27.478 s (0.00% GC) to evaluate,
+            with a memory estimate of 2.09 GiB, over 28 allocations.
 =#
-
-
-
-
-import ArchGDAL as agd
-using StatsBase
-
-function x_connectivity_batch!( mat, heights_ranks::AbstractArray{Int64}, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    indexes = Dict(
-        (-1, -1) => 1,
-        (-1, 0)  => 2,
-        (-1, 1)  => 3,
-        (0, -1)  => 4,
-        (0, 1)   => 5,
-        (1, -1)  => 6,
-        (1, 0)   => 7,
-        (1, 1)   => 8
-    )
-    # For each cell of the dem's band
-    @inbounds for r in 1:rows, c in 1:cols
-        if dem_band[r, c] != noDataValue
-            # Indexes of adjacent cells
-            for (i, j) in keys(indexes)
-                if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                    if mat[ r, c, heights_ranks[r, c], indexes[(i,j)] ] == noDataValue
-                        mat[ r, c, heights_ranks[r, c], indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
-                    end
-                    if mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] == noDataValue
-                        mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
-                    end
-                end
-            end
-        end
-    end
-end
-
-function x_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
-    rows, cols = size(dem_band)
-    heights_ranks = denserank(dem_band)
-    n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
-    mat = fill( convert(Float32, noDataValue) , rows, cols, maximum(heights_ranks), 8 )
-    @inbounds for i in 1:n, j in 1:m
-        # Find the starting and ending indexes for the current slice of the matrix
-         # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
-        rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
-        cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
-        # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-        x_connectivity_batch!( view(mat, rows_range, cols_range, :, :), view(heights_ranks, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
-    end
-    return mat
-end
-
-
-@time mat = x_connectivity( band_mat, 100, ndv )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -311,119 +308,6 @@ test5 = [ 1.0  ndv 10.0  3.0 10.0; 10.0  ndv  5.0 10.0 10.0; ndv 10.0  8.0 10.0 
 
 
 
-mat = Array{ Union{ Missing, Vector{Tuple{Int64, Int64, Float32} } } }(missing, 1000, 1000)
-for r in 1:5, c in 1:5
-    if test1[r, c] != ndv
-        mat[r, c] = Vector{Tuple{Int64, Int64, Float32}}()
-    end
-end
-
-
-
-using BenchmarkTools
-
-@code_warntype connectivity_batch!( mat, test5, ndv )
-@code_warntype X_connectivity_batch!( mat, test5, ndv )
-
-@code_warntype connectivity(test5, 5, ndv)
-@code_warntype X_connectivity(test5, 5, ndv)
-
-
-dim = 2048
-
-@time mat = connectivity(test1b, dim, ndv)
-@time mat = X_connectivity(test1b, dim, ndv)
-
-@benchmark mat = connectivity(test1b, dim, ndv)
-@benchmark mat = X_connectivity(test1b, dim, ndv)
-
-mat = nothing
-GC.gc()
-
-
-
-
-
-
-
-#=
-test1b
-    256
-        time
-            1.415754 seconds (5.65 M allocations: 764.729 MiB, 29.85% gc time)
-
-            0.831210 seconds (3.92 M allocations: 421.320 MiB, 42.32% gc time)
-
-        benchmark
-            BenchmarkTools.Trial: 3 samples with 1 evaluation.
-            Range (min … max):  1.671 s …    2.135 s  ┊ GC (min … max): 42.34% … 42.65%
-            Time  (median):     1.862 s               ┊ GC (median):    46.38%
-            Time  (mean ± σ):   1.889 s ± 233.568 ms  ┊ GC (mean ± σ):  43.78% ±  2.25%
-            Memory estimate: 764.73 MiB, allocs estimate: 5648918.
-
-            BenchmarkTools.Trial: 7 samples with 1 evaluation.
-            Range (min … max):  506.997 ms …    1.063 s  ┊ GC (min … max):  0.00% … 52.39%
-            Time  (median):     730.994 ms               ┊ GC (median):    33.78%
-            Time  (mean ± σ):   798.933 ms ± 192.962 ms  ┊ GC (mean ± σ):  36.31% ± 16.76%
-            Memory estimate: 421.32 MiB, allocs estimate: 3917713.
-    
-    1024
-        time
-            1.511550 seconds (5.65 M allocations: 764.716 MiB, 34.69% gc time)
-
-            0.891455 seconds (3.92 M allocations: 421.307 MiB, 43.98% gc time)
-            
-        benchmark
-            BenchmarkTools.Trial: 3 samples with 1 evaluation.
-            Range (min … max):  1.848 s …   2.010 s  ┊ GC (min … max): 42.80% … 42.39%
-            Time  (median):     1.934 s              ┊ GC (median):    44.05%
-            Time  (mean ± σ):   1.931 s ± 81.007 ms  ┊ GC (mean ± σ):  43.13% ±  0.95%
-            Memory estimate: 764.72 MiB, allocs estimate: 5648846.
-
-            BenchmarkTools.Trial: 7 samples with 1 evaluation.
-            Range (min … max):  501.153 ms …    1.011 s  ┊ GC (min … max):  0.00% … 50.24%
-            Time  (median):     748.714 ms               ┊ GC (median):    31.93%
-            Time  (mean ± σ):   774.821 ms ± 168.350 ms  ┊ GC (mean ± σ):  35.65% ± 16.72%
-            Memory estimate: 421.31 MiB, allocs estimate: 3917641.
-
-    2048
-        time
-            1.565435 seconds (5.65 M allocations: 764.715 MiB, 34.72% gc time)
-
-            0.907934 seconds (3.92 M allocations: 421.306 MiB, 42.38% gc time)
-
-        benchmark
-            BenchmarkTools.Trial: 3 samples with 1 evaluation.
-            Range (min … max):  2.009 s …   2.126 s  ┊ GC (min … max): 46.20% … 39.91%
-            Time  (median):     2.062 s              ┊ GC (median):    41.14%
-            Time  (mean ± σ):   2.066 s ± 58.489 ms  ┊ GC (mean ± σ):  42.20% ±  3.43%
-            Memory estimate: 764.72 MiB, allocs estimate: 5648841.
-
-            BenchmarkTools.Trial: 5 samples with 1 evaluation.
-            Range (min … max):  640.191 ms …    1.528 s  ┊ GC (min … max):  0.00% … 60.09%
-            Time  (median):        1.044 s               ┊ GC (median):    41.98%
-            Time  (mean ± σ):      1.060 s ± 335.365 ms  ┊ GC (mean ± σ):  44.70% ± 23.43%
-            Memory estimate: 421.31 MiB, allocs estimate: 3917636.
-
-full dtm
-    256
-        time
-            2429.382277 seconds (59.62 M allocations: 7.986 GiB, 86.59% gc time, 0.02% compilation time)
-=#
-
-
-
-using DataFrames
-using CSV
-
-
-@time mat = connectivity(band_mat, 2048, ndv)
-df = DataFrame(mat, :auto)
-CSV.write("D:\\Connectivity Matrix\\direct_connectivity.csv", df)
-CSV.write("C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity.csv", df)
-
-
-
 
 
 
@@ -436,7 +320,7 @@ include("../Library/Functions.jl")
 
 
 
-mat = connectivity(band_mat, 2048, ndv)
+mat = connectivity(band_mat, 64, ndv)
 
 rows, cols = size(mat)
 dtm2 = agd.read(dtm_file)
@@ -450,22 +334,10 @@ agd.setnodatavalue!.(bands, valNoData)
 agd.fillraster!.(bands, valNoData)
 band_mats = agd.read.(bands)
 
-index_dict = Dict( 
-    (-1, -1) => 1,
-    (-1, 0)  => 2,
-    (-1, 1)  => 3,
-    (0, -1)  => 4,
-    (0, 1)   => 5,
-    (1, -1)  => 6,
-    (1, 0)   => 7,
-    (1, 1)   => 8
-)
-
-
 for r in 1:rows, c in 1:cols
     if !ismissing(mat[r, c]) && !isempty(mat[r, c])
         for (i, j, val) in mat[r, c]
-            band_mats[ index_dict[(i, j)] ][r, c] = val
+            band_mats[hash_adjacent(i, j)][r, c] = val
         end
     end
 end
@@ -482,17 +354,6 @@ agd.destroy(target_ds)
 
 
 function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractString )
-    index_dict = Dict( 
-        (-1, -1) => 1,
-        (-1, 0)  => 2,
-        (-1, 1)  => 3,
-        (0, -1)  => 4,
-        (0, 1)   => 5,
-        (1, -1)  => 6,
-        (1, 0)   => 7,
-        (1, 1)   => 8
-    )
-
     mat = connectivity(band_mat, 2048, ndv)
     dtm = agd.read(dtm_path)
     rows, cols = size(mat)
@@ -508,7 +369,7 @@ function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractS
     for r in 1:rows, c in 1:cols
         if !ismissing(mat[r, c]) && !isempty(mat[r, c])
             for (i, j, val) in mat[r, c]
-                band_mats[ index_dict[(i, j)] ][r, c] = val
+                band_mats[hash_adjacent(i, j)][r, c] = val
             end
         end
     end
@@ -538,6 +399,7 @@ include("../Library/Functions.jl")
 
 
 
+#= ANCORA NON FUNZIONANTI
 
 # "flow" E "mindir" CHE TENGONO CONTO DELLA POSSIBILITA' CHE CI SIANO PIU' CAMMINI MINIMI
 function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
@@ -559,9 +421,74 @@ function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
     return (dir, min)
 end
 
-#= VECCHIO multi_flow 
-    function multi_flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
-        delta_dict = Dict(
+function multi_flow!( flowpoints, v_moving::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rev_rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
+    while 1 < r < rows && 1 < c < cols
+        v = sum(rev_rain_band[r, c, times:end]) * (1 - permeability_band[r, c]) + v_moving  # Volume of water on cell "(r, c)" at intant "i"
+        dir, Δhmin = mindir(band, r, c) # Direction of the maximum negative difference in height (minimum because its measured from higher peak to lower) and difference itself
+        # If there is a cell with lower height adjacent to the current one
+        if Δhmin <= 0
+            v_moving = v # The entirety of the water on the cell flows to the next one
+            if times > 0
+                times -= 1
+            end
+        else # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
+            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
+            while times > 0 && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
+                Δhw -= rev_rain_band[r, c, times]
+                times -= 1
+            end
+            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
+             # no water flowing anymore
+            v_moving = times == 0 ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
+        end
+
+        # If there is no water flowing the flow stops
+        if v_moving == 0 && times == 0
+            break
+        end
+
+        # Flow to the next cell
+        Δr, Δc = hash_adjacent(dir)
+        r += Δr
+        c += Δc
+    end
+    return flowpoints
+end
+
+function multi_flow!( flowpoints, v₀::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
+    v = v₀
+    val = -Inf
+    # Singular strem
+    while 1 < r < rows && 1 < c < cols && val < 0
+        dir, val = mindir(band, r, c, -9999.0)
+
+        # Follow the first flow direction (which may be the only one available) 
+        # Flow from (r, c) to (r+Δr, c+Δc)
+        Δr, Δc = hash_adjacent(dir[1])
+        r += Δr
+        c += Δc
+        push!(flowpoints, (r, c, v))
+        if times > 0
+            v = v + rain_band[r, c] - ( x * permeability_band[r, c] ) - val # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
+            times -= 1;
+        else
+            v = v - ( v * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
+        end
+
+        # If there are multiple equivalent directions run the algorithm on all except the first 
+        if length(dir) > 1
+            for d in dir[2:end]
+                Δr, Δc = hash_adjacent(d) 
+                multi_flow!(flowpoints, r+Δr, c+Δc, c, rows, cols, times, band, rain_band, permeability_band)
+            end
+        end
+    end
+
+    return flowpoints
+end
+
+function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
+    delta_dict = Dict(
         1 => (-1, -1),
         2 => (-1, 0),
         3 => (-1, 1),
@@ -570,85 +497,18 @@ end
         6 => (1, -1),
         7 => (1, 0),
         8 => (1, 1)
-        )
-    
-        mat = agd.read(file)
-        bands = [ agd.getband(mat, i) for i in 1:8 ]
-        rows, cols = size(bands[1])
-        flowpoints = Vector{Tuple{Int64, Int64}}()
-        r, c = Functions.toIndexes(mat, x, y)
-        r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
-        r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
-    
-        x₀ = source_volumes[1]
-        push!(flowpoints, (r, c, x₀))
-        val = -Inf
-        for rain_i in source_volumes[2:end]
-        if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
-           r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
-           val > 0 || x₀ <= 0 ||                               # If the flow stops
-            break
-        end 
-        # flow from (r, c) to (r+Δr, c+Δc)
-        dir, val = mindir(bamds, r, c)
-        for d in dir
-            Δr, Δc = delta_dict[d]
-            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-            x₁ = x₀ - desc - out + rain_i
-            x₀ = x₁
-            push!(flowpoints, (r+Δr, c+Δc, x₀))
-        end
-        end
-        # If the cicle ends because the flow exits the rain zone or the rainfall stops
-        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        dir, val = mindir(bands, r, c)
-        for d in dir
-            Δr, Δc = delta_dict[d]
-            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-            x₁ = x₀ - desc - out
-            x₀ = x₁
-            push!(flowpoints, (r+Δr, c+Δc, x₀))
-        end
-        end
-        return flowpoints
-    end
-=#
-function multi_flow!( flowpoints, v₀::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32}, delta_dict::Dict )
-    v = v₀
-    val = -Inf
+    )
+    rows, cols, times = size(rain_band)
+    flowpoints = Vector{Tuple{Int64, Int64}}()
+    r, c = Functions.toIndexes(band, x, y)
 
-    # Singular strem
-    while 1 < r < rows && 1 < c < cols && val < 0
-        dir, val = mindir(band, r, c, -9999.0)
-        #   println()
-        #   println(val)
-        #   println()
-        #   println()
-
-        if length(dir) > 1
-            for d in dir 
-                multi_flow( flowpoints, v, r, c, ros, cols, times-1 )
-
-
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        Δr, Δc = delta_dict[dir[1]]
-        r += Δr
-        c += Δc
-        push!(flowpoints, (r, c, x))
-        if times > 0
-            v = v + rain_band[r, c] - ( x * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
-            times -= 1;
-        else
-            v = v - ( v * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
-        end
-    end
+    # Passing the reversed version of "rain_band" allows to use "times" as index for said array to obtain the matrixes in the correct order
+    multi_flow!(flowpoints, 0, r, c, rows, cols, times, band, reverse(rain_band), permeability_band)
 
     return flowpoints
 end
 
-
-
+=#
 
 
 
@@ -665,7 +525,6 @@ function mindir( mat, r::Int64, c::Int64 )
     dir = 0
     min = Inf
     @inbounds for i in 1:8
-        #   println( "$i) $(mat[i][r, c])" )
         if mat[r, c, i] != -9999.0 && mat[r, c, i] < min
             dir = i
             min = mat[i][r, c]
@@ -686,119 +545,145 @@ end
     ]
  =#
 
-#= flow VECCHIE VERSIONI
-    # "source_volumes" sarà un vettore contenente la quantità di pioggia caduta all'istante "i", si assume che la pioggia cada in modo uniforme in tutta l'area
-     # interessata dal fenomeno
-    # "x_interval" contiene i valori minimo e massimo della dimensione "x" dell'area interessata dalla pioggia
-    # Similmente "y_interval" contiene i valori su "y"
-    function flow( source_volumes, x::Real, y::Real, x_interval, y_interval, file::AbstractString )
-        delta_dict = Dict(
-            1 => (-1, -1),
-            2 => (-1, 0),
-            3 => (-1, 1),
-            4 => (0, -1),
-            5 => (0, 1),
-            6 => (1, -1),
-            7 => (1, 0),
-            8 => (1, 1)
-        )
+# Return the amount of water flowing along the path formed by the points in "flowpoints" at "instant" and update the value corresponding to the volume of water at each point
+ function moving_water!( flowpoints::Vector, instant::Int64, rain::Matrix, permeability::Matrix )
+    v_moving = 0 # Water flowing from already visited cells following the path
+    for (rₚ, cₚ, Δhminₚ, vₚ) in flowpoints
+        vₚ = (vₚ + rain[instant][rₚ, cₚ] + v_moving) * (1 - permeability[rₚ, cₚ])
+        if Δhmin <= 0 # If the following cell in the path is below the current one
+            # All the water on the cell flows to the next one
+            v_moving = vₚ
+            vₚ = 0
+        else # If the cell is below all the surrounding cells
+            # The water accumulates on the cell, if the volume of the water added to the height of the cell exceeds the height of the lowest adjacent cell
+             # the water overflows 
+            if vₚ > Δhminₚ
+                v_moving = vₚ - Δhminₚ
+                vₚ -= v_moving
+            else
+                v_moving = 0
+            end
+        end
+    end
+    return v_moving
+end
 
-        mat = agd.read(file)
-        bands = [ agd.getband(mat, i) for i in 1:8 ]
-        rows, cols = size(bands[1])
-        flowpoints = Vector{Tuple{Int64, Int64}}()
-        r, c = Functions.toIndexes(mat, x, y)
-        r_min, c_min = Funtions.toIndexes( x_interval[1], y_interval[1] )
-        r_max, c_max = Funtions.toIndexes( x_interval[2], y_interval[2] )
+function flow( flowpoints::Vector, r::Int64, c::Int64, rows::Int64, cols::Int64, instants::Int64, band::Matrix{Float32}, rev_rain_band::Matrix, permeability_band::Matrix )
+    while 1 < r < rows && 1 < c < cols
+        # While its still raining
+        v_moving = 0 # Volume of water flowing FROM the current cell to the next in the current instant
+         # "moving_water!" computes the water flowing TO the current cell and so is an instant behind accounting for "v_moving" 
+        while instants > 0
+            # Ad ogni istante ricalcoliamo il volume d'acqua che sta scorrendo lungo il percorso del flusso, in questo modo il volume d'acqua
+             # di ogni nuova cella tiene conto del fatto che la pioggia influisce su tutte le celle appertenenti al percorso
+ 
+ #= SOSTITUITO DA "moving_water"
+            # Water flowing from already visited cells following the path
+            v_moving = 0
+            for (rₚ, cₚ, vₚ) in flowpoints
+                vₚ = (vₚ + rev_rain_band[instant][rₚ, cₚ] + v_moving) * (1 - permeability_band[rₚ, cₚ])
+                Δhmin = mindir(band, rₚ, cₚ)[2]
+                if Δhmin <= 0
+                    v_moving = vₚ
+                    vₚ = 0
+                else
+                    while instants > 0 && Δhmin - point[3] > 0
+                        vₚ += rain_band[instants][rₚ, cₚ]
+                    end
+                    v_moving = instants == 0 ? 0 : vₚ - Δhmin
+                    vₚ -= v_moving
+                end
+            end
+ =#
+            # Volume of water on the current cell
+            v = ( sum(rain_band[instants:end][r, c]) + v_moving + moving_water!(flowpoints, instant, rev_rain_band, permeability_band) ) * (1 - permeability_band[r, c])
+            dir, Δhmin = mindir(band, r, c)
+            if Δhmin <= 0 # If there is a lower adjacent cell all the water flows there
+                v_moving = v
+                v = 0
+                instants -= 1
+            else # If the cell is a local minimum the water keeps accumulating untill it overflows
+                while instants > 0 && Δhmin > v
+                    v = ( v + rain_band[instants][r, c] + moving_water!(flowpoints, instant, rev_rain_band, permeability_band) ) * (1 - permeability[r, c])
+                    instants -= 1
+                end
+                # If the rain stops before the water overflows the stream alts on the cell
+                v_moving = instants == 0 ? 0 : v - Δhmin
+                v -= v_moving
+            end
 
-        x₀ = source_volumes[1]
-        push!(flowpoints, (r, c, x₀))
-        val = -Inf
-        for rain_i in source_volumes[2:end]
-            if r < r_min || r > r_max || c < c_min || c > c_max || # If outside the rain zone
-               r < 1 || r > rows || c < 1 || c > cols ||           # If outside the raster
-               val > 0 || x₀ <= 0 ||                               # If the flow stops
+            push!(flowpoints, (r, c, Δhmin, v))
+            
+            # If there is no water flowing the flow stops
+            if v_moving == 0 && instants == 0
                 break
-            end 
-            # flow from (r, c) to (r+Δr, c+Δc)
-            dir, val = mindir(bamds, r, c)
-            Δr, Δc = delta_dict[dir]
+            end
+
+            # Flow to the next cell
+            Δr, Δc = hash_adjacent(dir)
             r += Δr
             c += Δc
-
-            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-            x₁ = x₀ - desc - out + rain_i
-            x₀ = x₁
-            push!(flowpoints, (r, c, x₀))
         end
-        # If the cicle ends because the flow exits the rain zone or the rainfall stops
-        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
-            dir, val = mindir(bands, r, c)
-            #   println()
-            #   println(val)
-            #   println()
-            #   println()
-
-            # Flow from (r, c) to (r+Δr, c+Δc)
-            Δr, Δc = delta_dict[dir]
-            r += Δr
-            c += Δc
-            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-            x₁ = x₀ - desc - out
-            x₀ = x₁
-            push!(flowpoints, (r, c, x₀))
+        # After the rain stops but there is still water flowing
+        while v_moving > 0
         end
-        return flowpoints
     end
+end
 
-    # "flow" to apply whene there is a singular source
-    # NON SO SE SI DEBBA SOMMARE AD OGNI PASSO IL VALORE INZIALE O SE SI DEBBA CONSIDERARE COMUNQUE IL FATTORE TEMPORALE (SE NELLA FONTE ARRIVA ACQUA PER UN CERTO TEMPO)
-    function flow( source_volume::Real, x::Real, y::Real, file::AbstractString )
-        delta_dict = Dict(
-            1 => (-1, -1),
-            2 => (-1, 0),
-            3 => (-1, 1),
-            4 => (0, -1),
-            5 => (0, 1),
-            6 => (1, -1),
-            7 => (1, 0),
-            8 => (1, 1)
-        )
 
-        mat = agd.read(file)
-        bands = [ agd.getband(mat, i) for i in 1:8 ]
-        rows, cols = size(bands[1])
-        flowpoints = Vector{Tuple{Int64, Int64}}()
-        r, c = Functions.toIndexes(mat, x, y)
-        x₀ = source_volume
-        push!(flowpoints, (r, c, x₀))
-        val = -Inf
-        while 1 < r < rows && 1 < c < cols && val < 0 && x₀ > 0
-            dir, val = mindir(bands, r, c)
-            #   println()
-            #   println(val)
-            #   println()
-            #   println()
+#= VERSIONI VECCHIE
+function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
+    delta_dict = Dict(
+        1 => (-1, -1),
+        2 => (-1, 0),
+        3 => (-1, 1),
+        4 => (0, -1),
+        5 => (0, 1),
+        6 => (1, -1),
+        7 => (1, 0),
+        8 => (1, 1)
+    )
+    rows, cols, instants = size(rain_band)
+    flowpoints = Vector{Tuple{Int64, Int64, Float64}}()
+    r, c = Functions.toIndexes(band, x, y)
 
-            # Flow from (r, c) to (r+Δr, c+Δc)
-            Δr, Δc = delta_dict[dir]
-            r += Δr
-            c += Δc
-            # NON SO COME SI OTTENGONO I VALORI PER L'ACQUA CHE SCENDE ("desc") E QUELLA CHE ESCE ("out")
-            x₁ = x₀ - desc - out
-            x₀ = x₁
-            push!(flowpoints, (r, c, x₀))
+    i = 1 # Current instant
+    v_moving = 0 # Volume of water moving from a cell to another
+    # While we are still inside the raster
+    while 1 < r < rows && 1 < c < cols
+        v₀ = i <= instants ? sum(rain_band[1:i][r, c]) : sum(rain_band[1:instants][r, c])
+        v = ( v₀ + v_moving ) * (1 - permeability_band[r, c]) # Volume of water on cell "(r, c)" at intant "i"
+        dir, Δhmin = mindir(band, r, c) # Direction of the maximum difference in height (minimum because its measured from higher peak to lower) and difference itself
+
+        if Δhmin <= 0
+            v_moving = v # The entirety of the water on the cell flows to the next one
+            if i < instants
+                i += 1
+            end
+        else # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
+            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
+            while i < instants && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
+                Δhw -= rain_band[i][r, c]
+                i += 1
+            end
+            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
+             # no water flowing anymore
+            v_moving = i == times ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
         end
-        return flowpoints
+
+        push!(flowpoints, (r, c, v - v_moving))
+        
+        # If there is no water flowing the flow stops
+        if v_moving == 0
+            break
+        end
+        
+        # Flow to the next cell
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
     end
-
-
-    #   x = 726467.4299990014
-    #   y = 5.025981399455068e6
-    #   path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
-    #
-    #   res = flow( x, y, path )
-=#
+end
 
 function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
     delta_dict = Dict(
@@ -811,66 +696,82 @@ function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float3
         7 => (1, 0),
         8 => (1, 1)
     )
-
     rows, cols, times = size(rain_band)
     flowpoints = Vector{Tuple{Int64, Int64}}()
     r, c = Functions.toIndexes(band, x, y) # USANDO LA MATRICE TRIDIMENSIONALE AL POSTO DEL RASTER toIndexes VA CAMBIATO
-    v = rain_band[r, c, 1]
-    push!(flowpoints, (r, c, v))
-    Δhmin = -Inf
-    i = 2
-    while 1 < r < rows && 1 < c < cols && Δhmin < 0 && i <= times
-        dir, Δhmin = mindir(band, r, c)
-        #   println()
-        #   println(val)
-        #   println()
-        #   println()
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-        # MANCA et PARAMETRO DI EVOTRASPIRAZIONE
-        v += sum(rain_band[r, c, 1:i]) * (1 - permeability_band[r, c])   # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
-        i += 1
-        push!(flowpoints, (r, c, v))
-    end
 
 
 
-
-
-
-
-
-
-    while 1 < r < rows && 1 < c < cols && v > 0 && i <= times
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        dir, Δhmin = mindir(band, r, c)
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-        # MANCA "et" PARAMETRO DI EVOTRASPIRAZIONE
-        v += sum(rain_band[r, c, 1:i]) * (1 - permeability_band[r, c])
-        if Δhmin > 0
-            if Δhmin - v < 0
-                v = Δhmin - v
-            else
-                break
-            end  
+ # NON SO QUANDO DOVREI FARE IL push!, IDEALMENTE, DOVREI PUSHARE SIA IL VOLUME D'ACQUA SULLA CELLA CHE IL VOLUME D'ACQUA IN MOTO
+  # N.B. SE w_mov E' UGUALE A v ALLORA IL VALORE DEL VOLUME DA PUSHARE SARA' 0
+    i = 1 # Current instant / timeframe
+    w_mov = 0 # Water flowing from a cell to another
+    while 1 < r < rows && 1 < c < cols && w_mov > 0 
+        v = rain_band[r, c, 1:i] * (1 - permeability_band[r, c]) + w_mov  # Volume of water on cell "(r, c)" at intant "i"
+        dir, Δhmin = mindir(band, r, c) # Direction of the maximum difference in height (minimum because its measured from higher peak to lower) and difference itself
+        # If there is a cell with lower height adjacent to the current one
+        if Δhmin <= 0
+            w_mov = v # The entirety of the water on the cell flows to the next one
+        # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
+        else
+            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
+            while i < times && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
+                Δhw -= rain_band[r, c, i]
+                i += 1
+            end
+            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
+             # no water flowing anymore
+            w_mov = i == times ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
         end
-        i += 1
-        push!(flowpoints, (r, c, v))
+        # Flow to the next cell
+        Δr, Δc = delta_dict[dir]
+        r += Δr
+        c += Δc
     end
-
-
-
-
-
-
-
-
     return flowpoints
 end
+=#
+
+
+function matrix_flow( x::Real, y::Real, band::Matrix{Float32}, rain, permeability, noDataValue )
+    # Avendo "rain" come vettoriale dovrebbe essere possibile ottenere la bounding box della massima area interessata dalla pioggia
+     # da questo bounding box dovrebbe essere possibile ottenere gli indici minimi e massimi dell'area (rmin, rmax, cmin, cmax)
+
+ #=
+    < Passaggi per ottenere i sopraccitati indici, l'indice "instant" e il raster di "rain" con le bande invertite (per indicizzare direttamente con "instant"),
+      chiamato "rev_rain_band" > 
+ =#
+    rows = rmax-rmin
+    cols = cmax-cmin
+    # Layer 1: volume of water in the cell, 2:water moving from the cell, 3: direction of the flow from the cell, 4: minimum height of adjacent cells
+    res = zeros(Float64, rows, cols, 5)
+
+    while instant > 0
+        # Add the rain that is falling in the current instant, find the lowest adjacent cell, its height and the amount of water moving  
+        for r in rows, c in cols
+            # Layer 1: water volume in the cell, 2: amount of water leaving the cell, 3: direction of the flow, 4: height of the lowest cell 
+            res[r, c, 1] += rev_rain_band[instant][r+rmin, c+cmin]
+            res[r, c, 3], res[r, c, 4] = mindir(band, r+rmin, c+cmin)
+            if res[r, c, 4] <= 0
+                res[r, c, 2] = res[r, c, 1]
+                res[r, c, 1] = 0
+            else
+                if res[r, c, 1] > res[r, c, 4]
+                    res[r, c, 2] = res[r, c, 1] - res[r, c, 4]
+                end
+            end
+        end
+        
+        
+        
+        instant -= 1
+    end
+
+
+
+end
+
+
 
 
 
