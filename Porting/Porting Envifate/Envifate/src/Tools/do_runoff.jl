@@ -147,16 +147,6 @@ end
 # VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
 function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
-    indexes = Dict(
-        (-1, -1) => 1,
-        (-1, 0)  => 2,
-        (-1, 1)  => 3,
-        (0, -1)  => 4,
-        (0, 1)   => 5,
-        (1, -1)  => 6,
-        (1, 0)   => 7,
-        (1, 1)   => 8
-    )
     # For each cell of the dem's band
     @inbounds for r in 1:rows, c in 1:cols
         if dem_band[r, c] != noDataValue
@@ -546,7 +536,7 @@ end
  =#
 
 # Return the amount of water flowing along the path formed by the points in "flowpoints" at "instant" and update the value corresponding to the volume of water at each point
- function moving_water!( flowpoints::Vector, instant::Int64, rain::Matrix, permeability::Matrix )
+function moving_water!( flowpoints::Vector, instant::Int64, rain::Matrix, permeability::Matrix )
     v_moving = 0 # Water flowing from already visited cells following the path
     for (rₚ, cₚ, Δhminₚ, vₚ) in flowpoints
         vₚ = (vₚ + rain[instant][rₚ, cₚ] + v_moving) * (1 - permeability[rₚ, cₚ])
@@ -576,25 +566,6 @@ function flow( flowpoints::Vector, r::Int64, c::Int64, rows::Int64, cols::Int64,
         while instants > 0
             # Ad ogni istante ricalcoliamo il volume d'acqua che sta scorrendo lungo il percorso del flusso, in questo modo il volume d'acqua
              # di ogni nuova cella tiene conto del fatto che la pioggia influisce su tutte le celle appertenenti al percorso
- 
- #= SOSTITUITO DA "moving_water"
-            # Water flowing from already visited cells following the path
-            v_moving = 0
-            for (rₚ, cₚ, vₚ) in flowpoints
-                vₚ = (vₚ + rev_rain_band[instant][rₚ, cₚ] + v_moving) * (1 - permeability_band[rₚ, cₚ])
-                Δhmin = mindir(band, rₚ, cₚ)[2]
-                if Δhmin <= 0
-                    v_moving = vₚ
-                    vₚ = 0
-                else
-                    while instants > 0 && Δhmin - point[3] > 0
-                        vₚ += rain_band[instants][rₚ, cₚ]
-                    end
-                    v_moving = instants == 0 ? 0 : vₚ - Δhmin
-                    vₚ -= v_moving
-                end
-            end
- =#
             # Volume of water on the current cell
             v = ( sum(rain_band[instants:end][r, c]) + v_moving + moving_water!(flowpoints, instant, rev_rain_band, permeability_band) ) * (1 - permeability_band[r, c])
             dir, Δhmin = mindir(band, r, c)
@@ -733,42 +704,74 @@ end
 =#
 
 
-function matrix_flow( x::Real, y::Real, band::Matrix{Float32}, rain, permeability, noDataValue )
-    # Avendo "rain" come vettoriale dovrebbe essere possibile ottenere la bounding box della massima area interessata dalla pioggia
-     # da questo bounding box dovrebbe essere possibile ottenere gli indici minimi e massimi dell'area (rmin, rmax, cmin, cmax)
 
- #=
-    < Passaggi per ottenere i sopraccitati indici, l'indice "instant" e il raster di "rain" con le bande invertite (per indicizzare direttamente con "instant"),
-      chiamato "rev_rain_band" > 
- =#
-    rows = rmax-rmin
-    cols = cmax-cmin
-    # Layer 1: volume of water in the cell, 2:water moving from the cell, 3: direction of the flow from the cell, 4: minimum height of adjacent cells
-    res = zeros(Float64, rows, cols, 5)
 
-    while instant > 0
-        # Add the rain that is falling in the current instant, find the lowest adjacent cell, its height and the amount of water moving  
-        for r in rows, c in cols
-            # Layer 1: water volume in the cell, 2: amount of water leaving the cell, 3: direction of the flow, 4: height of the lowest cell 
-            res[r, c, 1] += rev_rain_band[instant][r+rmin, c+cmin]
-            res[r, c, 3], res[r, c, 4] = mindir(band, r+rmin, c+cmin)
-            if res[r, c, 4] <= 0
-                res[r, c, 2] = res[r, c, 1]
-                res[r, c, 1] = 0
-            else
-                if res[r, c, 1] > res[r, c, 4]
-                    res[r, c, 2] = res[r, c, 1] - res[r, c, 4]
-                end
+
+
+
+
+
+
+
+
+
+
+function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
+    dir = [0]
+    min = Inf
+    @inbounds for i in 1:8
+        #   println( "$i) $(mat[i][r, c])" )
+        if mat[r, c, i] != noDataValue
+            if mat[r, c, i] < min
+                dir = [i]
+                min = mat[r, c, i]
+                continue
+            end
+            if mat[r, c, i] == min
+                push!(dir, i)
             end
         end
-        
-        
-        
-        instant -= 1
+    end
+    return (dir, min)
+end
+
+function flow( band::Matrix{Float32}, rain, permeability, noDataValue::Real )
+    rows, cols = size(band)
+    water = zeros(Float64, rows, cols, 2) # water[:,:,1]: water volume, water[:,:,2]: volume of incoming water
+    flow = Array{ Union{ Vector{Float64}, Float64 } }(noDataValue, rows, cols)
+
+    for rain_epoch in rain
+        # Compute the amount of water for every cell
+        water[:,:,1] = (water[:,:,1] + rain_epoch + water[:,:,2]) .* (1 .- permeability)
+
+        # For every cell compute the water flowing from that cell to another and update the volume of water in the cell
+        @inbounds for r in 1:rows, c in 1:cols
+            if band[r,c] == noDataValue
+                water[r, c, 1] = water[r, c, 2] = noDataValue
+                flow[r, c] = noDataValue
+                continue
+            end 
+            # Get the minimum difference in height with the neighbouring cells and the directions to the cells at that height
+            dir, Δhmin = mindir(band, r, c)
+            # Get the displacements to reach said cells from the current one
+            flow[r, c] = hash_adjacent.(dir)
+
+            # If the volume of water is greater than the difference in height between the current cell and the lowest adjacent, the water flows
+            if water[r, c, 1] > Δhmin
+                ld = length(flow[r,c])
+                # The volume of flowing water depends on the difference of height between the cell and the adjacent one
+                v = Δhmin <= 0 ? water[r, c, 1] : water[r, c, 1] - Δhmin
+                # To the incoming water of cell "(r+Δr, c+Δc)" is added a portion of the water of cell "(r, c)" depending on the number of paths
+                for delta in flow[r,c]
+                    water[r+delta[1], c+delta[2], 2] += v / ld
+                end
+                # The remaining water is equal to the original volume less the amount that passed to the adjacent cell
+                water[r, c, 1] -= v 
+            end
+        end
     end
 
-
-
+    return flow, water
 end
 
 
