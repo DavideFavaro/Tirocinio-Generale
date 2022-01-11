@@ -51,6 +51,7 @@ out = [ "D:\\Vario\\Stage",
 
 
 
+
 # Funzione presa da: https://stackoverflow.com/questions/48104390/julias-most-efficient-way-to-choose-longest-array-in-array-of-arrays
 function maxLenIndex( vect::AbstractVector )
     len = 0
@@ -428,24 +429,110 @@ end
 
 
 # Spiegazione di sta roba a https://rafaqz.github.io/Rasters.jl/stable/#Polygon-masking,-mosaic-and-plot
+mask(A::AbstractRaster; to, kw...) = _mask(A, to; kw...)
+_mask(A::RasterStackOrArray, poly::GI.AbstractGeometry; kw...) = _mask( A, GI.coordinates(poly); kw... )
+_mask(A::AbstractRaster, poly::AbstractVector; order=(X, Y),kw...) = _mask( A, _poly_mask(A, poly; order, kw...); kw... )
+function _poly_mask(A::AbstractRaster, poly::AbstractVector; order=(XDim, YDim))
+    missingval isa Nothing && _nomissingerror()
+    # We need a tuple of all the dims in `order`
+    # We also need the index locus to be the center so we are
+    # only selecting cells more than half inside the polygon
+    shifted_dims = map(d -> DD.maybeshiftlocus(Center(), d), dims(A))
+
+    # Get the array as points
+    pts = vec(collect(points(shifted_dims; order)))
+
+    nodes = flat_nodes(poly)
+    poly_bounds = map(1:length(order)) do i
+        extrema((p[i] for p in nodes))
+    end
+    array_bounds = bounds(dims(A, order))
+    is_crossover = map(poly_bounds, array_bounds) do (p_min, p_max), (a_min, a_max)
+        if p_max >= a_max
+            p_min <= a_max
+        else
+            p_max >= a_min
+        end
+    end |> all
+
+    # Only run inpolygon if the polygon has any point in the bounding box
+    if is_crossover
+        # Check if theyre in the polygon
+        inpoly = inpolygon(pts, poly)
+        # Reshape the first column of the output matrix to match `A`
+        inpoly = BitArray(reshape(view(inpoly, :, 1), size(A)))
+    else
+        inpoly = BitArray(undef, size(A))
+        inpoly .= false
+    end
+
+    # Rebuild a with the masked values
+    return rebuild(A; data=inpoly, missingval=false)
+end
+function inpolygon(points::AbstractVector, poly::AbstractVector)
+    edges = Matrix{Int}(undef, 0, 2)
+    edgenum = 0
+    edges, _ = _get_edges(edges, edgenum, poly)
+    nodes = collect(flat_nodes(poly))
+    PolygonInbounds.inpoly2(points, nodes, edges)
+end
+function inpoly2(vert, node, edge=zeros(Int); atol::T=0.0, rtol::T=NaN, outformat=InOnBit) where T<:AbstractFloat
+
+    rtol = !isnan(rtol) ? rtol : iszero(atol) ? eps(T)^0.85 : zero(T)
+    poly = PolygonMesh(node, edge)
+    points = PointsInbound(vert)
+    npoints = length(points)
+
+    vmin = minimum(points)
+    vmax = maximum(points)
+    pmin = minimum(poly)
+    pmax = maximum(poly)
+
+    lbar = sum(pmax - pmin)
+    tol = max(abs(rtol * lbar), abs(atol))
+    
+    ac = areacount(poly)
+    stat = ac > 1 ? falses(npoints,2,ac) : falses(npoints,2)
+    # flip coordinates so expected efford is minimal
+
+    dvert = vmax - vmin
+    ix = dvert[1] < dvert[2] ? 1 : 2
+    iyperm = sortperm(points, 3 - ix)
+
+    inpoly2!(points, iyperm, poly, ix, tol, stat)
+
+    convertout(outformat, InOnBit, stat)
+end
+function Base.minimum(p)
+    n = length(p)
+    minimum([[vertex(p, k, 1) for k = 1:n] [vertex(p, k, 2) for k = 1:n]], dims = 1)
+end
+function vertex(p, v::Integer, xy::Integer)
+    c = [:x, :y]
+    p.points[v][c[xy]]
+end
+
+
+
+
+
 
 using Rasters
 using Shapefile
 
 sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
 ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1609_S3B_OL_1_EFR"
+#   files = NamedTuple( Symbol(f) = ncdf_files * "\\" * f for f in readdir(ncdf_files)[1:end-1] )
 files = ncdf_files * "\\" .* readdir(ncdf_files)[1:end-1]
-files = NamedTuple( Symbol(f) = ncdf_files * "\\" * f for f in readdir(ncdf_files)[1:end-1] )
 
-
-ncdfs = [ Rasters.Raster(f) for f in files ]
-
+#   data = [ Rasters.Raster(f) for f in files ];
+data = RasterSeries(files, :cose)
 
 shape = Shapefile.Handle(sat_file).shapes[1]
-ndcf = Rasters.Raster(files)
+shp = [ (p.x, p.y) for p in shape.points ]
 
+mask(data[1]; to=shape)
 
-
-
+typeof(shape)
  
 end #module
