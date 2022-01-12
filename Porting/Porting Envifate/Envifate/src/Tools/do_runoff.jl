@@ -385,131 +385,6 @@ include("../Library/Functions.jl")
 
 
 
-
-
-
-
-#= ANCORA NON FUNZIONANTI
-
-# "flow" E "mindir" CHE TENGONO CONTO DELLA POSSIBILITA' CHE CI SIANO PIU' CAMMINI MINIMI
-function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
-    dir = [0]
-    min = Inf
-    @inbounds for i in 1:8
-        #   println( "$i) $(mat[i][r, c])" )
-        if mat[r, c, i] != noDataValue
-            if mat[r, c, i] < min
-                dir = [i]
-                min = mat[r, c, i]
-                continue
-            end
-            if mat[r, c, i] == min
-                push!(dir, i)
-            end
-        end
-    end
-    return (dir, min)
-end
-
-function multi_flow!( flowpoints, v_moving::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rev_rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
-    while 1 < r < rows && 1 < c < cols
-        v = sum(rev_rain_band[r, c, times:end]) * (1 - permeability_band[r, c]) + v_moving  # Volume of water on cell "(r, c)" at intant "i"
-        dir, Δhmin = mindir(band, r, c) # Direction of the maximum negative difference in height (minimum because its measured from higher peak to lower) and difference itself
-        # If there is a cell with lower height adjacent to the current one
-        if Δhmin <= 0
-            v_moving = v # The entirety of the water on the cell flows to the next one
-            if times > 0
-                times -= 1
-            end
-        else # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
-            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
-            while times > 0 && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
-                Δhw -= rev_rain_band[r, c, times]
-                times -= 1
-            end
-            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
-             # no water flowing anymore
-            v_moving = times == 0 ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
-        end
-
-        # If there is no water flowing the flow stops
-        if v_moving == 0 && times == 0
-            break
-        end
-
-        # Flow to the next cell
-        Δr, Δc = hash_adjacent(dir)
-        r += Δr
-        c += Δc
-    end
-    return flowpoints
-end
-
-function multi_flow!( flowpoints, v₀::Real, r::Real, c::Real, rows::Integer, cols::Integer, times::Integer, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
-    v = v₀
-    val = -Inf
-    # Singular strem
-    while 1 < r < rows && 1 < c < cols && val < 0
-        dir, val = mindir(band, r, c, -9999.0)
-
-        # Follow the first flow direction (which may be the only one available) 
-        # Flow from (r, c) to (r+Δr, c+Δc)
-        Δr, Δc = hash_adjacent(dir[1])
-        r += Δr
-        c += Δc
-        push!(flowpoints, (r, c, v))
-        if times > 0
-            v = v + rain_band[r, c] - ( x * permeability_band[r, c] ) - val # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
-            times -= 1;
-        else
-            v = v - ( v * permeability_band[r, c] ) - ( val ) # La quantità d'acqua in uscita dovrebbe dipendere dalla differenza in altezza delle celle
-        end
-
-        # If there are multiple equivalent directions run the algorithm on all except the first 
-        if length(dir) > 1
-            for d in dir[2:end]
-                Δr, Δc = hash_adjacent(d) 
-                multi_flow!(flowpoints, r+Δr, c+Δc, c, rows, cols, times, band, rain_band, permeability_band)
-            end
-        end
-    end
-
-    return flowpoints
-end
-
-function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
-    delta_dict = Dict(
-        1 => (-1, -1),
-        2 => (-1, 0),
-        3 => (-1, 1),
-        4 => (0, -1),
-        5 => (0, 1),
-        6 => (1, -1),
-        7 => (1, 0),
-        8 => (1, 1)
-    )
-    rows, cols, times = size(rain_band)
-    flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(band, x, y)
-
-    # Passing the reversed version of "rain_band" allows to use "times" as index for said array to obtain the matrixes in the correct order
-    multi_flow!(flowpoints, 0, r, c, rows, cols, times, band, reverse(rain_band), permeability_band)
-
-    return flowpoints
-end
-
-=#
-
-
-
-
-
-
-
-
-
-
-
 # Find the direction with the greatest difference in height from (r, c)
 function mindir( mat, r::Int64, c::Int64 )
     dir = 0
@@ -602,118 +477,6 @@ function flow( flowpoints::Vector, r::Int64, c::Int64, rows::Int64, cols::Int64,
 end
 
 
-#= VERSIONI VECCHIE
-function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
-    delta_dict = Dict(
-        1 => (-1, -1),
-        2 => (-1, 0),
-        3 => (-1, 1),
-        4 => (0, -1),
-        5 => (0, 1),
-        6 => (1, -1),
-        7 => (1, 0),
-        8 => (1, 1)
-    )
-    rows, cols, instants = size(rain_band)
-    flowpoints = Vector{Tuple{Int64, Int64, Float64}}()
-    r, c = Functions.toIndexes(band, x, y)
-
-    i = 1 # Current instant
-    v_moving = 0 # Volume of water moving from a cell to another
-    # While we are still inside the raster
-    while 1 < r < rows && 1 < c < cols
-        v₀ = i <= instants ? sum(rain_band[1:i][r, c]) : sum(rain_band[1:instants][r, c])
-        v = ( v₀ + v_moving ) * (1 - permeability_band[r, c]) # Volume of water on cell "(r, c)" at intant "i"
-        dir, Δhmin = mindir(band, r, c) # Direction of the maximum difference in height (minimum because its measured from higher peak to lower) and difference itself
-
-        if Δhmin <= 0
-            v_moving = v # The entirety of the water on the cell flows to the next one
-            if i < instants
-                i += 1
-            end
-        else # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
-            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
-            while i < instants && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
-                Δhw -= rain_band[i][r, c]
-                i += 1
-            end
-            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
-             # no water flowing anymore
-            v_moving = i == times ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
-        end
-
-        push!(flowpoints, (r, c, v - v_moving))
-        
-        # If there is no water flowing the flow stops
-        if v_moving == 0
-            break
-        end
-        
-        # Flow to the next cell
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-    end
-end
-
-function flow( x::Real, y::Real, band::Matrix{Float32}, rain_band::Matrix{Float32}, permeability_band::Matrix{Float32} )
-    delta_dict = Dict(
-        1 => (-1, -1),
-        2 => (-1, 0),
-        3 => (-1, 1),
-        4 => (0, -1),
-        5 => (0, 1),
-        6 => (1, -1),
-        7 => (1, 0),
-        8 => (1, 1)
-    )
-    rows, cols, times = size(rain_band)
-    flowpoints = Vector{Tuple{Int64, Int64}}()
-    r, c = Functions.toIndexes(band, x, y) # USANDO LA MATRICE TRIDIMENSIONALE AL POSTO DEL RASTER toIndexes VA CAMBIATO
-
-
-
- # NON SO QUANDO DOVREI FARE IL push!, IDEALMENTE, DOVREI PUSHARE SIA IL VOLUME D'ACQUA SULLA CELLA CHE IL VOLUME D'ACQUA IN MOTO
-  # N.B. SE w_mov E' UGUALE A v ALLORA IL VALORE DEL VOLUME DA PUSHARE SARA' 0
-    i = 1 # Current instant / timeframe
-    w_mov = 0 # Water flowing from a cell to another
-    while 1 < r < rows && 1 < c < cols && w_mov > 0 
-        v = rain_band[r, c, 1:i] * (1 - permeability_band[r, c]) + w_mov  # Volume of water on cell "(r, c)" at intant "i"
-        dir, Δhmin = mindir(band, r, c) # Direction of the maximum difference in height (minimum because its measured from higher peak to lower) and difference itself
-        # If there is a cell with lower height adjacent to the current one
-        if Δhmin <= 0
-            w_mov = v # The entirety of the water on the cell flows to the next one
-        # If the water is in a depression, it will remain there untill the accumultaion due to the rain will cause an overflow (If that happens)
-        else
-            Δhw = Δhmin - v # Difference in height accounting for the height of the water on the cell
-            while i < times && Δhw > 0 # The water will keep accumulating on the cell while it keeps raining and untill the water will overflow
-                Δhw -= rain_band[r, c, i]
-                i += 1
-            end
-            # After the end of the cycle, either a portion of water overflew and now flows to the next cell, or the rain stopped before this could happen and there is
-             # no water flowing anymore
-            w_mov = i == times ? 0 : -Δhw # NON SONO CERTO SIA CORRETTO ASSEGNARE "-Δhw"
-        end
-        # Flow to the next cell
-        Δr, Δc = delta_dict[dir]
-        r += Δr
-        c += Δc
-    end
-    return flowpoints
-end
-=#
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 function mindir( mat, r::Int64, c::Int64, noDataValue::Real )
@@ -773,6 +536,17 @@ function flow( band::Matrix{Float32}, rain, permeability, noDataValue::Real )
 
     return flow, water
 end
+
+
+
+
+
+
+
+
+
+
+
 
 
 
