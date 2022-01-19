@@ -545,13 +545,62 @@ end
 
 
 
+using Rasters
+using Shapefile
+using SpatialGraphs
+using Plots
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+ccs_file = "D:\\Z_Tirocinio_Dati\\ccs\\ccs.shp"
+csoil_file = "D:\\Z_Tirocinio_Dati\\classi suolo\\Classi suolo.shp"
+permeability_file = "D:\\Z_Tirocinio_Dati\\Permeabilita suolo\\Permeabilita suolo.shp"
+
+dtm = Raster(dtm_file)
+csoil_shp = Shapefile.Table(csoil_file)
 
 
+#= RASTERIZZAZIONE DI VETTORI VEDI:
+    https://rafaqz.github.io/Rasters.jl/stable/#Exported-functions (rasterize function)
+    https://discourse.julialang.org/t/what-is-the-state-of-rasterization-and-rasterstats-in-julia/72366/18  (discussione su rasterizzazioni e altro)
+    https://github.com/rafaqz/Rasters.jl/blob/master/test/methods.jl (line 207) (rasterization test)
+=#
 
 
+csoil = Raster( fill(dtm.missingval, dtm.dims), dtm.dims, missingval=dtm.missingval )
+
+# For some reason the vector of polygons has type "Vector{Union{Missing, Shapefile.Polygon}}" despite having only polygons inside
+#   csoil_shp = convert.(Shapefile.Polygon, csoil_shp)
+
+dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
 
 
+#= NON FUNZIONANO
+for (shp, val) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
+        rasterize!(csoil, shp, fill=val, order=dtm.dims)
+end
 
+rasterize!( csoil, csoil_shp, order=dtm.dims )
+=#
+
+points = Vector{Tuple{Float64, Float64}}()
+values = Vector{Float32}()
+for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
+    for point in polygon.points
+        push!(points, (point.x, point.y))
+        push!(values, dict[value] )
+    end
+end
+rasterize!(csoil, points, values, order=(X, Y, Z))
+
+
+# "weights" sarà il raster delle resistenze di ongi cella potrebbe essere semplicemente il raster della permeabilità, oppure una combinazione di permeabilità e altezza
+wrg = weightedrastergraph(
+    weights,
+    directed = true,
+    condition_raster = dtm,
+    condition = ( hs, hd ) -> hs != dtm.missingval && hd != dtm.missingval && hs >= hd,
+ #  combine = sum   Forse ?
+)
 
 
 
