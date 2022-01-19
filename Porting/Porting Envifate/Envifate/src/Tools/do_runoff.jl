@@ -545,19 +545,114 @@ end
 
 
 
+
+
+
+
+
+# Minimum working example (bisognerebbe sostituire "dtm" e "sat")
 using Rasters
 using Shapefile
-using SpatialGraphs
-using Plots
+using GeoInterface
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-ccs_file = "D:\\Z_Tirocinio_Dati\\ccs\\ccs.shp"
+sat_file = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat wgs84\\sette_sorelle.shp"
+
+dtm = Raster(dtm_file)
+sat_shp = Shapefile.Handle(sat_file).shapes[1]
+points = [ (point.x, point.y) for point in sat_shp.points ]
+
+stepX = dtm.dims[1][2] - dtm.dims[1][1]
+stepY = dtm.dims[2][2] - dtm.dims[2][1]
+dims = Y( Projected( dtm.dims[2][1]:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
+       X( Projected( dtm.dims[1][1]:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
+
+rst = Raster( fill(-9999, dims); missingval=-9999 )
+
+raster = rasterize( rst, sat_shp; to=dims, missingval=-9999, fill=1, order=(X,Y), shape=:polygon, boundary=:touches, )
+   
+rasterize!( rst, sat_shp; fill=1, order=(X, Y), shape=:polygon, boundaries=:touches )
+
+rasterize!( rst, points, zeros(Int64, length(points)); order=(X,Y) )
+
+
+
+
+
+
+
+
+
+
+
+# Per porre a 1 tutte le celle di un raster che stanno dentro and un poligono delimitato da uno shapefile
+using Rasters
+using Shapefile
+using GeoInterface
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+sat_file = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp"
+
+dtm = Raster(dtm_file)
+sat_shp = Shapefile.Handle(sat_file).shapes[1]
+points = [ (point.x, point.y) for point in sat_shp.points ]
+
+# Creation of the final raster
+originX = dtm.dims[1][1]
+originY = dtm.dims[2][1]
+stepX = dtm.dims[1][2] - originX
+stepY = dtm.dims[2][2] - originY
+dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
+        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
+
+res = Raster( fill(-9999, dims); missingval=-9999 )
+
+# Bounding box of the polygon
+minX = minimum( p -> p[1], points )
+minY = minimum( p -> p[2], points )
+maxX = maximum( p -> p[1], points )
+maxY = maximum( p -> p[2], points )
+
+coords( r, c ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
+indxs( x, y ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
+
+# For each point of the bounding box if it is within the polygon change the value of the output raster
+for x in minX:stepX:maxX, y in maxY:stepY:minY
+    if any(inpolygon((x, y), sat_shp))
+        res[indxs(x, y)...] = 1
+    end
+end
+
+
+
+
+
+
+
+
+# Per rasterizzare i valori di uno shapefile con molte geometrie diverse
+using Rasters
+using Shapefile
+using GeoInterface
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 csoil_file = "D:\\Z_Tirocinio_Dati\\classi suolo\\Classi suolo.shp"
-permeability_file = "D:\\Z_Tirocinio_Dati\\Permeabilita suolo\\Permeabilita suolo.shp"
+csoil_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.shp"
+
 
 dtm = Raster(dtm_file)
 csoil_shp = Shapefile.Table(csoil_file)
-
+dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
+points = [
+    (
+        [
+            (point.x, point.y)
+            for point in polygon.points
+        ],
+        dict[value]
+    )
+    for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
+]
 
 #= RASTERIZZAZIONE DI VETTORI VEDI:
     https://rafaqz.github.io/Rasters.jl/stable/#Exported-functions (rasterize function)
@@ -566,31 +661,42 @@ csoil_shp = Shapefile.Table(csoil_file)
 =#
 
 
-csoil = Raster( fill(dtm.missingval, dtm.dims), dtm.dims, missingval=dtm.missingval )
+originX = dtm.dims[1][1]
+originY = dtm.dims[2][1]
+stepX = dtm.dims[1][2] - originX
+stepY = dtm.dims[2][2] - originY
+dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
+        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
 
-# For some reason the vector of polygons has type "Vector{Union{Missing, Shapefile.Polygon}}" despite having only polygons inside
-#   csoil_shp = convert.(Shapefile.Polygon, csoil_shp)
-
-dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
+csoil = Raster( fill(dtm.missingval, dims), missingval=dtm.missingval )
 
 
-#= NON FUNZIONANO
-for (shp, val) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-        rasterize!(csoil, shp, fill=val, order=dtm.dims)
-end
+coords( r, c ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
+indxs( x, y ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
 
-rasterize!( csoil, csoil_shp, order=dtm.dims )
-=#
 
-points = Vector{Tuple{Float64, Float64}}()
-values = Vector{Float32}()
-for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-    for point in polygon.points
-        push!(points, (point.x, point.y))
-        push!(values, dict[value] )
+for (polygon, value) in points
+    minX = minimum( p -> p[1], points )
+    minY = minimum( p -> p[2], points )
+    maxX = maximum( p -> p[1], points )
+    maxY = maximum( p -> p[2], points )
+    # For each point of the bounding box if it is within the polygon change the value of the output raster
+    for x in minX:stepX:maxX, y in maxY:stepY:minY
+        if any(inpolygon((x, y), sat_shp))
+            res[indxs(x, y)...] = value
+        end
     end
 end
-rasterize!(csoil, points, values, order=(X, Y, Z))
+
+
+
+
+
+
+
+
+
+
 
 
 # "weights" sarà il raster delle resistenze di ongi cella potrebbe essere semplicemente il raster della permeabilità, oppure una combinazione di permeabilità e altezza
