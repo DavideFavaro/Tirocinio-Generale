@@ -545,46 +545,6 @@ end
 
 
 
-#= 
-Computer Graphics: https://www.drdobbs.com/parallel/graphics-programming-black-book/184404919
-GRASS Approach to rasterization: http://www.geolab.polimi.it/wp-content/uploads/2019/05/lbmn.pdf
-=#
-
-# PER CALCOLARE TUTTI I PUNTI INTERNI AD UN TRIANGOLO (CREDO VALGA SOLO PER TRIANGOLI)
-# N.B. OGNI POLIGONO PUO' ESSERE SCOMPOSTO IN UNA SERIE DI TRIANGOLI (comunque non una soluzione particolarmente buona)
-# point(λ₁, λ₂) = vertex₁ + (λ₁ * (vertex₂ - vertex₁)) + (λ₂ * (vertex₃ - vertex₁))
-# λ₁ >= 0, λ₂ <= 1, λ₁ + λ₂ <= 1
-# λ₁ = (vertex₂ - vertex₁) - (point * vertex₁)
-# λ₂ = (vertex₃ - vertex₁) - (point * vertex₁)
-
-
-
-
-
-# Minimum working example (bisognerebbe sostituire "dtm" e "sat")
-using Rasters
-using Shapefile
-using GeoInterface
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-sat_file = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat wgs84\\sette_sorelle.shp"
-
-dtm = Raster(dtm_file)
-sat_shp = Shapefile.Handle(sat_file).shapes[1]
-points = [ (point.x, point.y) for point in sat_shp.points ]
-
-stepX = dtm.dims[1][2] - dtm.dims[1][1]
-stepY = dtm.dims[2][2] - dtm.dims[2][1]
-dims = Y( Projected( dtm.dims[2][1]:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
-       X( Projected( dtm.dims[1][1]:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
-
-rst = Raster( fill(-9999, dims); missingval=-9999 )
-
-raster = rasterize( rst, sat_shp; to=dims, missingval=-9999, fill=1, order=(X,Y), shape=:polygon, boundary=:touches, )
-   
-rasterize!( rst, sat_shp; fill=1, order=(X, Y), shape=:polygon, boundaries=:touches )
-
-rasterize!( rst, points, zeros(Int64, length(points)); order=(X,Y) )
 
 
 
@@ -598,21 +558,7 @@ rasterize!( rst, points, zeros(Int64, length(points)); order=(X,Y) )
 
 
 
-function rasterize( raster::AbstractRaster, shp::Shapefile.Table, fill_value::Symbol )
-    for (polygon, value) in zip( shp.geometry, gefield(shp, fill_value) )
-        minX = minimum( p -> p.x, polygon.points )
-        minY = minimum( p -> p.y, polygon.points )
-        maxX = maximum( p -> p.x, polygon.points )
-        maxY = maximum( p -> p.y, polygon.points )
 
-
-        for x in minX:stepX:maxX, y in maxY:stepY:minY
-            if any(inpolygon((x, y), sat_shp))
-                raster[indxs(x, y)...] = value
-            end
-        end
-    end
-end
 
 
 
@@ -621,14 +567,16 @@ GC.gc()
 # Per porre a 1 tutte le celle di un raster che stanno dentro and un poligono delimitato da uno shapefile
 using Rasters
 using Shapefile
-using GeoInterface
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-sat_file = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp"
+# sat_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\sat WGS84\\sette_sorelle.shp"
+csoil_file = "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.shp"
+perm_file = "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.shp"
 
 dtm = Raster(dtm_file)
-sat_shp = Shapefile.Handle(sat_file).shapes[1]
-points = [ (point.x, point.y) for point in sat_shp.points ]
+# sat_shp = Shapefile.Handle(sat_file).shapes[1]
+csoil_shp = Shapefile.Table(csoil_file)
+perm_shp = Shapefile.Table(perm_file)
 
 # Creation of the final raster
 originX = dtm.dims[1][1]
@@ -636,259 +584,26 @@ originY = dtm.dims[2][1]
 stepX = dtm.dims[1][2] - originX
 stepY = dtm.dims[2][2] - originY
 dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
-        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
+        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ReverseOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
 
-res = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
+csoil = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
+perm = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
 
-# Bounding box of the polygon
-minX = minimum( p -> p[1], points )
-minY = minimum( p -> p[2], points )
-maxX = maximum( p -> p[1], points )
-maxY = maximum( p -> p[2], points )
-
-coords( r::Integer, c::Integer ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
-indxs( x::Real, y::Real ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
-x2r( x::Real ) = floor(Int64, ((x - originX) / stepX))+1
-y2c( y::Real ) = floor(Int64, ((y - originY) / stepY))+1
-
-
-
-
-# V 1 -------------------------------------------------------------------------
-# For each point of the bounding box if it is within the polygon change the value of the output raster
-for x in minX:stepX:maxX, y in maxY:stepY:minY
-    if any(inpolygon((x, y), sat_shp))
-        res[indxs(x, y)...] = 1.f0
-    end
+# CAMBIARE IL VALORE ASSOCIATO A "X" IN missingval O SIMILI, METTERE VALORI SENSATI E SISTEMARE I VALORI DELLE COPPIE
+cdict = Dict( val => Float32(i) for (i, val) in enumerate(unique(csoil_shp.gr_idrolog)) )
+for (shape, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
+    rasterize!( csoil, shape; fill=cdict[value], order=(X, Y) )
 end
 
-# V 2 ------------------------------------------------------------------------
-minC = y2c(maxY)
-for x in minX:stepX:maxX
-    row = [ (x, y) for y in maxY:stepY:minY ] # All the points in the row
-    row_within = any( inpolygon(row, sat_shp), dims=2 ) # Bitmap that signals all the points of the row that are within the polygon
-    for i in 1:length(row_within)
-        if row_within[i]
-            res[ x2r(x), minC + i ] = 1.f0
-        end
-    end
+Rasters.write( "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.tiff", csoil )
+
+
+pdict = Dict( val => isnothing(tryparse(Float32, val)) ? 0.f0 : tryparse(Float32, val) for (i, val) in enumerate(unique(perm_shp.perm_clas)) )
+for (shape, value) in zip(perm_shp.geometry, perm_shp.perm_clas)
+    rasterize!( perm, shape; fill=pdict[value], order=(X, Y) )
 end
 
-# V 3 ----------------------------------------------------------------------
-for x in minX:stepX:maxX
-    y1, y2 = minY, maxY
-    res = (false, false)
-    while !all(res) && y1 <= y2
-        if !res[1]
-            if any(inpolygon((x, y1), sat_shp))
-                res[1] = true
-            else
-                y1 += stepY
-            end
-        end
-        if !res[2]
-            if any(inpolygon((x, y2), sat_shp))
-                res[2] = true
-            else
-                y1 -= stepY
-            end
-        end
-    end
-end
-
-
-
-
-
-
-
-
-Rasters.write( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Datiraster\\sat2.tiff", res )
-
-
-
-
-
-
-
-# Per rasterizzare i valori di uno shapefile con molte geometrie diverse
-using Rasters
-using Shapefile
-using GeoInterface
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-csoil_file = "D:\\Z_Tirocinio_Dati\\classi suolo\\Classi suolo.shp"
-csoil_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.shp"
-
-
-dtm = Raster(dtm_file)
-csoil_shp = Shapefile.Table(csoil_file)
-dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
-points = [
-    (
-        [
-            (point.x, point.y)
-            for point in polygon.points
-        ],
-        dict[value]
-    )
-    for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-]
-
-#= RASTERIZZAZIONE DI VETTORI VEDI:
-    https://rafaqz.github.io/Rasters.jl/stable/#Exported-functions (rasterize function)
-    https://discourse.julialang.org/t/what-is-the-state-of-rasterization-and-rasterstats-in-julia/72366/18  (discussione su rasterizzazioni e altro)
-    https://github.com/rafaqz/Rasters.jl/blob/master/test/methods.jl (line 207) (rasterization test)
-=#
-
-
-originX = dtm.dims[1][1]
-originY = dtm.dims[2][1]
-stepX = dtm.dims[1][2] - originX
-stepY = dtm.dims[2][2] - originY
-dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
-        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
-
-csoil = Raster( fill(dtm.missingval, dims), missingval=dtm.missingval )
-
-
-coords( r, c ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
-indxs( x, y ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
-
-
-for (polygon, value) in points
-    minX = minimum( p -> p[1], points )
-    minY = minimum( p -> p[2], points )
-    maxX = maximum( p -> p[1], points )
-    maxY = maximum( p -> p[2], points )
-    # For each point of the bounding box if it is within the polygon change the value of the output raster
-    for x in minX:stepX:maxX, y in maxY:stepY:minY
-        if any(inpolygon((x, y), sat_shp))
-            res[indxs(x, y)...] = value
-        end
-    end
-end
-
-
-
-using Rasters
-using Shapefile
-using GeoInterface
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-csoil_file = "D:\\Z_Tirocinio_Dati\\classi suolo\\Classi suolo.shp"
-csoil_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.shp"
-
-dtm = Raster(dtm_file)
-csoil_shp = Shapefile.Table(csoil_file)
-dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
-
-originX = dtm.dims[1][1]
-originY = dtm.dims[2][1]
-stepX = dtm.dims[1][2] - originX
-stepY = dtm.dims[2][2] - originY
-dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
-        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
-
-csoil = Raster( fill(dtm.missingval, dims), missingval=dtm.missingval )
-
-coords( r, c ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
-indxs( x, y ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
-
-for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-    minX = minimum( p -> p.x, polygon.points )
-    minY = minimum( p -> p.y, polygon.points )
-    maxX = maximum( p -> p.x, polygon.points )
-    maxY = maximum( p -> p.y, polygon.points )
-    for x in minX:stepX:maxX, y in maxY:stepY:minY
-        if any(inpolygon((x, y), sat_shp))
-            res[indxs(x, y)...] = value
-        end
-    end
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-using Rasters
-using Shapefile
-using GeoInterface
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-csoil_file = "D:\\Z_Tirocinio_Dati\\classi suolo\\Classi suolo.shp"
-csoil_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.shp"
-
-
-dtm = Raster(dtm_file)
-csoil_shp = Shapefile.Table(csoil_file)
-dict = Dict( e => Float32(i) for (i, e) in enumerate( unique(csoil_shp.gr_idrolog) ) )
-points = [
-    (
-        [
-            (point.x, point.y)
-            for point in polygon.points
-        ],
-        dict[value]
-    )
-    for (polygon, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-]
-
-#= RASTERIZZAZIONE DI VETTORI VEDI:
-    https://rafaqz.github.io/Rasters.jl/stable/#Exported-functions (rasterize function)
-    https://discourse.julialang.org/t/what-is-the-state-of-rasterization-and-rasterstats-in-julia/72366/18  (discussione su rasterizzazioni e altro)
-    https://github.com/rafaqz/Rasters.jl/blob/master/test/methods.jl (line 207) (rasterization test)
-=#
-
-
-originX = dtm.dims[1][1]
-originY = dtm.dims[2][1]
-stepX = dtm.dims[1][2] - originX
-stepY = dtm.dims[2][2] - originY
-dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
-        Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
-
-csoil = Raster( fill(dtm.missingval, dims), missingval=dtm.missingval )
-
-
-coords( r, c ) =  ( (r - 1) * stepX + originX ), ( (c - 1) * stepY + originY )
-indxs( x, y ) = floor(Int64, ((x - originX) / stepX))+1, floor(Int64, ((y - originY) / stepY))+1
-
-
-for (polygon, value) in points
-    minX = minimum( p -> p[1], points )
-    minY = minimum( p -> p[2], points )
-    maxX = maximum( p -> p[1], points )
-    maxY = maximum( p -> p[2], points )
-    # For each point of the bounding box if it is within the polygon change the value of the output raster
-    for x in minX:stepX:maxX, y in maxY:stepY:minY
-        if any(inpolygon((x, y), sat_shp))
-            res[indxs(x, y)...] = value
-        end
-    end
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
+Rasters.write( "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff", perm )
 
 
 
