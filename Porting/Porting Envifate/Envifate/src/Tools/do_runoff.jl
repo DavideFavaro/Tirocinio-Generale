@@ -572,11 +572,13 @@ dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 # sat_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\sat WGS84\\sette_sorelle.shp"
 csoil_file = "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.shp"
 perm_file = "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.shp"
+ccs_file = "D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp"
 
 dtm = Raster(dtm_file)
 # sat_shp = Shapefile.Handle(sat_file).shapes[1]
 csoil_shp = Shapefile.Table(csoil_file)
 perm_shp = Shapefile.Table(perm_file)
+ccs_shp = Shapefile.Table(ccs_file)
 
 # Creation of the final raster
 originX = dtm.dims[1][1]
@@ -588,6 +590,7 @@ dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.Forwar
 
 csoil = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
 perm = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
+ccs = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
 
 # CAMBIARE IL VALORE ASSOCIATO A "X" IN missingval O SIMILI, METTERE VALORI SENSATI E SISTEMARE I VALORI DELLE COPPIE
 cdict = Dict( val => Float32(i) for (i, val) in enumerate(unique(csoil_shp.gr_idrolog)) )
@@ -606,7 +609,12 @@ end
 Rasters.write( "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff", perm )
 
 
+ccdict = Dict( desc => Float32(i) for (i, desc) in enumerate(unique(ccs_shp.legenda)) )
+for (shape, value) in zip(ccs_shp.geometry, ccs_shp.legenda)
+    rasterize!( ccs, shape; fill=ccdict[value], order=(X, Y) )
+end
 
+Rasters.write( "D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.tiff", ccs )
 
 
 
