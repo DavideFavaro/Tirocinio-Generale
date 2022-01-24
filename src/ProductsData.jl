@@ -427,33 +427,113 @@ end
 
 
 
-
-
-
 using Rasters
 using Shapefile
 
 sat_file = *( @__DIR__, "\\..\\Mappe\\sat\\sette_sorelle.shp" )
-#   ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1609_S3B_OL_1_EFR"
-ncdf_files = "D:\\Z_Tirocinio_Dati\\Copernicus Data\\S3A_SL_2_LST____20191122T183837"
+ncdf_files = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati Copernicus\\1609_S3B_OL_1_EFR"
+#   ncdf_files = "D:\\Z_Tirocinio_Dati\\Copernicus Data\\S3A_SL_2_LST____20191122T183837"
 #   files = NamedTuple( Symbol(f) = ncdf_files * "\\" * f for f in readdir(ncdf_files)[1:end-1] )
 files = ncdf_files * "\\" .* readdir(ncdf_files)[1:end-1]
 
-#   data = [ Rasters.Raster(f) for f in files ];
-data = RasterSeries(files, :x)
+#   data = [ Rasters.Raster(f) for f in files[1:end-1] ];
+data = RasterSeries(files, :n)
 
-shape = Shapefile.Handle(sat_file).shapes[1]
+#   shape = Shapefile.Handle(sat_file).shapes[1]
+shape = Shapefile.Table(sat_file)
 #   shp = Shapefile.Polygon( shape[1].MBR, shape[1].parts, shape[1].points )
 
-mask(data[1]; to=shape)
+poly = Shapefile.Polygon(shape.geometry[1].MBR, [1,2,3,4], shape.geometry[1].points[1:end-1])
 
- 
+mask(data[1]; to=poly)
+
+crop(data, to=shape)
+
 end #module
 
 
 
 
-
+RasterSeries{
+    Raster{
+        Union{Missing, Float32},
+        2,
+        Tuple{
+            Dim{
+                :columns,
+                DimensionalData.Dimensions.LookupArrays.NoLookup{
+                    Base.OneTo{Int64}
+                }
+            },
+            Dim{
+                :rows,
+                DimensionalData.Dimensions.LookupArrays.NoLookup{
+                    Base.OneTo{Int64}
+                }
+            }
+        },
+        Tuple{},
+        Rasters.FileArray{
+            Rasters.NCDfile,
+            Union{Missing, Float32},
+            2,
+            Symbol,
+            DiskArrays.GridChunks{2},
+            DiskArrays.Unchunked
+        },
+        Symbol,
+        DimensionalData.Dimensions.LookupArrays.Metadata{
+            Rasters.NCDfile,
+            Dict{Symbol, Any}
+        },
+        Missing
+    },
+    1,
+    Tuple{
+        Dim{
+            :n,
+            DimensionalData.Dimensions.LookupArrays.NoLookup{
+                Base.OneTo{Int64}
+            }
+        }
+    },
+    Tuple{},
+    Vector{
+        Raster{
+            Union{Missing, Float32},
+            2,
+            Tuple{
+                Dim{
+                    :columns,
+                    DimensionalData.Dimensions.LookupArrays.NoLookup{
+                        Base.OneTo{Int64}
+                    }
+                },
+                Dim{
+                    :rows,
+                    DimensionalData.Dimensions.LookupArrays.NoLookup{
+                        Base.OneTo{Int64}
+                        }
+                    }
+            },
+            Tuple{},
+            Rasters.FileArray{
+                Rasters.NCDfile,
+                Union{Missing, Float32},
+                2,
+                Symbol,
+                DiskArrays.GridChunks{2},
+                DiskArrays.Unchunked
+            },
+            Symbol,
+            DimensionalData.Dimensions.LookupArrays.Metadata{
+                Rasters.NCDfile,
+                Dict{Symbol, Any}
+            },
+            Missing
+        }
+    }
+}
 
 
 

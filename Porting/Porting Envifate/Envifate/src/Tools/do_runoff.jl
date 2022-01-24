@@ -610,13 +610,38 @@ Rasters.write( "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità s
 
 
 
+
+
+
+
+
+using Rasters
+using SpatialGraphs
+
+dtm = Raster(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff")
+csoil = Raster("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.tiff")
+perm = Raster("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff")
+
+perm2 = Raster(
+    replace(
+        perm.data,
+        0.f0 => -9999.f0,
+        2.f0 => 0.036f0,
+        3.f0 => 0.36f0,
+        4.f0 => 3.6f0,
+        5.f0 => 36.f0,
+        6.f0 => 360.f0
+    ),
+    perm.dims,
+    missingval = perm.missingval
+)
+
 # "weights" sarà il raster delle resistenze di ongi cella potrebbe essere semplicemente il raster della permeabilità, oppure una combinazione di permeabilità e altezza
 wrg = weightedrastergraph(
-    weights,
+    perm2,
     directed = true,
     condition_raster = dtm,
-    condition = ( hs, hd ) -> hs != dtm.missingval && hd != dtm.missingval && hs >= hd,
- #  combine = sum   Forse ?
+    condition = ( hs, hd ) -> hs != dtm.missingval && hd != dtm.missingval && hs >= hd
 )
 
 
