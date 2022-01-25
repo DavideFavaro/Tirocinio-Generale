@@ -1,27 +1,7 @@
 module Plumes
-
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
+"""
+Module for the modelling of pollutants' dispersion in the atmosphere
+"""
 
 import ArchGDAL as agd
 using ArgParse
@@ -165,9 +145,10 @@ Recursively compute the concentration of each point and add the value and its in
 """
 function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, plume::Plume )
   if (indx_x, indx_y) in positions
-    xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-    ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, plume )
+    xs = [ indx_x, indx_x-1, indx_x ]
+    ys = [ indx_y+1, indx_y, indx_y-1 ]
+    expand!( positions, concentrations, dtm, indx_x+1, indx_y, plume )
+    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(plume) )
     return nothing
   else
     Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
@@ -182,9 +163,10 @@ function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_
     if round(concentration, digits=5) > 0
         push!( positions, (ind_x, ind_y) )
         push!( results, concentration )
-        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, plume )
+        xs = [ indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y+1, indx_y, indx_y-1 ]
+        expand!.( positions, results, dtm, indx_x+1, indx_y, plume )
+        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, deepcopy(plume) )
     end
     return nothing
   end

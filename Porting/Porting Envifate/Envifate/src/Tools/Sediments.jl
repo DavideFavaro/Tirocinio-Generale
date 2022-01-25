@@ -1,27 +1,8 @@
 module Sediments
+"""
+Module for marine sedimentation analysis
+"""
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 
 import ArchGDAL as agd
 using ArgParse
@@ -31,7 +12,7 @@ using Dates
 include("../Library/Functions.jl")
 
 
-
+#   NON SO COME SI DOCUMENTANO GLI STRUCT
 @with_kw mutable struct Sediment
     """docstring for element"""
   
@@ -105,13 +86,26 @@ end
 
 
 """
-Recursively compute the concentration of each point and add the value and its indexes to positions
+    expand!( positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, sediment::Sediment )::Nothing
+
+Recursively compute the concentration of a substance spreding in water at cell (`indx_x`, `indx_y`) of `dtm` and in the adjacent cells,
+adding all cells touched by the substance in `positions` and the relative concentration in `results` and accounting for the specificity of the
+substance through the `sediment` object.
+
+The function starting from cell (`indx_x`, `indx_y`) checks whether the cell has been already visited, if so skips the cell, otherwise computes the concentration
+of substance in it, keeping track of the total distance from the source through the first element of `positions`, which is always the source point.
+If the concentration is sufficient the function continues on the adjacent cells.
+
+The `sediment` object keeps track of the properties of the substance at each instant ad is modified every time the concentration is computed
+allowing to keep track of the changes 
 """
-function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, sediment::Sediment )
+function expand!( positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, sediment::Sediment )
   if (indx_x, indx_y) in positions
-    xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-    ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, plume )
+    xs = [ indx_x, indx_x-1, indx_x ]
+    ys = [ indx_y+1, indx_y, indx_y-1 ]
+
+    expand!( positions, concentrations, dtm, indx_x+1, indx_y, sediment )
+    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(sediment) )
     return nothing
   else
     Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
@@ -124,34 +118,58 @@ function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_
     if round(concentration, digits=5) > 0
         push!( positions, (ind_x, ind_y) )
         push!( results, concentration )
-        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, plume )
+        xs = [ indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y+1, indx_y, indx_y-1 ]
+        expand!( positions, concentrations, dtm, indx_x+1, indx_y, sediment )
+        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, sediment )
     end
     return nothing
   end
 end
 
 
+"""
+    run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real,
+                  dredged_mass::Real, flow_direction::Real, mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer,
+                  current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
 
+Run a simulation of plumes of turbidity induced by dredging.
+
+# Arguments
+- `source`: dredging source point.
+- `resolution::Integer`: size of a cell in meters.
+- `mean_flow_speed::Real`: speed of the flowing water.
+- `mean_depth::Real`: depth in meters.
+- `x_dispersion_coeff::Real`: coefficient of dispersion along the x axis.
+- `y_dispersion_coeff::Real,`: coefficient of dispersion along y axis.
+- `dredged_mass::Real`: initial mass of the dredged substance.
+- `flow_direction::Real`: direction of the as an angle, in degrees.
+- `mean_sedimentation_velocity::Real`: velocity of sedimentation.
+- `time::Integer`: start time for the model.
+- `time_intreval::Integer`: length of an epoch.
+- `current_oscillatory_amplitude::Integer=0`: water oscillatory amplitude.
+- `tide::Integer=0`: value of tide.
+- `output_path::AbstractString=".\\output_model.tiff"`: path of the resulting raster.
+"""
                     #                                     v                      h                 dx                        dy                        q                   dir
 function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u
                        mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
 
-    if agd.geomdim(source) != 0
-        throw(DomainError(source, "`source` must be a point"))
-    end
- 
-    refsys = agd.importEPSG(agd.fromWKT(agd.getspatialref(source)))
-
  # messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
 
-    feature = collect(agd.getlayer(source, 0))
-    geom = agd.getgeom(feature[1])
+    feature = collect(agd.getlayer(source, 0))[1]
+    geom = agd.getgeom(feature)
+
+    if agd.geomdim(geom) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
+    
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
     r_source, c_source = toCoords(dtm, x_source, y_source)
+    
+    refsys = agd.getspatialref(geom)
 
     #   start_time = time.time()
 

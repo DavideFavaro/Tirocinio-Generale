@@ -258,4 +258,247 @@ ga.indices(gdtm, [x, y])
 toIndexes(dtm, x1, y1)
 =#
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mutable struct DAF
+    secondary_source_concentration::Float64
+    x::Float64
+    y::Float64
+    α_x::Float64
+    α_y::Float64
+    decay_coeff::Float64
+    darcy_velocity::Float64
+    kd
+    soil_density::Float64
+    tera_e
+    orthogonal_extension::Float64
+    time
+ # AGGIUNTE ALL'ORIGINALE PER SEMPLIFICARE I CALCOLI
+    acquifer_flow_direction::Float64
+    algorithm::Symbol
+    option::Symbol
+  
+    R
+    DAF
+    DAF_tot
+  
+    DAF(secondary_source_concentration,x,y,α_x,α_y,decay_coeff,darcy_velocity,kd,soil_density,tera_e,orthogonal_extension,time,acquifer_flow_direction,algorithm,option) = new(secondary_source_concentration,x,y,α_x,α_y,decay_coeff,darcy_velocity,kd,soil_density,tera_e,orthogonal_extension,time,acquifer_flow_direction,algorithm,option)
+end
+
+mutable struct Plume
+    """docstring for element"""
+    # concentration: concentrazione inquinante m3/sec
+    # d: distanza (coordinata x)
+    # y,z: coordinate in metri
+    # stability: classe di stabilità
+    # wind_speed: velocità del vento nella direzione x
+    # stack_height: altezza camino
+    # gas_speed: velocità gas
+    # stack_diameter: diametro camino
+    # smoke_temperature: temperatura gas all'uscita del camino
+    # temperature: temperatura ambiente
+  
+    concentration::Real
+    d::Real
+    y::Real
+    z::Real
+    stability::AbstractString
+    outdoor::AbstractString
+    stack_height::Real
+    stack_diameter::Real
+    wind_direction::Integer
+    wind_speed::Real
+    gas_speed::Real
+    smoke_temperature::Real
+    temperature::Real
+    max_domain::Real
+  
+    H
+    σy
+    σz
+    g1
+    g2
+    
+    Plume(concentration,d,y,z,stability,outdoor,stack_height,stack_diameter,wind_direction,wind_speed,gas_speed,smoke_temperature,temperature,max_domain)=new(concentration,d,y,z,stability,outdoor,stack_height,stack_diameter,wind_direction,wind_speed,gas_speed,smoke_temperature,temperature,max_domain)
+end
+
+mutable struct Lake
+    concentration::Float64
+    time::Time
+    distance_x::Float64
+    distance_y::Float64
+    fickian_x::Float64
+    fickian_y::Float64
+    velocity_x::Float64
+    velocity_y::Float64
+    λk::Float64
+
+    C::Float64
+
+    Lake( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk ) = new( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+end
+
+@with_kw mutable struct Sediment
+    """docstring for element"""
+  
+    # dredged_mass: input sedimento (kg/sec)
+    # t: tempo finale
+    # h: profondità metri
+    # Dx,Dy: coefficienti di diffusione
+    # x0,y0: coordinate sorgente
+    # x,y: coordinate target point
+    # V: velocità media corrente
+    # w: velocità di sedimentazione
+    # dt: delta t per la discretizzazione dell'integrale
+    # U: amplitude of the oscillatory current
+    # tide: tidal cycle es. 12 (ore)
+  
+    dredged_mass::Float64
+    time
+    mean_depth::Int
+    x_dispersion_coeff::Float64
+    y_dispersion_coeff::Float64
+    x::Int
+    y::Int
+    mean_flow_speed::Float64
+    mean_sedimentation_velocity::Float64
+    time_intreval::Int
+    current_oscillatory_amplitude::Float64 = 0.0
+    tide::Int = 0
+  
+    ω = 0
+    ew
+
+
+    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+        if current_oscillatory_amplitude > 0 && tide > 0
+            ω = 2π/tide
+            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide, ω)
+        end
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+function expand!( positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, object )
+    if (indx_x, indx_y) in positions
+        xs = [ indx_x, indx_x-1, indx_x ]
+        ys = [ indx_y+1, indx_y, indx_y-1 ]
+  
+        expand!( positions, concentrations, dtm, indx_x+1, indx_y, object )
+        expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(object) )
+        return nothing
+    else
+        result = compue_result!(
+            Δx * cosdir - Δx * sindir,
+            Δy * sindir + Δy * cosdir,
+            object
+        )
+        if condition(result)
+            push!( positions, (ind_x, ind_y) )
+            push!( results, result )
+            xs = [ indx_x, indx_x-1, indx_x ]
+            ys = [ indx_y+1, indx_y, indx_y-1 ]
+            expand!( positions, concentrations, dtm, indx_x+1, indx_y, object )
+            expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, deppcopy(object) )
+        end
+        return nothing
+    end
+end
+
+
+# FORSE SI PUO' PASSARE DIRETTAMENTE LE COORDINATE E USARE QUELLE
+function compute_result!( x0, y0, xi, yi, sediment::Sediment )
+    Δx, Δy = Functions.toCoords(dtm, x0, y0) - Functions.toCoords(dtm, xi, yi)
+    dir = deg2rad(object.dir)
+    sindir = sin(dir)
+    cosdir = cos(dir)
+    sediment.x = x
+    sediment.y = y
+    return calcSediment!(sediment)
+end
+
+function compute_result!( x, y, daf::DAF )
+    daf.x = x
+    daf.y = y
+    return calcDAF!(daf)
+end
+
+function compute_result!( x, y, lake::Lake )
+    lake.distance_x = y
+    lake.distance_y = x
+    return calc_concentration!(lake)
+end
+
+
+
+
+
+#   PLUMES
+function expand!( plume::Plume )
+    if (indx_x, indx_y) in positions
+    else
+
+      plume.d = Δy * sindir + Δy * cosdir
+      plume.y = Δx * cosdir - Δy * sindir
+      plume.z = agd.getband(dtm, 1)[indx_x, indx_y]
+      concentration = calcPlume!(plume)
+
+    end
+end
+
+
+# SERVONO IL DTM E GLI INDICI DELLA CELLA CORRENTE
+function compute_result!( x, y, plume::Plume )
+    plume.d = y
+    plume.y = x
+    plume.z = agd.getband(dtm, 1)[]
+    return calc_concentration!(lake)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end # module

@@ -1,37 +1,7 @@
 module Thermic
 
-# -*- coding: utf-8 -*-
 #=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
-#=
-    def help(self):
-        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-        #QMessageBox.about(self.dlg,"Credits", self.credits )
-        if platform.uname()[0]=="Windows":
-            os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_ruscellamento.pdf")
+/tutorial/manuale_envifate_ruscellamento.pdf")
 =#
 #=
     def run_thermic(self):
@@ -219,7 +189,13 @@ module Thermic
 
 
 
-function run_thermic( dem, source, river, source_temperature::Real, source_flow_rate::Real, river_temperature::Real, river_flow_rate::Real, output_path::AbstractString=".\\")
+"""
+    run_thermic( dem::AbstractArray, source, river, source_temperature::Real, source_flow_rate::Real, river_temperature::Real, river_flow_rate::Real, output_path::AbstractString=".\\")
+
+
+"""
+
+function run_thermic( dem::AbstractArray, source, river, source_temperature::Real, source_flow_rate::Real, river_temperature::Real, river_flow_rate::Real, output_path::AbstractString=".\\")
 
     if agd.geomdim(source) != 0
         throw(DomainError(source, "`source` must be a point"))

@@ -445,7 +445,7 @@ layer = agd.getlayer(cmn, 0)
 layers_num = agd.nlayer(cmn)
 layers = [ agd.getlayer(cmn, i) for i in 0:layers_num-1 ]
 
-# Per fare indexind sulle features bisogna fare collect sul layer
+# Per fare indexing sulle features bisogna fare collect sul layer
 features = collect(layer)
 # Altrimenti si può semplicemente iterare sul layer
 #   for feature in layer
@@ -604,6 +604,49 @@ crs_src = agd.getspatialref(agd.getlayer(sts, 0))
 point = agd.getgeom(sts_layers[1])
 agd.geomdim(point)
 crs_point = agd.getspatialref(point)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import ArchGDAL as agd
+using Rasters
+using Shapefile
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+#   con_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Connectivity Data\\connectivity.tiff"
+sat_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\sat\\sette_sorelle.shp"
+
+dtmr = Raster(dtm_file)
+dtma = agd.read(dtm_file)
+
+conr = Raster(con_file)
+cona = agd.read(con_file)
+
+sats = Shapefile.Table(sat_file)
+sata = agd.read(sat_file)
+
+
+
+
+
+
+
+
+
+
 
 
 
