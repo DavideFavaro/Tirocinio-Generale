@@ -629,6 +629,7 @@ using SpatialGraphs
 dtm = Raster(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff")
 csoil = Raster("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Classi suolo WGS84\\Classi suolo.tiff")
 perm = Raster("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff")
+perm = Raster("D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff")
 
 perm2 = Raster(
     replace(

@@ -46,7 +46,7 @@ mutable struct DAF
     tera_e
     orthogonal_extension::Float64
     time
- # AGGIUNTE ALL'ORIGINALE PER SEMPLIFICARE I CALCOLI
+
     acquifer_flow_direction::Float64
     algorithm::Symbol
     option::Symbol
@@ -84,7 +84,7 @@ end
 
 # ================================================ DAF functions ====================================================================================
 
-""" LE FUNZIONI DI `DAF` USANO LA FUNZIONE erf DI PYTHON IN JULIA TALE FUNZIONE SI TROVA NEL PACCHETTO `SpecialFunctions.jl`"""
+#   LE FUNZIONI DI `DAF` USANO LA FUNZIONE erf DI PYTHON IN JULIA TALE FUNZIONE SI TROVA NEL PACCHETTO `SpecialFunctions.jl`
 
 function calc_R!(c::DAF)
     c.R = 1 + ( c.kd * ( c.ro_s / c.tera_e ) )
@@ -239,39 +239,20 @@ end
 
 
 
-#  FUNZIONI CHE PROBABILMENTE POSSONO ESSERE SPOSTATE IN UN FILE A PARTE (IDEALMENTE Functions)
 """
-Recursively compute the concentration of each point and add the value and its indexes to positions
+    compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, daf::DAF )
+
+Given the raster `dtm` and the indexes (`r0`, `c0`) of the source, modify the postion values of object `daf` and return the concentration at indexes (`ri`, `ci`)
 """
-function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, daf::DAF )
-    if (indx_x, indx_y) in positions
-        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, daf )
-        return nothing
-    else
-        Δx, Δy = toCoords(dtm, positions[1][1], positions[1][2]) - toCoords(dtm, indx_x, indx_y)
-        dir = deg2rad(daf.acquifer_flow_direction)
-        cosdir = cos(dir)
-        sindir = sin(dir)
-        x = Δx * cosdir - Δy * sindir
-        y = Δy * sindir + Δy * cosdir
-        daf.x = x
-        daf.y = y
-        concentration = calcDAF!(daf)
-        if round(concentration, digits=5) > 0
-            push!( positions, (ind_x, ind_y) )
-            push!( results, concentration )
-            xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-            ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-            expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, daf )
-        end
-        return nothing
-    end
+function compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, daf::DAF )
+    daf.x, daf.y = Functions.compute_position(dtm, r0, c0, ri, ci, daf.acquifer_flow_direction)
+    return calcDAF!(daf)
 end
 
 
 
+"""
+"""
 function leach( source, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Integer, time::Integer=1,
                 orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Real=1.0, darcy_velocity::Real=0.000025, mixed_zone_depth::Real=1.0,
                 decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )

@@ -44,11 +44,12 @@ mutable struct Lake
     fickian_y::Float64
     velocity_x::Float64
     velocity_y::Float64
+    wind_direction::Float64
     λk::Float64
 
     C::Float64
 
-    Lake( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk ) = new( concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+    Lake(concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, wiind_direction, λk) = new(concentration, time, distance_x, distance_y, fickian_x, fickian_y, velocity_x, velocity_y, wiind_direction, λk)
 end
 
 
@@ -81,43 +82,26 @@ end
 
 
 """
-Recursively compute the concentration of each point and add the value and its indexes to positions
-"""
-function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, lake::Lake )
-    if (indx_x, indx_y) in positions
-        xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-        expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, lake )
-        return nothing
-    else
-        Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
-        dir = deg2rad(plume.wind_direction)
-        sindir = sin(dir)
-        cosdir = cos(dir)
-        lake.distance_x = Δy * sindir + Δy * cosdir
-        lake.distance_y = Δx * cosdir - Δy * sindir
-        result = calc_concentration!(lake)
+    compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, lake::Lake )
 
-        if round(result, digits=5) > 0
-            push!( positions, (ind_x, ind_y) )
-            push!( results, result )
-            xs = [ indx_x+1, indx_x, indx_x-1, indx_x ]
-            ys = [ indx_y, indx_y+1, indx_y, indx_y-1 ]
-            expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, lake )
-        end
-        return nothing
-    end
+Given the raster `dtm` and the indexes (`r0`, `c0`) of the source, modify the postion values of object `lake` and return the concentration at indexes (`ri`, `ci`)
+"""
+function compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, lake::Lake )
+    lake.distance_x, lake.distance_y = Functions.compute_position(dtm, r0, c0, ri, ci, lake.wind_direction)
+    return calc_concentration!(lake)
 end
 
 
 
-function run_lake( source, xw, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
+"""
+"""
+function run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
                    fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\lake_otput_model.tiff" )
 
     hours *= 3600
     refsys = agd.getspatialref(source)
-    velocity_x = √( round( flow_mean_speed * cos(deg2rad(xw)), digits=3 )^2 )
-    velocity_y = √( round( flow_mean_speed * sin(deg2rad(xw)), digits=3 )^2 )
+    velocity_x = √( round( flow_mean_speed * cos(deg2rad(wind_direction)), digits=3 )^2 )
+    velocity_y = √( round( flow_mean_speed * sin(deg2rad(wind_direction)), digits=3 )^2 )
 
     feature = collect(agd.getfeature(source))
     geom = agd.getgeom(feature[1])
@@ -127,7 +111,7 @@ function run_lake( source, xw, pollutant_mass, flow_mean_speed, resolution::In64
 
     points = [ (r_source, c_source) ]
     values = [ pollutant_mass ]
-    lake = Lake( pollutant_mass, hours, 0, 0, fickian_x, fickian_y, velocity_x, velocity_y, λk )
+    lake = Lake( pollutant_mass, hours, 0, 0, fickian_x, fickian_y, velocity_x, velocity_y, wind_direction, λk )
     expand!(points, values, dem,  r_source, c_source, lake)
 
     maxR = maximum( point -> point[1], points )

@@ -24,20 +24,20 @@ mutable struct Plume
   # smoke_temperature: temperatura gas all'uscita del camino
   # temperature: temperatura ambiente
 
-  concentration::Real
-  d::Real
-  y::Real
-  z::Real
-  stability::AbstractString
-  outdoor::AbstractString
-  stack_height::Real
-  stack_diameter::Real
+  concentration::Float64
+  d::Float64
+  y::Float64
+  z::Float64
+  stability::String
+  outdoor::String
+  stack_height::Float64
+  stack_diameter::Float64
   wind_direction::Integer
-  wind_speed::Real
-  gas_speed::Real
-  smoke_temperature::Real
-  temperature::Real
-  max_domain::Real
+  wind_speed::Float64
+  gas_speed::Float64
+  smoke_temperature::Float64
+  temperature::Float64
+  max_domain::Float64
 
   H
   σy
@@ -141,39 +141,18 @@ end
 
 
 """
-Recursively compute the concentration of each point and add the value and its indexes to positions
+Given the raster `dtm` and the indexes (`r0`, `c0`) of the source, modify the postion values of object `sediment` and return the concentration at indexes (`ri`, `ci`)
 """
-function expand!( positions::AbstractVector, results::AbstractVector, dtm, indx_x::Integer, indx_y::Integer, plume::Plume )
-  if (indx_x, indx_y) in positions
-    xs = [ indx_x, indx_x-1, indx_x ]
-    ys = [ indx_y+1, indx_y, indx_y-1 ]
-    expand!( positions, concentrations, dtm, indx_x+1, indx_y, plume )
-    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(plume) )
-    return nothing
-  else
-    Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
-    dir = deg2rad(plume.wind_direction)
-    sindir = sin(dir)
-    cosdir = cos(dir)
- # SETTANO d A true_y E y A true_x, NON SO SE SIA GIUSTO
-    plume.d = Δy * sindir + Δy * cosdir
-    plume.y = Δx * cosdir - Δy * sindir
-    plume.z = agd.getband(dtm, 1)[indx_x, indx_y]
-    concentration = calcPlume!(plume)
-    if round(concentration, digits=5) > 0
-        push!( positions, (ind_x, ind_y) )
-        push!( results, concentration )
-        xs = [ indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y+1, indx_y, indx_y-1 ]
-        expand!.( positions, results, dtm, indx_x+1, indx_y, plume )
-        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, deepcopy(plume) )
-    end
-    return nothing
-  end
+function compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, plume::Plume )
+  plume.d, plume.y = Functions.compute_position(dtm, r0, c0, ri, ci, plume.wind_direction)
+  plume.z = agd.getband(dtm, 1)[ri, ci]
+  return calc_concentration!(lake)
 end
 
 
 
+"""
+"""
          #                                                                                                x_w             q / text_conc        u / wspeed        h_s / height
 function run_plume( dem, source, stability::AbstractString, outdoor::AbstractString, resolution::Integer, wind_direction, concentration::Real, wind_speed::Real, stack_height::Real, 
                   # v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp

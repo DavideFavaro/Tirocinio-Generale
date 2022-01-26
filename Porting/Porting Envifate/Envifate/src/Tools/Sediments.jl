@@ -9,7 +9,9 @@ using ArgParse
 using Parameters
 using Dates
 
+
 include("../Library/Functions.jl")
+
 
 
 #   NON SO COME SI DOCUMENTANO GLI STRUCT
@@ -29,26 +31,27 @@ include("../Library/Functions.jl")
     # tide: tidal cycle es. 12 (ore)
   
     dredged_mass::Float64
-    time
-    mean_depth::Int
+    time::Int64
+    mean_depth::Float64
     x_dispersion_coeff::Float64
     y_dispersion_coeff::Float64
-    x::Int
-    y::Int
+    x::Float64
+    y::Float64
     mean_flow_speed::Float64
+    flow_direction::Float64
     mean_sedimentation_velocity::Float64
-    time_intreval::Int
+    time_intreval::Int64
     current_oscillatory_amplitude::Float64 = 0.0
-    tide::Int = 0
+    tide::Int64 = 0
   
     ω = 0
     ew
 
 
-    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+    function Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, flow_direction, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
         if current_oscillatory_amplitude > 0 && tide > 0
             ω = 2π/tide
-            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide, ω)
+            return new(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, x, y, mean_flow_speed, flow_direction, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide, ω)
         end
     end
 end
@@ -86,46 +89,15 @@ end
 
 
 """
-    expand!( positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, sediment::Sediment )::Nothing
+    compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, sediment::Sediment )
 
-Recursively compute the concentration of a substance spreding in water at cell (`indx_x`, `indx_y`) of `dtm` and in the adjacent cells,
-adding all cells touched by the substance in `positions` and the relative concentration in `results` and accounting for the specificity of the
-substance through the `sediment` object.
-
-The function starting from cell (`indx_x`, `indx_y`) checks whether the cell has been already visited, if so skips the cell, otherwise computes the concentration
-of substance in it, keeping track of the total distance from the source through the first element of `positions`, which is always the source point.
-If the concentration is sufficient the function continues on the adjacent cells.
-
-The `sediment` object keeps track of the properties of the substance at each instant ad is modified every time the concentration is computed
-allowing to keep track of the changes 
+Given the raster `dtm` and the indexes (`r0`, `c0`) of the source, modify the postion values of object `sediment` and return the concentration at indexes (`ri`, `ci`)
 """
-function expand!( positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, sediment::Sediment )
-  if (indx_x, indx_y) in positions
-    xs = [ indx_x, indx_x-1, indx_x ]
-    ys = [ indx_y+1, indx_y, indx_y-1 ]
-
-    expand!( positions, concentrations, dtm, indx_x+1, indx_y, sediment )
-    expand!.( Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(sediment) )
-    return nothing
-  else
-    Δx, Δy = Functions.toCoords(dtm, positions[1][1], positions[1][2]) - Functions.toCoords(dtm, indx_x, indx_y)
-    dir = deg2rad(plume.wind_direction)
-    sindir = sin(dir)
-    cosdir = cos(dir)
-    sediment.y = Δy * sindir + Δy * cosdir
-    sediment.x = Δx * cosdir - Δy * sindir
-    concentration = calcSediment!(sediment)
-    if round(concentration, digits=5) > 0
-        push!( positions, (ind_x, ind_y) )
-        push!( results, concentration )
-        xs = [ indx_x, indx_x-1, indx_x ]
-        ys = [ indx_y+1, indx_y, indx_y-1 ]
-        expand!( positions, concentrations, dtm, indx_x+1, indx_y, sediment )
-        expand!.( Ref(positions), Ref(results), Ref(dtm), xs, ys, sediment )
-    end
-    return nothing
-  end
+function compute_result!( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, sediment::Sediment )
+    sediment.x, sediment.y = Functions.compute_position(dtm, r0, c0, ri, ci, sediment.flow_direction)
+    return calcSediment!(sediment)
 end
+
 
 
 """
@@ -177,7 +149,7 @@ function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_
     points = [ (r_source, c_source) ]
  # NON SO SE SIA IL VALORE CORRETTO DA INSERIRE
     values = [ dredged_mass ]
-    element = Sediment( dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+    element = Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed, flow_direction, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
     expand!( points, values, dem, r_source, c_source, element )
 
 
