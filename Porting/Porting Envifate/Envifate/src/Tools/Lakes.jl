@@ -94,6 +94,21 @@ end
 
 
 """
+    run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
+              fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\lake_otput_model.tiff" )
+
+
+#Arguments
+- `source`: source point of the contaminants.
+- `wind_direction`: direction of the wind as an angle in degrees.
+- `pollutant_mass`: initial mass of contaminants.
+- `flow_mean_speed`:  mean flow speed of the water.
+- `resolution::In64`: size of the cell for the analysis.
+- `hours::Int64`: time span of the analysis in hours.
+- `fickian_x::Real=0.05`: X
+- `fickian_y::Real=0.05`: X
+- `λk::Real=0.0`: X
+- `output_path::AbstractString=".\\lake_otput_model.tiff"`: output file path.
 """
 function run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
                    fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\lake_otput_model.tiff" )

@@ -1,33 +1,14 @@
 module DiluitionAttenuationfactor
+"""
+"""
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- Envifate
-                                 A QGIS plugin
- Envifate: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : francescogeri@tim.com
- ***************************************************************************/
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 
+using Dates
 
 
 import ArchGDAL as agd
 
-using Dates
 
 include("..\\Library\\Functions.jl")
 
@@ -252,10 +233,35 @@ end
 
 
 """
+    function leach( source, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Integer, time::Integer=1,
+                    orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Real=1.0, darcy_velocity::Real=0.000025, mixed_zone_depth::Real=1.0,
+                    decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString=".\\output_model_daf.tiff" )
+
+Run the simulation of leaching and dispersion of contaminants in an aquifier, returning a map of the possible worst case spreading of the contaminants
+
+# Arguments
+- `source`: source point of the contaminants.
+- `contaminants`: type of substance.
+- `concentrations`: concentration of the contaminants at the source.
+- `aquifer_depth`: depth of the aquifier in meters.
+- `acquifer_flow_direction`: angle of direction of the flow in degrees.
+- `mean_rainfall`: average rainfall volume.
+- `texture`: type of terrain at the source.
+- `resolution::Integer`: dimension of a cell for the analysis.
+- `time::Integer=1`: starting time.
+- `orthogonal_extension::Real=10000.0`: X
+- `soil_density::Real=1.70`: density of the terrain.
+- `source_thickness::Real=1.0`: thickness of the terrain layer at the source.
+- `darcy_velocity::Real=0.000025`: X
+- `mixed_zone_depth::Real=1.0`: X
+- `decay_coeff::Real=0.0`: X
+- `algorithm::Symbol=:fickian`: type of algorithm to be used.
+- `option::Symbol=:continuous`: second option to define the kind o algorithm to use.
+- `output_path::AbstractString=".\\output_model_daf.tiff": output file path. 
 """
 function leach( source, contaminants, concentrations, aquifer_depth, acquifer_flow_direction, mean_rainfall, texture, resolution::Integer, time::Integer=1,
                 orthogonal_extension::Real=10000.0, soil_density::Real=1.70, source_thickness::Real=1.0, darcy_velocity::Real=0.000025, mixed_zone_depth::Real=1.0,
-                decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString="" )
+                decay_coeff::Real=0.0, algorithm::Symbol=:fickian, option::Symbol=:continuous, output_path::AbstractString=".\\output_model_daf.tiff" )
 
     if algorithm ∉ [:fickian, :domenico]
         throw(DomainError(algorithm, "`algorithm` must either be `:fickian` or `:domenico`"))

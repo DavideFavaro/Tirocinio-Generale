@@ -4,11 +4,15 @@ Module containing auxiliary functions
 """
 
 
+
 import ArchGDAL as agd
+
+
 using CombinedParsers
 using CombinedParsers.Regexp
 #   import DBInterface as dbi
 #   import SQLite as sql
+
 
 
 export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extract, array2raster!, writeRaster!, applystyle,
@@ -21,7 +25,7 @@ export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extr
 
 
 
-#= Old version =#
+#= Old version
     Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
     Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
     Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
@@ -34,23 +38,26 @@ export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extr
     Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
     Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
     Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
-
-#=
-Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
-Base.:+( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:+( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Tuple{Vararg{T1}}, y::Vector{T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:-( x::Vector{T1}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? [ xi-yi for (xi, yi) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:*( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi*yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:*( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi*y for xi in x )
-Base.:*( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = y * x
-Base.:/( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi/yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-Base.:/( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi/y for xi in x )
-Base.:/( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = Tuple( x/yi for yi in y )
-Base.:^( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi^y for xi in x )
 =#
+#= Non sono necessarie basta usare il broadcasting
+    Base.:+( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:+( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:-( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:-( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:-( x::Vector{T1}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? [ xi-yi for (xi, yi) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:*( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi*yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:*( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi*y for xi in x )
+    Base.:*( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = y * x
+    Base.:/( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi/yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
+    Base.:/( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi/y for xi in x )
+    Base.:/( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = Tuple( x/yi for yi in y )
+    Base.:^( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi^y for xi in x )
+=#
+"""
+Convert a floating point number to integer by rounding it
+"""
+Base.convert(::Type{Int64}, n::Real) = round(Int64, n)
+Base.:-( x::Tuple{Vararg{T1}}, y::Vector{T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
 
 
 
@@ -108,7 +115,10 @@ function cn_list_extract( dbloc::AbstractString=*( @__DIR__, "\\") )
     listaclc = Dict( row[5] => [ x for x  in row ] for row in results )
     return listaclc
 end
+=#
 
+
+#= SOSTITUITI DALLA NUOVA writeRaster
 function array2raster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize, ysize, array )
 	# vedi https://pcjericks.github.io/py-gdalogr-cookbook/raster_layers.html#create-raster-from-array
     # cols = array.shape[1]
@@ -130,13 +140,37 @@ function array2raster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize,
  """
 end
 
-
 function writeRaster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize, ysize, array )
     reversed_arr = reverse(array) # reverse array so the tif looks like the array
     array2raster!( newRasterfn, xmin, ymin, pixelWidth, pixelHeight, xsize, ysize, reversed_arr ) # convert array to raster
 end
+=#
+"""
+    writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, refsys::AbstractString, noData::Real, output_path::AbstractString=".\\raster.tiff", output::Bool=false )
+
+Given a N dimensional matrix `data`, create a raster file as `output_path` with `refsys` as spatial reference and `geotransfrom``, using `driver` to define the format.
+If `output` is set to true return the new raster.  
+"""
+function writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, refsys::AbstractString, noData::Real, output_path::AbstractString=".\\raster.tiff", output::Bool=false )
+    rows, cols, bands = length(size(data)) < 3 ? (size(data)..., 1) : size(data) 
+    res_raster = agd.create(output_path, driver=driver, width=rows, height=cols, nbands=bands, dtype=Float32)
+    for i in 1:bands
+        agd.setnodatavalue!(agd.getband(res_raster, i), noData)
+        agd.write!(res_raster, data[:, :, i], i)
+    end
+    agd.setgeotransform!(res_raster, geotransform)
+    agd.setproj!(res_raster, refsys)
+    # NON SO QUANTO SIA NECESSARIO QUESTO IF
+    if !output
+        res_raster = nothing
+        GC.gc()
+    end
+    return res_raster
+end
 
 
+
+#=
 function applystyle( layer, colore, opacity )
     return nothing
 end
@@ -217,7 +251,6 @@ end
 
 
 
-
 """
     compute_position( r0::Integer, c0::Integer, ri::Integer, ci::Integer, direction::Real )
 
@@ -272,3 +305,73 @@ end
 
 
 end # module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import ArchGDAL as agd
+
+
+
+dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+dtm = agd.readraster(dtm_file)
+
+points = Vector{Tuple{Int64, Int64}}()
+values = Vector{Float32}()
+for r in 1000:1010, c in 1000:1010
+    if r == 1010 && c == 1002
+        break
+    end
+    push!( points, (r, c) )
+    push!( values, 156.f0 + (r-1000)*(c-1000) )
+end
+
+maxR = maximum( point -> point[1], points )
+minR = minimum( point -> point[1], points )
+maxC = maximum( point -> point[2], points )
+minC = minimum( point -> point[2], points )
+rows = maxR - minR + 1
+cols = maxC - minC + 1
+
+gtf = agd.getgeotransform(dtm)
+gtf[1] += (minR - 1) * gtf[2]
+gtf[4] += (maxC - 1) * gtf[6]
+
+rfs = agd.getproj(dtm)
+
+noData = -9999.f0
+
+data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+
+writeRaster( data, agd.getdriver("GTiff"), gtf, rfs, noData, "C:\\Users\\DAVIDE-FAVARO\\Desktop\\test.tiff", false )
+
+
+
+
+
+
+
+
+target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\test.tiff", driver=agd.getdriver("GTiff"), width=rows, height=cols, nbands=1, dtype=Float32)
+
+agd.setnodatavalue!(agd.getband(target_ds, 1), noData)
+
+agd.write!(target_ds, data, 1)
+
+agd.setgeotransform!(target_ds, gtf)
+agd.setproj!(target_ds, rfs)
+

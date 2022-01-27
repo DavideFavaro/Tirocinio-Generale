@@ -103,7 +103,7 @@ end
 """
     run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real,
                   dredged_mass::Real, flow_direction::Real, mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer,
-                  current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
+                  current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model_sediments.tiff" )
 
 Run a simulation of plumes of turbidity induced by dredging.
 
@@ -115,18 +115,18 @@ Run a simulation of plumes of turbidity induced by dredging.
 - `x_dispersion_coeff::Real`: coefficient of dispersion along the x axis.
 - `y_dispersion_coeff::Real,`: coefficient of dispersion along y axis.
 - `dredged_mass::Real`: initial mass of the dredged substance.
-- `flow_direction::Real`: direction of the as an angle, in degrees.
+- `flow_direction::Real`: direction of the flow as an angle in degrees.
 - `mean_sedimentation_velocity::Real`: velocity of sedimentation.
 - `time::Integer`: start time for the model.
 - `time_intreval::Integer`: length of an epoch.
 - `current_oscillatory_amplitude::Integer=0`: water oscillatory amplitude.
 - `tide::Integer=0`: value of tide.
-- `output_path::AbstractString=".\\output_model.tiff"`: path of the resulting raster.
+- `output_path::AbstractString=".\\output_model_sediments.tiff"`: path of the resulting raster.
 """
                     #                                     v                      h                 dx                        dy                        q                   dir
 function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u
-                       mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model.tiff" )
+                       mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model_sediments.tiff" )
 
  # messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
 
