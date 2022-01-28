@@ -108,6 +108,7 @@ end
 Run a simulation of plumes of turbidity induced by dredging.
 
 # Arguments
+- `dtm`: raster of terrain.
 - `source`: dredging source point.
 - `resolution::Integer`: size of a cell in meters.
 - `mean_flow_speed::Real`: speed of the flowing water.
@@ -124,7 +125,7 @@ Run a simulation of plumes of turbidity induced by dredging.
 - `output_path::AbstractString=".\\output_model_sediments.tiff"`: path of the resulting raster.
 """
                     #                                     v                      h                 dx                        dy                        q                   dir
-function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
+function run_sediment( dtm, source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u
                        mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model_sediments.tiff" )
 
@@ -166,23 +167,12 @@ function run_sediment( source, resolution::Integer, mean_flow_speed::Real, mean_
 
     rows = maxR - minR
     cols = maxC - minC
-    minX, maxY = toCoords(dtm, minX, maxY)
+    geotransform = agd.getgeotransform(dtm)
 
     gtiff_driver = agd.getdriver("GTiff")
     target_ds = agd.create( output_path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
     agd.setgeotransform!(target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ])
     agd.setproj!(target_ds, refsys)
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-    target_ds.SetMetadata(
-        Dict(
-            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-            "modulo" => "Analisi sedimentazione marina",
-            "descrizione" => "Simulazione di sedimento disperso in ambiente marino",
-            "srs" => refsys,
-            "data" => today()
-        )
-    )
- """
     valNoData = -9999.0
     band1 = agd.getband(target_ds, 1)
     agd.setnodatavalue!( band1, Float64(valNoData) )

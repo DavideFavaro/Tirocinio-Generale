@@ -177,85 +177,87 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
                   # v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
                     gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temperature::Real=0.0, output_path::AbstractString=".\\otput_model_plume.tiff" )
 
-  if agd.geomdim(source) != 0
-      throw(DomainError(source, "`source` must be a point"))
-  end
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
 
-  refsys = agd.getspatialref(source)
+    refsys = agd.getproj(dem)
 
-  if agd.importWKT(agd.getproj(dem)) != refsys
-      throw(DomainError("The reference systems are not uniform. Aborting analysis."))
-  end
+    if agd.importWKT(refsys) != agd.getspatialref(source)
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+    end
   
-  lst_fields = [
-    "sf_ing",
-    "sf_inal",
-    "iur",
-    "rfd_ing",
-    "rfd_inal",
-    "rfc"
-  ]
 
-  lst_toxic_msg = [ 
-      "Slope Factor per ingestione", 
-      "Slope Factor per inalazione",
-      "Inhalation Unit Risk",
-      "Reference Dose per ingestione",
-      "Reference Dose per inalazione",
-      "Reference Concentration"
-  ]
 
-  toxic = Functions.substance_extract(contaminant, lst_fields, ".\\..\\Library\\")
+    lst_fields = [
+      "sf_ing",
+      "sf_inal",
+      "iur",
+      "rfd_ing",
+      "rfd_inal",
+      "rfc"
+    ]
+    lst_toxic_msg = [ 
+        "Slope Factor per ingestione", 
+        "Slope Factor per inalazione",
+        "Inhalation Unit Risk",
+        "Reference Dose per ingestione",
+        "Reference Dose per inalazione",
+        "Reference Concentration"
+    ]
+    toxic = Functions.substance_extract(contaminant, lst_fields, "..\\Library\\")
 
-  feature = collect(agd.getlayer(source, 0))
-  geom = agd.getgeom(feature[1])
-  x_source = agd.getx(geom, 0)
-  y_source = agd.gety(geom, 0)
-  r_source, c_source = toIndexes(dtm, x_source, y_source)
 
-  # start_time = time.time()
 
-  points = [ (r_source, c_source) ]
-  values = [ concentration ]
+    geotransform = agd.getgeotransform(dem)
+
+    feature = collect(agd.getlayer(source, 0))[1]
+    geom = agd.getgeom(feature)
+    x_source = agd.getx(geom, 0)
+    y_source = agd.gety(geom, 0)
+    r_source, c_source = toIndexes(geomtransform, x_source, y_source)
+
+    # start_time = time.time()
+
+    points = [ (r_source, c_source) ]
+    values = [ concentration ]
  # NON CI INTERESSA DARE DEI VALORI COERENTI A d, y, E z PERCHE' AD OGNI CHIAMATA expand! LI RESETTA
-  plume = Plume(concentration, 0.0, 0.0, 0.0, stability, outdoor, wind_speed, stack_height, stack_diameter, gas_speed, smoke_temperature, temperature, wind_direction,0.0) 
-  expand!(points, values, dtm, r_source, c_source, plume)
+    plume = Plume(concentration, 0.0, 0.0, 0.0, stability, outdoor, wind_speed, stack_height, stack_diameter, gas_speed, smoke_temperature, temperature, wind_direction,0.0) 
+    expand!(points, values, dtm, r_source, c_source, plume)
 
-  maxR = maximum( point -> point[1], points )
-  minR = minimum( point -> point[1], points )
-  maxC = maximum( point -> point[2], points )
-  minC = minimum( point -> point[2], points )
+    maxR = maximum( point -> point[1], points )
+    minR = minimum( point -> point[1], points )
+    maxC = maximum( point -> point[2], points )
+    minC = minimum( point -> point[2], points )
 
-  rows = maxR - minR
-  cols = maxC - minC
-  minX, maxY = toCoords(dtm, minR, maxC)
+    rows = maxR - minR
+    cols = maxC - minC
 
-  gtiff_driver = agd.getdriver("GTiff")
-  target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
+    geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
+
+    data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+
+    writeRaster( data, agd.getdriver("GTiff"), geotransform, refsys, noData, "C:\\Users\\DAVIDE-FAVARO\\Desktop\\test.tiff", false )
+
+
+
+
+
+    gtiff_driver = agd.getdriver("GTiff")
+    target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
  # NON SONO CERTO CHE IL GEOTRASFORM VADA BENE
-  agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
-  agd.setproj!( target_ds, refsys )
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-  target_ds.SetMetadata(
-    Dict(
-      "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-      "modulo" => "Dispersione in falda",
-      "descrizione" => "Simulazione di dispersione inquinante in falda",
-      "srs" => refsys,
-      "data" => today()
-    )
-  )
- """
-  valNoData = -9999.0
-  band1 = agd.getband( target_ds, 1 )
-  agd.setnodatavalue!(band1, valNoData)
-  agd.fillraster!(band1, valNoData)
-  band = agd.read(band1)
+    agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
+    agd.setproj!( target_ds, refsys )
+    valNoData = -9999.0
+    band1 = agd.getband( target_ds, 1 )
+    agd.setnodatavalue!(band1, valNoData)
+    agd.fillraster!(band1, valNoData)
+    band = agd.read(band1)
 
-  for (point, value) in zip(points[i], values[i])
-      r, c = point - (minR, minC)
-      band[r, c] = value
-  end
+    for (point, value) in zip(points[i], values[i])
+        r, c = point - (minR, minC)
+        band[r, c] = value
+    end
 end
 
 
