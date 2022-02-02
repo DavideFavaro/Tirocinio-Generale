@@ -148,13 +148,14 @@ end
 """
     writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, refsys::AbstractString, noData::Real, output_path::AbstractString=".\\raster.tiff", output::Bool=false )
 
-Given a N dimensional matrix `data`, create a raster file as `output_path` with `refsys` as spatial reference and `geotransfrom``, using `driver` to define the format.
-If `output` is set to true return the new raster.  
+Given a NxMxH dimensional matrix `data`, create a raster file with H NxM bands as `output_path` file, with `refsys` and `geotransfrom` as spatial references,
+using `driver` to define the format.
+If `output` is set to true return the new raster, otherwise return nothing.  
 """
-function writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, refsys::AbstractString, noData::Real, output_path::AbstractString=".\\raster.tiff", output::Bool=false )
+function writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, resolution::Real, refsys::AbstractString, noDataValue::Real, output_file_path::AbstractString=".\\raster.tiff", output::Bool=false )
     rows, cols, bands = length(size(data)) < 3 ? (size(data)..., 1) : size(data) 
-    res_raster = agd.create(output_path, driver=driver, width=rows, height=cols, nbands=bands, dtype=Float32)
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
+    res_raster = agd.create(output_file_path, driver=driver, width=rows, height=cols, nbands=bands, dtype=Float32)
+ #= NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
     target_ds.SetMetadata(
         Dict(
             "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
@@ -164,9 +165,9 @@ function writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Ve
             "data" => today()
         )
     )
- """
+ =#
     for i in 1:bands
-        agd.setnodatavalue!(agd.getband(res_raster, i), noData)
+        agd.setnodatavalue!(agd.getband(res_raster, i), noDataValue)
         agd.write!(res_raster, data[:, :, i], i)
     end
     agd.setgeotransform!(res_raster, geotransform)
@@ -270,7 +271,7 @@ end
 Given the indexes of the source cell (`r0`, `c0`), those of the current one (`ri`, `ci`) and the angular direction of flow, compute the (`x`, `y`) coordinates
 """
 function compute_position( dtm::AbstractArray, r0::Integer, c0::Integer, ri::Integer, ci::Integer, direction::Real )
-    Δx, Δy = Functions.toCoords(dtm, r0, c0) - Functions.toCoords(dtm, ri, ci)
+    Δx, Δy = toCoords(dtm, r0, c0) - toCoords(dtm, ri, ci)
     dir = deg2rad(direction)
     sindir, cosdir = sin(dir), cos(dir)
     return Δx * cosdir - Δy * sindir, Δx * sindir + Δy * cosdir
@@ -321,28 +322,44 @@ end
 
 
 
-
-
-function rasterFromPointsValues( points::Vector{Tuple{Int64, Int64}}, values::Vector{Real}, dtm::Abstractdataset )
+#= NON UTILIZZATE
+function rasterFromPointsValues( points::Vector{Tuple{Int64, Int64}}, values::Vector{T}, driver::agd.Driver, resolution::Real, geotransform::Vector{Float64}, refsys::AbstractString, noDataValue::T, output_file_path::AbstractString ) where {T <: Real}
     if length(points) != length(values)
-        
+        throw(DomainError("There must be the same number of points in `points` and values in `values`"))
+    end
 
-    gtf = agd.getgeotransform(dtm)
+    #  <sort points in increasing order>
 
-    maxR = maximum( point -> point[1], points )
-    minR = minimum( point -> point[1], points )
-    maxC = maximum( point -> point[2], points )
-    minC = minimum( point -> point[2], points )
+    minR = minimum(x -> x[1], points) 
+    minC = minimum(x -> x[2], points)
+    maxR = maximum(x -> x[1], points)
+    maxC = maximum(x -> x[2], points)
 
-    gtf[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
+    #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+    data = fill(noDataValue, maxR-minR, maxC-minC)
+    for r in minR:maxR, c in minC:maxC
+        match = findfirst(p -> p == (r, c), points)
+        if !isnothing(match)
+            data[r-minR+1, c-minC+1] = values[match]
+        end
+    end
 
-    data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
-
-    writeRaster( data, agd.getdriver("GTiff"), gtf, refsys, noData, "C:\\Users\\DAVIDE-FAVARO\\Desktop\\test.tiff", false )
+    writeRaster(data, driver, geotransform, refsys, noDataValue, output_file_path, false )
 end
 
+function rasterFromPointsValues( points::Vector{Tuple{Int64, Int64}}, value::T, driver::agd.Driver, resolution::Real, geotransform::Vector{Float64}, refsys::AbstractString, noDataValue::T, output_file_path::AbstractString ) where {T <: Real}
+    # <sort points in increasing order>
+    
+    minR = minimum(x -> x[1], points) 
+    minC = minimum(x -> x[2], points)
+    maxR = maximum(x -> x[1], points)
+    maxC = maximum(x -> x[2], points)
 
+    data = [ isnothing(findfirst(p -> p == (r, c), points)) ? noDataValue : value for r in minR:maxR, c in minC:maxC ]
 
+    writeRaster( data, driver, geotransform, refsys, noDataValue, output_file_path, false )
+end
+=#
 
 
 
@@ -391,6 +408,7 @@ import ArchGDAL as agd
 using Rasters
 
 # Testing conversione coordinate -> indici e indici -> coordinate
+
 
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 dtm = agd.read(dtm_file)
@@ -479,4 +497,3 @@ agd.write!(target_ds, data, 1)
 
 agd.setgeotransform!(target_ds, gtf)
 agd.setproj!(target_ds, rfs)
-

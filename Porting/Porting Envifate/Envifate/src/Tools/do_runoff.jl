@@ -665,6 +665,212 @@ wrg = weightedrastergraph(
 
 
 
+#   TEST ORDINAMENTO DEL CCS
+
+using Rasters
+using Shapefile
+using Plots
+
+
+ccs_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp"
+ccs_shp = Shapefile.Table(ccs_file)
+
+
+#   x1min = minimum( point -> point.x, ccs_shp.geometry[1].points )
+x1min =  11.00547222227983
+#   y1min = minimum( point -> point.y, ccs_shp.geometry[1].points )
+y1min = 45.27133984749723
+#   x1max = maximum( point -> point.x, ccs_shp.geometry[1].points )
+x1max = 11.007101454111362
+#   y1max = maximum( point -> point.y, ccs_shp.geometry[1].points )
+y1max = 45.27277212275295
+
+#   x2min = minimum( point -> point.x, ccs_shp.geometry[2].points )
+x2min = 11.006866910892947
+#   y2min = minimum( point -> point.y, ccs_shp.geometry[2].points )
+y2min = 45.27186096559611
+#   x2max = maximum( point -> point.x, ccs_shp.geometry[2].points )
+x2max = 11.008043944196515
+#   y2max = maximum( point -> point.y, ccs_shp.geometry[2].points )
+y2max = 45.27293816375542
+
+#   xn_min = minimum( point -> point.x, ccs_shp.geometry[end-1].points )
+xn_min = 11.939032283264048
+#   yn_min = minimum( point -> point.y, ccs_shp.geometry[end-1].points )
+yn_min = 45.41293876164664
+#   xn_max = maximum( point -> point.x, ccs_shp.geometry[end-1].points )
+xn_max = 11.94072194930855
+#   yn_max = maximum( point -> point.y, ccs_shp.geometry[end-1].points )
+yn_max = 45.41371166206567
+
+#   xnmin = minimum( point -> point.x, ccs_shp.geometry[end].points )
+xnmin = 11.938870927858336
+#   ynmin = minimum( point -> point.y, ccs_shp.geometry[end].points )
+ynmin = 45.41411198731695
+#   xnmax = maximum( point -> point.x, ccs_shp.geometry[end].points )
+xnmax = 11.93976515071267
+#   ynmax = maximum( point -> point.y, ccs_shp.geometry[end].points )
+ynmax = 45.414749075377266
+
+
+
+plot(
+    [
+        (x1min, y1min),
+        (x1min, y1max),
+        (x1max, y1max),
+        (x1max, y1min),
+        (x1min, y1min)
+    ]
+)
+plot!(
+    [
+        (x2min, y2min),
+        (x2min, y2max),
+        (x2max, y2max),
+        (x2max, y2min),
+        (x2min, y2min)
+    ]
+)
+
+
+i = 5
+ximin = minimum( point -> point.x, ccs_shp.geometry[i].points )
+yimin = minimum( point -> point.y, ccs_shp.geometry[i].points )
+ximax = maximum( point -> point.x, ccs_shp.geometry[i].points )
+yimax = maximum( point -> point.y, ccs_shp.geometry[i].points )
+plot!(
+    [
+        (ximin, yimin),
+        (ximin, yimax),
+        (ximax, yimax),
+        (ximax, yimin),
+        (ximin, yimin)
+    ]
+)
+
+
+
+
+
+
+plot!(
+    [
+        (xn_min, yn_min),
+        (xn_min, yn_max),
+        (xn_max, yn_max),
+        (xn_max, yn_min)
+    ]
+)
+plot!(
+    [
+        (xnmin, ynmin),
+        (xnmin, ynmax),
+        (xnmax, ynmax),
+        (xnmax, ynmin)
+    ]
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=
+Problema:
+Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un punto del poligono che lo contiene.
+
+Idea:
+Per questo tipo di problema si può utilizzare una struttura ad albero.
+Si può usare un kdtree contenente i centroidi dei poligoni del ccs, associando ad ongi nodo l'indice del poligono nel vettore ottenuto dallo shapefile, o, ancora meglio, il
+poligono stesso, insieme ai dati sul suo contenuto, in questo modo dovrebbe esere possibile, dato un punto di coordinate x e y, il centroide più vicino e quindi il poligono
+che lo contiene ed ogni altro valore associato.
+La struttura potrebbe essere salvata in un file a se stante, in modo da non doverne ripetere la creazione e non dovrebbe occupare spazio di troppo maggiore rispetto ai dati
+contenuti nello shapefile.
+Un alterativa sono gli R-tree, che fanno più o meno la stessa cosa, apperentemente sono meglio per gestire aree invece di punti.
+
+
+KDTrees e RTrees
+    https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a
+
+Discourse a proposito di R-trees:
+    https://discourse.julialang.org/t/implementations-of-spatial-indices/7638
+
+RegionTrees.jl pare faccia ciò che ci serve:
+    https://github.com/rdeits/RegionTrees.jl
+
+Pacchetto per RTrees
+    https://github.com/alyst/SpatialIndexing.jl
+
+Pacchetto in Julia pr KDTrees:
+    https://github.com/KristofferC/NearestNeighbors.jl
+
+Potenzialmente esattamente quello che bisogna implementare:
+    https://pdfs.semanticscholar.org/7dc5/61b784d831aeb37247f3425cf449817ceb81.pdf
+
+Implementazione di una cosa simile in R:
+    https://cran.r-project.org/web/packages/RapidPolygonLookup/vignettes/RapidPolygonLookup.pdf
+
+Considerazioni su bilanciamento e ricorsione con kdtrees:
+    http://lin-ear-th-inking.blogspot.com/2021/10/query-kd-trees-100x-faster-with-this.html
+
+
+Gli alberi KD sembrano funzionare con punti e non poligoni ma possiamo utilizzare i centroidi dei poligoni, ottenere come risultato della ricerca un insieme di risultati e
+    trovare quello che effettivamente contiene il punto tramite funzioni come "inpolygon".
+Gli alberi R dividono lo spazio in aree rettangolari utilizzando dei bounding box, quindi sono meglio applicabili a dei poligoni, ma non sembrano essere generalmente binari,
+    il che può complicare la ricerca.
+
+
+NearestNeighbors.jl credo permetta di usare solo punti come chiavi dell'albero.
+SpatialIndexing.jl sembra creare alberi auto bilancianti ed essre efficiente per operazioni di inserimento  cancellazione,
+    ma a noi di questo tipo di operazioni non importa particolarmente.
+RegionalTrees.jl sembra l'unico pacchetto che permette di salvare informazioni nei nodi oltre al poligono.
+
+RegionalTrees.jl sembra il pacchetto migliore per i nostri scopi.
+=#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 function run_runoff( dem, ccs, source, target, resolution::Integer, folder::AbstractString=".\\" )

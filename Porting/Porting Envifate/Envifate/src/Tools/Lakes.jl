@@ -113,27 +113,27 @@ end
 function run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, resolution::In64, hours::Int64,
                    fickian_x::Real=0.05, fickian_y::Real=0.05, λk::Real=0.0, output_path::AbstractString=".\\lake_otput_model.tiff" )
 
-    hours *= 3600
-    refsys = agd.getspatialref(source)
-    velocity_x = √( round( flow_mean_speed * cos(deg2rad(wind_direction)), digits=3 )^2 )
-    velocity_y = √( round( flow_mean_speed * sin(deg2rad(wind_direction)), digits=3 )^2 )
-
-    feature = collect(agd.getfeature(source))
-    geom = agd.getgeom(feature[1])
+    geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
+    refsys = agd.toWKT(agd.getspatialref(geom))
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
     r_source, c_source = toIndexes(dem, x_source, y_source)
 
-    points = [ (r_source, c_source) ]
-    values = [ pollutant_mass ]
-    lake = Lake( pollutant_mass, hours, 0, 0, fickian_x, fickian_y, velocity_x, velocity_y, wind_direction, λk )
+    hours *= 3600
+    velocity_x = √( round( flow_mean_speed * cos(deg2rad(wind_direction)), digits=3 )^2 )
+    velocity_y = √( round( flow_mean_speed * sin(deg2rad(wind_direction)), digits=3 )^2 )
+
+    points = [(r_source, c_source)]
+    values = [pollutant_mass]
+    lake = Lake(pollutant_mass, hours, 0, 0, fickian_x, fickian_y, velocity_x, velocity_y, wind_direction, λk)
     expand!(points, values, dem,  r_source, c_source, lake)
 
     maxR = maximum( point -> point[1], points )
     minR = minimum( point -> point[1], points )
     maxC = maximum( point -> point[2], points )
     minC = minimum( point -> point[2], points )
-  
+
+ #= SENZA FUNZIONI
     rows = maxR - minR
     cols = maxC - minC
     minX, maxY = toCoords(dtm, minR, maxC)
@@ -144,17 +144,6 @@ function run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, reso
     target_ds = agd.create( output_path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
     agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
     agd.setproj!(target_ds, refsys)
- """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-    target_ds.SetMetadata(
-        Dict( 
-            "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-            "modulo" => "Dispersione in laghi e bacini",
-            "descrizione" => "Simulazione di dispersione inquinante all\'interno di un corpo idrico superficiale fermo",
-            "srs" => refsys,
-            "data" => today()
-        )
-    )
- """
     band1 = agd.getband(target_ds, 1)
     agd.setnodatavalue!( band1, convert(Float64, valNoData) )
     band = agd.read(band1)
@@ -166,6 +155,20 @@ function run_lake( source, wind_direction, pollutant_mass, flow_mean_speed, reso
     end
 
     agd.write!( target_ds, band )
+ =#
+
+    geotransform = agd.getgeotransform(dem)
+    geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
+
+    #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+    data = fill(noDataValue, maxR-minR, maxC-minC)
+    for r in minR:maxR, c in minC:maxC
+        match = findfirst(p -> p == (r, c), points)
+        if !isnothing(match)
+            data[r-minR+1, c-minC+1] = values[match]
+        end
+    end
+    Functions.writeRaster(data, agd.getdriver("GTiff"), geotransform, resolution, refsys, noData, output_path, false)
 end
 
 

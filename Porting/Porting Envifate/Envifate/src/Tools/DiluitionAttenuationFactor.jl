@@ -271,15 +271,20 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
         throw(DomainError(option, "`option` must either be `:continuous` or `:pulse`"))
     end
 
-    if agd.geomdim(source) != 0
+    geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
+
+    if agd.geomdim(geom) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    refsys = agd.getspatialref(source)
+    refsys = refsys = agd.getproj(dem)
+
+    if agd.importWKT(refsys) != agd.getspatialref(geom)
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+    end
+
     effective_infiltration *= (mean_rainfall / 10.2)^2
 
-    feature = collect(agd.getfeature(source))
-    geom = agd.getgeom(feature[1])
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
     r_source, c_source = toIndexes(dtm, x_source, y_source)
@@ -289,13 +294,15 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
         throw(DomainError("Analysis error, check input parameters"))
     end
 
+    gtiff_driver = agd.getdriver("GTiff")
+
     points = []
     values = []
     for i in 1:length(contaminants)
         path = output_path * "output_model_$(contaminants[i]).tiff"
 
-        push!( points, [ (r_source, c_source) ] )
-        push!( values, [ concentrations[i] ] )
+        push!( points, [(r_source, c_source)] )
+        push!( values, [concentrations[i]] )
 
         h, kd = Functions.substance_extract( contaminants[i], ["c_henry", "koc_kd"], ".\\..\\library\\" )
         if isempty(h) && isempty(kd)
@@ -318,6 +325,7 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
         maxC = maximum( point -> point[2], points )
         minC = minimum( point -> point[2], points )
 
+ #= SENZA FUNZIONI
         rows = maxR - minR
         cols = maxC - minC
         minX, maxY = toCoords(dtm, minX, maxY)
@@ -327,17 +335,6 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
      # NON SONO CERTO CHE IL GEOTRASFORM VADA BENE
         agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
         agd.setproj!( target_ds, refsys )
-     """ NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
-        target_ds.SetMetadata(
-            Dict(
-                "credits" => "Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto",
-                "modulo" => "Dispersione in falda",
-                "descrizione" => "Simulazione di dispersione inquinante in falda",
-                "srs" => refsys,
-                "data" => today()
-            )
-        )
-     """
         valNoData = -9999.0
         band1 = agd.getband( target_ds, 1 )
         agd.setnodatavalue!(band1, valNoData)
@@ -349,6 +346,22 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
             band[r, c] = value
         end
     end
+ =#
+
+        geotransform = agd.getgeotransform(dem)
+        geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
+
+        #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+        data = fill(noDataValue, maxR-minR, maxC-minC)
+        for r in minR:maxR, c in minC:maxC
+            match = findfirst(p -> p == (r, c), points)
+            if !isnothing(match)
+                data[r-minR+1, c-minC+1] = values[match]
+            end
+        end
+        Functions.writeRaster(data, gtiff_driver, geotransform, resolution, refsys, noData, path, false)
+    end
+
 
  """" AGGIUNTA DI UN LAYER AL RASTER FINALE
     band = nothing
@@ -361,6 +374,8 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
     contatore_sostanza=0
     ef.list_result=[]
  """
+
+
 end
 
 

@@ -177,18 +177,19 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
                   # v_s / gspeed         d_s / diameter            t_s / temp                    t_a / etemp
                     gas_speed::Real=0.0, stack_diameter::Real=0.0, smoke_temperature::Real=0.0,  temperature::Real=0.0, output_path::AbstractString=".\\otput_model_plume.tiff" )
 
-    if agd.geomdim(source) != 0
+    geom = agd.getgeom( collect(agd.getlayer(source, 0))[1] )
+
+    if agd.geomdim(geom) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
     refsys = agd.getproj(dem)
 
-    if agd.importWKT(refsys) != agd.getspatialref(source)
+    if agd.importWKT(refsys) != agd.getspatialref(geom)
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
   
-
-
+ #= PENSO SIA ROBA UTILIZZATA IN DEI PRINT CHE SONO STATI RIMOSSI
     lst_fields = [
       "sf_ing",
       "sf_inal",
@@ -206,13 +207,8 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
         "Reference Concentration"
     ]
     toxic = Functions.substance_extract(contaminant, lst_fields, "..\\Library\\")
+ =#
 
-
-
-    geotransform = agd.getgeotransform(dem)
-
-    feature = collect(agd.getlayer(source, 0))[1]
-    geom = agd.getgeom(feature)
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
     r_source, c_source = toIndexes(geomtransform, x_source, y_source)
@@ -230,34 +226,19 @@ function run_plume( dem, source, stability::AbstractString, outdoor::AbstractStr
     maxC = maximum( point -> point[2], points )
     minC = minimum( point -> point[2], points )
 
-    rows = maxR - minR
-    cols = maxC - minC
-
+    geotransform = agd.getgeotransform(dem)
     geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
 
-    data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
-
-    writeRaster( data, agd.getdriver("GTiff"), geotransform, refsys, noData, "C:\\Users\\DAVIDE-FAVARO\\Desktop\\test.tiff", false )
-
-
-
-
-
-    gtiff_driver = agd.getdriver("GTiff")
-    target_ds = agd.create( path, gtiff_driver, rows, cols, 1, agd.GDAL.GDT_Float32 )
- # NON SONO CERTO CHE IL GEOTRASFORM VADA BENE
-    agd.setgeotransform!( target_ds, [ minX, resolution, 0.0, maxY, 0.0, -resolution ] )
-    agd.setproj!( target_ds, refsys )
-    valNoData = -9999.0
-    band1 = agd.getband( target_ds, 1 )
-    agd.setnodatavalue!(band1, valNoData)
-    agd.fillraster!(band1, valNoData)
-    band = agd.read(band1)
-
-    for (point, value) in zip(points[i], values[i])
-        r, c = point - (minR, minC)
-        band[r, c] = value
+    #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+    data = fill(noDataValue, maxR-minR, maxC-minC)
+    for r in minR:maxR, c in minC:maxC
+        match = findfirst(p -> p == (r, c), points)
+        if !isnothing(match)
+            data[r-minR+1, c-minC+1] = values[match]
+        end
     end
+
+    Functions.writeRaster(data, agd.getdriver("GTiff"), geotransform, resolution, refsys, noData, output_path, false)
 end
 
 

@@ -125,46 +125,43 @@ Run a simulation of plumes of turbidity induced by dredging.
 - `output_path::AbstractString=".\\output_model_sediments.tiff"`: path of the resulting raster.
 """
                     #                                     v                      h                 dx                        dy                        q                   dir
-function run_sediment( dtm, source, resolution::Integer, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
+function run_sediment( dtm, source, resolution::Real, mean_flow_speed::Real, mean_depth::Real, x_dispersion_coeff::Real, y_dispersion_coeff::Real, dredged_mass::Real, flow_direction::Real,
                     #  w                                  t / time       dt                      u
                        mean_sedimentation_velocity::Real, time::Integer, time_intreval::Integer, current_oscillatory_amplitude::Integer=0, tide::Integer=0, output_path::AbstractString=".\\output_model_sediments.tiff" )
 
  # messaggio+='ALGORITMO UTILIZZATO: Shao (Shao, Dongdong, et al. "Modeling dredging-induced turbidity plumes in the far field under oscillatory tidal currents." Journal of Waterway, Port, Coastal, and Ocean Engineering 143.3 (2016))\n\n'
 
-    feature = collect(agd.getlayer(source, 0))[1]
-    geom = agd.getgeom(feature)
+    geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
 
     if agd.geomdim(geom) != 0
-        throw(DomainError(source, "`source` must be a point"))
+        throw(DomainError(source, "`source` must be a point."))
+    end
+
+    refsys = agd.getproj(dtm)
+
+    if agd.importWKT(refsys) != agd.getspatialref(geom)
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
     
     x_source = agd.getx(geom, 0)
     y_source = agd.gety(geom, 0)
-    r_source, c_source = toCoords(dtm, x_source, y_source)
+    r_source, c_source = Functions.toIndexes(dtm, x_source, y_source)
     
-    refsys = agd.getspatialref(geom)
-
     #   start_time = time.time()
 
-
-    points = [ (r_source, c_source) ]
+    points = [(r_source, c_source)]
  # NON SO SE SIA IL VALORE CORRETTO DA INSERIRE
-    values = [ dredged_mass ]
-    element = Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed, flow_direction, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
-    expand!( points, values, dem, r_source, c_source, element )
+    values = [dredged_mass]
+    sediment = Sediment(dredged_mass, time, mean_depth, x_dispersion_coeff, y_dispersion_coeff, 0.0, 0.0, mean_flow_speed,
+                        flow_direction, mean_sedimentation_velocity, time_intreval, current_oscillatory_amplitude, tide)
+    expand!(points, values, dem, r_source, c_source, sediment)
 
-
-    points = [ (r_source, c_source) ]
-    values = [ concentration ]
- # NON CI INTERESSA DARE DEI VALORI COERENTI A d, y, E z PERCHE' AD OGNI CHIAMATA expand! LI RESETTA
-    plume = Plume(concentration, 0.0, 0.0, 0.0, stability, outdoor, wind_speed, stack_height, stack_diameter, gas_speed, smoke_temperature, temperature, wind_direction,0.0) 
-    expand!(points, values, dtm, r_source, c_source, plume)
-
-    maxR = maximum( point -> point[1], points )
     minR = minimum( point -> point[1], points )
-    maxC = maximum( point -> point[2], points )
     minC = minimum( point -> point[2], points )
+    maxR = maximum( point -> point[1], points )
+    maxC = maximum( point -> point[2], points )
 
+ #= SENZA FUNZIONI
     rows = maxR - minR
     cols = maxC - minC
     geotransform = agd.getgeotransform(dtm)
@@ -183,6 +180,21 @@ function run_sediment( dtm, source, resolution::Integer, mean_flow_speed::Real, 
         r, c = point - (minR, minC)
         band[r, c] = value
     end
+ =#
+
+    geotransform = agd.getgeotransform(dtm)
+    geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
+
+    #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+    data = fill(noDataValue, maxR-minR, maxC-minC)
+    for r in minR:maxR, c in minC:maxC
+        match = findfirst(p -> p == (r, c), points)
+        if !isnothing(match)
+            data[r-minR+1, c-minC+1] = values[match]
+        end
+    end
+
+    Functions.writeRaster(data, agd.getdriver("GTiff"), geotransform, resolution, refsys, agd.getnodatavalue(dtm), output_path, false)
 end
 
 
