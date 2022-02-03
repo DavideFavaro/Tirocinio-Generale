@@ -1,27 +1,5 @@
 module Runoffs
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 
 
 import ArchGDAL as agd
@@ -40,6 +18,7 @@ function getFeatureByFid( features::Vector{agd.Feature}, fid )
     end
     return nothing
 end
+
 
 
 # Given a tuple with both values in "-1:1" (except "(0, 0)") return a value in "1:8"
@@ -78,72 +57,6 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-#= 4D Matrix
-    import ArchGDAL as agd
-    using StatsBase
-
-    function x_connectivity_batch!( mat, heights_ranks::AbstractArray{Int64}, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
-        rows, cols = size(dem_band)
-        indexes = Dict(
-            (-1, -1) => 1,
-            (-1, 0)  => 2,
-            (-1, 1)  => 3,
-            (0, -1)  => 4,
-            (0, 1)   => 5,
-            (1, -1)  => 6,
-            (1, 0)   => 7,
-            (1, 1)   => 8
-        )
-        # For each cell of the dem's band
-        @inbounds for r in 1:rows, c in 1:cols
-            if dem_band[r, c] != noDataValue
-                # Indexes of adjacent cells
-                for (i, j) in keys(indexes)
-                    if ( r+i >= 1 && r+i <= rows ) && ( c+j >= 1 && c+j <= cols ) && dem_band[r+i, c+j] != noDataValue
-                        if mat[ r, c, heights_ranks[r, c], indexes[(i,j)] ] == noDataValue
-                            mat[ r, c, heights_ranks[r, c], indexes[(i, j)] ] = dem_band[r, c] - dem_band[r+i, c+j]
-                        end
-                        if mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] == noDataValue
-                            mat[ r+i, c+j, heights_ranks[r+i, c+i], indexes[(-i, -j)] ] = dem_band[r+i, c+j] - dem_band[r, c]
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    function x_connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
-        rows, cols = size(dem_band)
-        heights_ranks = denserank(dem_band)
-        n, m = ceil.( Int64, [rows, cols] ./ (batch_size - 1) )
-        mat = fill( convert(Float32, noDataValue) , rows, cols, maximum(heights_ranks), 8 )
-        @inbounds for i in 1:n, j in 1:m
-            # Find the starting and ending indexes for the current slice of the matrix
-            # if the batch is one of the ending ones its ending index will be the size of the matrix for that dimension
-            rows_range::UnitRange{Int64} = ( (batch_size - 1) * (i - 1) + 1 ) : ( i != n ? (batch_size - 1) * i + 1 : rows )
-            cols_range::UnitRange{Int64} = ( (batch_size - 1) * (j - 1) + 1 ) : ( j != m ? (batch_size - 1) * j + 1 : cols )
-            # Use the indexes to run the function on a view of the matrix (passing also the corresponding view of the dem)
-            x_connectivity_batch!( view(mat, rows_range, cols_range, :, :), view(heights_ranks, rows_range, cols_range), view(dem_band, rows_range, cols_range), noDataValue )
-        end
-        return mat
-    end
-
-
-    @time mat = x_connectivity( band_mat, 100, ndv )
-=#
-
-# 3 DIMENSIONAL MATRIX
 # VEDERE @view, @inbound, @turbo, @fast, LoopedVectorization.jl e StableArrays.jl PER ULTERIORI OTTIMIZZAZIONI
 function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
@@ -165,6 +78,7 @@ function connectivity_batch!( mat, dem_band::AbstractArray{T}, noDataValue::Real
     end
 end
 
+
 function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Real ) where {T <: Number}
     rows, cols = size(dem_band)
     mat = fill( convert(Float32, noDataValue) , rows, cols, 8 )
@@ -183,163 +97,6 @@ function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Re
     end
     return mat
 end
-
-@time mat = connectivity( band_mat, 64, ndv )
-dims = size(mat)
-flattened = reshape(mat, dims[1], :, 1)[:, :, 1]
-io = open("D:\\Connectivity Data\\connectivity.txt", "w")
-write(io, flattened)
-close(io)
-
-#= PERFORMANCE CON MATRICE 3D
-band_mat
-    1
-        time
-            28.607769 seconds (227.76 k allocations: 2.104 GiB, 1.13% gc time, 1.78% compilation time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 27.651 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.09 GiB, over 6 allocations.
-    2
-        time
-            85.976766 seconds (280.88 M allocations: 47.085 GiB, 5.26% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 91.990 s (5.11% GC) to evaluate,
-            with a memory estimate of 47.09 GiB, over 280875584 allocations.
-    4
-        time
-            33.851321 seconds (31.22 M allocations: 7.094 GiB, 3.21% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 32.214 s (2.76% GC) to evaluate,
-            with a memory estimate of 7.09 GiB, over 31223344 allocations.
-    8
-        time
-            24.684055 seconds (5.74 M allocations: 3.012 GiB, 2.81% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 23.653 s (2.18% GC) to evaluate,
-            with a memory estimate of 3.01 GiB, over 5736484 allocations.
-    16
-        time
-            22.066191 seconds (1.25 M allocations: 2.293 GiB, 2.49% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 20.717 s (0.27% GC) to evaluate,
-            with a memory estimate of 2.29 GiB, over 1249420 allocations.
-    32
-        time
-            20.231624 seconds (293.17 k allocations: 2.140 GiB, 0.24% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 19.487 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.14 GiB, over 293172 allocations.
- => 64
-        time
-            19.921554 seconds (71.43 k allocations: 2.104 GiB, 1.60% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 18.981 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.10 GiB, over 71428 allocations.
-    128
-        time
-            20.705979 seconds (17.86 k allocations: 2.096 GiB, 0.02% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 21.046 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.10 GiB, over 17860 allocations.
-    256
-        time
-            24.267431 seconds (4.47 k allocations: 2.093 GiB, 1.80% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 23.505 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.09 GiB, over 4468 allocations.
-    1024
-        time
-            28.605657 seconds (292 allocations: 2.093 GiB, 0.01% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 24.290 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.09 GiB, over 292 allocations.
-    2048
-        time
-            26.041493 seconds (84 allocations: 2.093 GiB, 1.88% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 24.635 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.09 GiB, over 84 allocations.
-    4096
-        time
-            27.898768 seconds (28 allocations: 2.093 GiB, 1.23% gc time)
-        benchmark
-            BenchmarkTools.Trial: 1 sample with 1 evaluation.
-            Single result which took 27.478 s (0.00% GC) to evaluate,
-            with a memory estimate of 2.09 GiB, over 28 allocations.
-=#
-
-
-
-import ArchGDAL as agd
-
-
-dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-dtm = agd.readraster(dtm_file)
-band = agd.getband(dtm, 1)
-band_mat = agd.read(band)
-ndv = agd.getnodatavalue(band)
-test1 = band[4001:5000, 6001:7000]
-test1b = band[4001:6050, 6001:8050]
-test2 = band[4501:4600, 6501:6600]
-test3 = band[4001:4005, 6001:6005]
-test4 = [ 10.0 10.0 10.0  3.0 10.0; 10.0 10.0  5.0 10.0 10.0; 10.0 10.0  8.0 10.0 10.0; 10.0 10.0  6.0  7.0 10.0; 10.0 10.0  4.0  6.0 10.0 ]
-test5 = [ 1.0  ndv 10.0  3.0 10.0; 10.0  ndv  5.0 10.0 10.0; ndv 10.0  8.0 10.0 10.0;16.0 10.0  6.0  7.0 10.0;10.0  2.0  4.0  6.0 24.0 ]
-
-
-
-
-
-
-
-
-import ArchGDAL as agd
-
-
-include("../Library/Functions.jl")
-
-
-
-mat = connectivity(band_mat, 64, ndv)
-
-rows, cols = size(mat)
-dtm2 = agd.read(dtm_file)
-target_ds = agd.create( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\connectivity2.tiff", driver=agd.getdriver("GTiff"), width=rows, height=cols, nbands=8, dtype=Float32 )
-#   agd.setgeotransform!( target_ds, [ minX, a, 0.0, maxY, 0.0, b ] )
-agd.setgeotransform!( target_ds, agd.getgeotransform(dtm2) )
-agd.setproj!( target_ds, agd.getproj(dtm2) )
-valNoData = -9999.0
-bands = [ agd.getband( target_ds, i ) for i in 1:8 ]
-agd.setnodatavalue!.(bands, valNoData)
-agd.fillraster!.(bands, valNoData)
-band_mats = agd.read.(bands)
-
-for r in 1:rows, c in 1:cols
-    if !ismissing(mat[r, c]) && !isempty(mat[r, c])
-        for (i, j, val) in mat[r, c]
-            band_mats[hash_adjacent(i, j)][r, c] = val
-        end
-    end
-end
-
-for i in 1:8
-    agd.write!( target_ds, band_mats[i], i )
-end
-
-agd.destroy(target_ds)
-
-
-
 
 
 
@@ -370,6 +127,10 @@ function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractS
 
     agd.destroy(target_ds)
 end
+
+
+
+
 
 
 
@@ -539,7 +300,19 @@ end
 
 
 
+#=
+Problema:
+Trovare il percorso seguito dall'acqua tenendo conto che se il percorso trova un'avvallamento e si ferma li, l'acqua si accumula e con il
+    passare del tempo potrebbe riuscire a fuoriuscire e proseguire la corsa.
 
+Idea:
+Trovare il percorso fino al primo stop (primo avvallamento) calcolando il cammino minimo discendente (il cammino in cui da ongi punto al successivo si scende),
+    trovato il primo stop, verificare se l'acqua ad un certo punto (temporale) può straripare (se l'avvallamento è profondo come il fosso delle marianne non succederà, o,
+    qunatomeno, non in tempi abbastanza brevi da avere senso per lo studio), se ciò può avvenire (perchè la profondità dell'avvallamento lo consente), riapplicare il calcolo
+    del cammino minimo da questo punto fino al prossimo, ripetere finchè non si trova uno stop forte (= buco molto profondo).
+Calcolato questo percorso ideale utlizzando i dati della piovosità ecc calcolare l'effettivo flusso d'acqua (il flusso seguirà per forza questo percorso essendo il
+    minimo, quindi la problematica principale sarà individuare il punto di stop del flusso).
+=#
 
 
 
@@ -664,138 +437,6 @@ wrg = weightedrastergraph(
 
 
 
-
-#   TEST ORDINAMENTO DEL CCS
-
-using Rasters
-using Shapefile
-using Plots
-
-
-ccs_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp"
-ccs_shp = Shapefile.Table(ccs_file)
-
-
-#   x1min = minimum( point -> point.x, ccs_shp.geometry[1].points )
-x1min =  11.00547222227983
-#   y1min = minimum( point -> point.y, ccs_shp.geometry[1].points )
-y1min = 45.27133984749723
-#   x1max = maximum( point -> point.x, ccs_shp.geometry[1].points )
-x1max = 11.007101454111362
-#   y1max = maximum( point -> point.y, ccs_shp.geometry[1].points )
-y1max = 45.27277212275295
-
-#   x2min = minimum( point -> point.x, ccs_shp.geometry[2].points )
-x2min = 11.006866910892947
-#   y2min = minimum( point -> point.y, ccs_shp.geometry[2].points )
-y2min = 45.27186096559611
-#   x2max = maximum( point -> point.x, ccs_shp.geometry[2].points )
-x2max = 11.008043944196515
-#   y2max = maximum( point -> point.y, ccs_shp.geometry[2].points )
-y2max = 45.27293816375542
-
-#   xn_min = minimum( point -> point.x, ccs_shp.geometry[end-1].points )
-xn_min = 11.939032283264048
-#   yn_min = minimum( point -> point.y, ccs_shp.geometry[end-1].points )
-yn_min = 45.41293876164664
-#   xn_max = maximum( point -> point.x, ccs_shp.geometry[end-1].points )
-xn_max = 11.94072194930855
-#   yn_max = maximum( point -> point.y, ccs_shp.geometry[end-1].points )
-yn_max = 45.41371166206567
-
-#   xnmin = minimum( point -> point.x, ccs_shp.geometry[end].points )
-xnmin = 11.938870927858336
-#   ynmin = minimum( point -> point.y, ccs_shp.geometry[end].points )
-ynmin = 45.41411198731695
-#   xnmax = maximum( point -> point.x, ccs_shp.geometry[end].points )
-xnmax = 11.93976515071267
-#   ynmax = maximum( point -> point.y, ccs_shp.geometry[end].points )
-ynmax = 45.414749075377266
-
-
-
-plot(
-    [
-        (x1min, y1min),
-        (x1min, y1max),
-        (x1max, y1max),
-        (x1max, y1min),
-        (x1min, y1min)
-    ]
-)
-plot!(
-    [
-        (x2min, y2min),
-        (x2min, y2max),
-        (x2max, y2max),
-        (x2max, y2min),
-        (x2min, y2min)
-    ]
-)
-
-
-i = 5
-ximin = minimum( point -> point.x, ccs_shp.geometry[i].points )
-yimin = minimum( point -> point.y, ccs_shp.geometry[i].points )
-ximax = maximum( point -> point.x, ccs_shp.geometry[i].points )
-yimax = maximum( point -> point.y, ccs_shp.geometry[i].points )
-plot!(
-    [
-        (ximin, yimin),
-        (ximin, yimax),
-        (ximax, yimax),
-        (ximax, yimin),
-        (ximin, yimin)
-    ]
-)
-
-
-
-
-
-
-plot!(
-    [
-        (xn_min, yn_min),
-        (xn_min, yn_max),
-        (xn_max, yn_max),
-        (xn_max, yn_min)
-    ]
-)
-plot!(
-    [
-        (xnmin, ynmin),
-        (xnmin, ynmax),
-        (xnmax, ynmax),
-        (xnmax, ynmin)
-    ]
-)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #=
 Problema:
 Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un punto del poligono che lo contiene.
@@ -841,12 +482,60 @@ Gli alberi R dividono lo spazio in aree rettangolari utilizzando dei bounding bo
     il che può complicare la ricerca.
 
 
-NearestNeighbors.jl credo permetta di usare solo punti come chiavi dell'albero.
-SpatialIndexing.jl sembra creare alberi auto bilancianti ed essre efficiente per operazioni di inserimento  cancellazione,
-    ma a noi di questo tipo di operazioni non importa particolarmente.
-RegionalTrees.jl sembra l'unico pacchetto che permette di salvare informazioni nei nodi oltre al poligono.
+NearestNeighbors.jl:
+    + Offre esattamente le operazioni richieste (ricerca dei "k" nodi più vicini ad un punto e ricerca dei nodi in un certo range).
+    + Permette di creare l'albero direttamente dai dati in modo automatico.
+    = I nodi contengono punti e non poligoni (si può ovviare usando i centroidi dei poligoni).
+    = Gli alberi non sembrano supportare le coordinate angolari come metriche(?) (si possono usare i file originali e non i WGS84).
+    - Non sembra possibile aggiungere ulteriori dati oltre ai punti.
+    - 0 documentazione.
+    
+    NON UTILIZZABILE:
+        Non è possibile ottenere i poligoni che contengono/sono più vicini ad un punto, perchè non supporta i poligoni, ne ritorna un'indice
+        che identifica necessariamente lo stesso elemento nei vettori di poligoni/valori e non può nemmeno contenere dati al di fuori dei punti.
 
-RegionalTrees.jl sembra il pacchetto migliore per i nostri scopi.
+
+RegionalTrees.jl:
+    + Può aggiungere informazioni aggiuntive ai nodi oltre alle informazioni spaziali.
+    + Si possono salvare gli alberi creati con "JLD2.jl"
+    - Le chaivi e i loro nodi sono definite una ad una dall'utente, il che rende lungo e complicato creare un'albero
+        da dati preesistenti.
+    - Esiste la possibilità di passare i dati e una politica di divisione per creare l'albero, ma ancgìhein questo modo è troppo complicato.
+        (la politica dovrebbe far in modo di dividere solo se ci sono più poligoni in un'area o se un singolo poligono è in un'area molto più grande,
+        facendo attenzione a non dividere tagliando poligoni).
+    - 0 documentazione.
+
+    NON UTILIZZABILIE:
+        Mettersi li a definire ogni nodo uno ad uno per 400k poligoni è fuori discussione.
+        In generale il pacchetto adotta un metodo top down per la suddivisione dell'area in aree più piccole e questo si adatta poco alla necessità di
+        rappresentare i poligoni.
+
+
+SpatialIndexing.jl:
+    + Può rappresentare poligoni attraverso il loro bounding box.
+    + Gli alberi creati si auto-bilanciano.
+    + Operazioni di inserimento  cancellazione sono efficienti.
+    + Nell'insert sembra possibile inserire un id, potrebbe essere quindi possibile utilizzare *1 e *2 (Vedi considerazioni su "LibSpatialIndex.jl") in caso di necessità.
+    + Sembra possibile inserire un valore nei nodi.
+    - Non sembra possibile aggiungere ulteriori dati oltre ai rettangoli.
+
+
+LibSpatialIndex.jl
+    + Supporta le operazioni che ci servono (le stesse di "NearestNeighbors.jl").
+    + Crea RTrees (che quindi possono rappresentare poligoni)
+    + Può creare RTrees vuoti con numero di figli massimi predefinito.
+    + Si può popolare l'albero utilizzando solo "insert!".
+   -= "insert!" richiede di specificare un'id per l'elemento inserito.
+   -= L'id può essere solo intero (si può usare come id il codice associato al tipo di terreno convertito in intero [1], in alternativa si può assegnare come
+        id l'indice del poligono all'interno del vettore di geometrie [2]).
+        N.B. Applicando *2 si rende necessario mantenere anche i vettori dei poligoni e dei valori associati (con 1 forse sarebbe possibile scartarli,
+        liberando quindi memoria)
+   -= "intersects" ritorna un vettore degli id che intersecano l'input, che può essere anche un punto (congiuntamente a quanto scritto sopra (*1), permette di
+        ottenere velocemente il tipo di terreno al punto specificato e o il tipo di terreno nei poligoni circostanti, usando invece la strategia *2, dovrebbe
+        risultare possibile ottenere lo stesso risultato).
+   -= "intersects" non permette di ottenere il poligono che soddisfa la condizione, ma solo il suo id, in particolare, se viene applicato
+        l'escamotage sopra riportato (*1), risulta molto difficile trovare il poligono risultante.
+        Se invece si applica *2, dovrebbe essere abbastanza veloce ottenere anche il poligono.
 =#
 
 
