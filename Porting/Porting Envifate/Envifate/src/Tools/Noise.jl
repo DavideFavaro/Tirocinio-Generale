@@ -28,11 +28,11 @@ rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc
 
 Compute the transmission loss of a noise over `r` distance
 """
-function transmission_loss( r::Real )
-    return 20log10(r)
+function transmission_loss( radius::Float64 )
+    return 20log10(radius)
 end
 
-function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity::Real, temperature_k::Real, frequency::Real )
+function atmospheric_absorpion_loss( radius::Float64, height_m::Float64, relative_humidity::Float64, temperature_k::Float64, frequency::Float64 )
     # Calculate atmospheric absorption coefficient using ANSI S1.26-1995 standard
     # Convert elevation to atmospheric pressure
     atmospheric_pressure = 101.325( 1 - ( 2.25577 * 10^(-5) * height_m ) )^5.25588
@@ -57,10 +57,10 @@ function atmospheric_absorpion_loss( r::Real, height_m::Real, relative_humidity:
     #   α = 8.686 * (frequency^2) * ( term1 + term2 + term3 )
     α = frequency^2 * (term1 + term2 + term3)
 
-    return α * r / 100
+    return α * radius / 100
 end
 
-function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Vector{Tuple{Int64, Float64}}
+function minmax( profile::Vector, rel_h_src::Float64=0.0, rel_h_rec::Float64=0.0 )::Vector{Tuple{Int64, Float64}}
     if length(profile) <= 1
         return [ (1, -rel_h_src), (1, -rel_h_rec) ]
     end
@@ -100,7 +100,7 @@ function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Ve
     return [min, max]
 end
 
-function delbaz( freq::Real, flow_res::Real )::Complex
+function delbaz( freq::Float64, flow_res::Float64 )::Complex
     dumr = 1.0 + 9.08 * (flow_res/freq)^0.75
     dumi = -11.9 * (flow_res/freq)^0.73
     return complex(dumr, dumi)
