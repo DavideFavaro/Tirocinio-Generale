@@ -760,13 +760,13 @@ end
 
 
 
-# ccs_shpa = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+# ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
 ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
 tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=4, leaf_capacity=4)
-for feature in features
-    #   println("Feature Inserted:\n$feature\n")
-    insert!(tree, mbr(agd.getgeom(feature, 0)), agd.getfield(feature, :objectid), ( agd.getfield(feature, :codice_num), agd.getfield(feature, :legenda) ))
+# C'E' QUALCHE PROBLEMA CON L'INSERIMENTO CHE CAUSA PROBLEMI NELL'ORGANIZZAZIONE DELL'ALBERO
+for feature in reverse(features)
+    insert!( tree, mbr(agd.getgeom(feature, 0)), agd.getfield(feature, :objectid), agd.getfield(feature, :codice_num) )
 end
 si.check(tree)
 
@@ -774,7 +774,7 @@ si.check(tree)
 # ---------------------------- QUERY TESTING [V] --------------------------------
 
 # Multilinea di contorno al poligono
-geom = agd.getgeom( agd.getgeom(features[11]), 0 )
+geom = agd.getgeom( agd.getgeom(features[31113]), 0 )
 # NUmber of vertexes of the poligon
 num_points = agd.ngeom(geom)
 # Coordinates of points inside the polygon:
@@ -798,9 +798,8 @@ res = findPolygon(tree, si.Point((xt3, yt3)))
 
 path = "D:\\Z_Tirocinio_Dati\\tree_test.jld2"
 save_object(path, tree)
-loaded_tree = load_object(path)
+loaded_tree = load_object(path);
 si.check(loaded_tree)
-
 l_res = findPolygon(loaded_tree, si.Point((xt1, yt1)))
 l_res = findPolygon(loaded_tree, si.Point((xt2, yt2)))
 l_res = findPolygon(loaded_tree, si.Point((xt3, yt3)))
