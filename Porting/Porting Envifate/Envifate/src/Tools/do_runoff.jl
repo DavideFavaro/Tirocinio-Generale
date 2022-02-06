@@ -588,10 +588,58 @@ LibSpatialIndex.jl
 
 
 
-using Rasters
-using Shapefile
-using SpatialIndexing
+
+
+
+#= TEST CON POLIGONI DI "Shapefile.jl" 
+    using Shapefile
+    using SpatialIndexing
+
+
+    const si = SpatialIndexing
+
+
+
+    function mbrtype( polygon::Shapefile.Polygon )
+        return SpatialIndexing.HasMBR{ SpatialIndexing.Rect{Float64, 2} }
+    end
+
+    function mbr( polygon::Shapefile.Polygon )
+        return SpatialIndexing.Rect{Float64, 2}(
+            (
+                minimum( point -> point.x, polygon.points),
+                minimum( point -> point.y, polygon.points)
+            ),
+            (
+                maximum( point -> point.x, polygon.points),
+                maximum( point -> point.y, polygon.points)
+            )
+        )
+    end
+
+
+
+    # ccs_shp = Shapefile.Table("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+    ccs_shp = Shapefile.Table("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+    tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=4, leaf_capacity=4)
+    for i in 1:21   #length(ccs_shp.geometry)
+        insert!( tree, mbr(ccs_shp.geometry[i]), ccs_shp.objectid[i], (ccs_shp.codice_num, ccs_shp.legenda[i]) )
+    end
+    si.check(tree)
+
+    points = ccs_shp.geometry[1].points
+    xavg = sum(point -> point.x, points) / Float64(length(points))
+    yavg = sum(point -> point.y, points) / Float64(length(points))
+
+    res = containingPolygon(tree, si.Point((xavg, yavg)))
+=#
+
+
+
+
 using ArchGDAL
+using SpatialIndexing
+using JLD2
 
 
 const agd = ArchGDAL
@@ -599,22 +647,40 @@ const si = SpatialIndexing
 
 
 
-function mbrtype( polygon::Shapefile.Polygon )
-    return SpatialIndexing.HasMBR{ SpatialIndexing.Rect{Float64, 2} }
-end
+#= NON HA MOLTO SENSO
+    """
+    Se il nodo è una foglia, cioè se non ha come figi altri nodi ma gli elementi
+    """
+    function knn!( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N}
+        for (i, elem) in enumerate(si.children(node))
+            if length(res) < k && si.contains(si.mbr(elem), point)
+                push!(res, (elem, i))
+            end
+        end
+    end
 
-function mbr( polygon::Shapefile.Polygon )
-    return SpatialIndexing.Rect{Float64, 2}(
-        (
-            minimum( point -> point.x, polygon.points),
-            minimum( point -> point.y, polygon.points)
-        ),
-        (
-            maximum( point -> point.x, polygon.points),
-            maximum( point -> point.y, polygon.points)
-        )
-    )
-end
+    """
+    Se il nodo è interno, cioè non ha come figli i dati ma solo altri nodi
+    """
+    function knn!( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N, V}
+        if length(res) < k
+            for child in si.children(node)
+                if si.contains(si.mbr(child), point)
+                    knn!(child, point, k, res)
+                end
+            end
+        end
+    end
+
+    """
+    Dato un `RTree` un punto ed un intero `k` trova i k poligoni che contengono il punto
+    """
+    function kNearestneighbors( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
+        res = []
+        knn!(tree.root, point, k, res)
+        return res
+    end
+=#
 
 
 
@@ -622,90 +688,39 @@ function mbrtype( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
     return SpatialIndexing.HasMBR{ SpatialIndexing.Rect{Float64, 2} }
 end
 
+
 function mbr( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
     boundingbox = agd.envelope(polygon)
-    return SpatialIndexing.Rect{Float64, 2}( (boundingbox.MinX, boundingbox.MaxY), (boundingbox.MaxX, boundingbox.MinY))
+    return SpatialIndexing.Rect{Float64, 2}( (boundingbox.MinX, boundingbox.MinY), (boundingbox.MaxX, boundingbox.MaxY))
 end
 
 
 
-
-
-
-
-
-
-
-#= RIFERIMENTO PER IMPLEMENTARE LA RICERCA DEI PUNTI
-    function Base.findfirst(node::Leaf{T,N}, reg::Region{T,N}, id::Any) where {T,N}
-        for (i, el) in enumerate(children(node))
-            if isequal_rtree(el, reg, id)
-                return (node, i)
-            end
-        end
-        return nothing
-    end
-
-    function Base.findfirst(node::Branch{T,N,V}, reg::Region{T,N}, id::Any) where {T,N,V}
-        for child in children(node)
-            if contains(mbr(child), reg)
-                res = findfirst(child, reg, id)
-                if res !== nothing
-                    return res::Tuple{Leaf{T,N,V}, Int}
-                end
-            end
-        end
-        return nothing
-    end
-
-    """
-        findfirst(tree::RTree{T,N}, reg::Region{T,N}, [id]) where {T,N}
-    Find the element in the `tree` by its region (`reg`) and, optionally, its `id`.
-    The region (MBR) of the element and `reg` should match exactly.
-    Returns the tuple of `Leaf` and position of the element or `nothing`.
-    """
-    Base.findfirst(tree::RTree{T,N}, reg::Region{T,N}, id::Any = nothing) where {T,N} =
-        findfirst(tree.root, reg, id)
-=#
-
-
-
-#= NON HA MOLTO SENSO
 """
-Se il nodo è una foglia, cioè se non ha come figi altri nodi ma gli elementi
+Guven a "SpatialIndexing.RTree" or "Node" either("Spatialindexing.Branch" or "Spatialindexing.Leaf") print the content of the tree
 """
-function knn!( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N}
-    for (i, elem) in enumerate(si.children(node))
-        if length(res) < k && si.contains(si.mbr(elem), point)
-            push!(res, (elem, i))
+function printTree( node, n::Int64=0 )
+    if node isa SpatialIndexing.Leaf
+        println("LEVEL: 1")
+        println("MBR: $(node.mbr)")
+        println("ELEMENTS:")
+        for (i, el) in enumerate(node.children)
+            println("$n.$i) $(el.id)  -  $(el.val[1])  -  $(el.mbr)")
         end
+        println("\n")
+    elseif node isa SpatialIndexing.Branch
+        println("LEVEL: $(node.level)")
+        println("MBR: $(node.mbr)")
+        println("CHILDREN:")
+        for (i, el) in enumerate(node.children)
+            println("$n.$i")
+            printTree(el, i)
+        end
+        println("\n")
+    else
+        printTree(node.root, 0)
     end
 end
-
-"""
-Se il nodo è interno, cioè non ha come figli i dati ma solo altri nodi
-"""
-function knn!( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N, V}
-    if length(res) < k
-        for child in si.children(node)
-            if si.contains(si.mbr(child), point)
-                knn!(child, point, k, res)
-            end
-        end
-    end
-end
-
-"""
-Dato un `RTree` un punto ed un intero `k` trova i k poligoni che contengono il punto
-"""
-function kNearestneighbors( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
-    res = []
-    knn!(tree.root, point, k, res)
-    return res
-end
-=#
-
-
 
 
 
@@ -739,37 +754,71 @@ end
 """
 Dato un `RTree`, un punto ed un intero `k` trova il poligono che contiene il punto.
 """
-function containingPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
+function findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
     return findPolygon(tree.root, point)
 end
 
 
 
-ccs_shp = Shapefile.Table("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-tree = RTree{Float64, 2}(Float64, String, branch_capacity=4, leaf_capacity=4)
-for i in 1:6   #length(ccs_shp.geometry)
-    insert!(tree, mbr(ccs_shp.geometry[i]), ccs_shp.objectid[i], ccs_shp.legenda[i])
-end
-
-xavg = sum(point -> point.x, ccs_shp.geometry[4].points) / Float64(length(ccs_shp.geometry[4].points))
-yavg = sum(point -> point.y, ccs_shp.geometry[4].points) / Float64(length(ccs_shp.geometry[4].points))
-
-res = containingPolygon(tree, si.Point((xavg, yavg)))
-
-
-
-
-ccs_shpa = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-features =  collect(agd.getlayer(ccs_shpa, 0))
-
-tree = RTree{Float64, 2}(Float64, String, branch_capacity=4, leaf_capacity=4)
-for feature in features[1:21]
+# ccs_shpa = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+features =  collect(agd.getlayer(ccs_shp, 0))
+tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=4, leaf_capacity=4)
+for feature in features
     #   println("Feature Inserted:\n$feature\n")
-    insert!(tree, mbr(agd.getgeom(feature, 0)), agd.getfield(feature, :codice_num), agd.getfield(feature, :legenda))
+    insert!(tree, mbr(agd.getgeom(feature, 0)), agd.getfield(feature, :objectid), ( agd.getfield(feature, :codice_num), agd.getfield(feature, :legenda) ))
 end
-
-
 si.check(tree)
+
+
+# ---------------------------- QUERY TESTING [V] --------------------------------
+
+# Multilinea di contorno al poligono
+geom = agd.getgeom( agd.getgeom(features[11]), 0 )
+# NUmber of vertexes of the poligon
+num_points = agd.ngeom(geom)
+# Coordinates of points inside the polygon:
+#   Average of each coordinate of the vertexes
+xt1 = sum( j -> agd.getx(geom, j), 0:num_points-1 ) / Float64(num_points)
+yt1 = sum( j -> agd.gety(geom, j), 0:num_points-1 ) / Float64(num_points)
+#   Average of 3 vertexes
+xt2 = sum( j -> agd.getx(geom, j), 0:2 ) / 3.0
+yt2 = sum( j -> agd.gety(geom, j), 0:2 ) / 3.0
+#   In the middle of an edge (mean of 2 vertexes)
+xt3 = sum( j -> agd.getx(geom, j), 0:1 ) / 2.0
+yt3 = sum( j -> agd.gety(geom, j), 0:1 ) / 2.0
+
+# Results for each ponint
+res = findPolygon(tree, si.Point((xt1, yt1)))
+res = findPolygon(tree, si.Point((xt2, yt2)))
+res = findPolygon(tree, si.Point((xt3, yt3)))
+
+
+# ---------------------------- SAVE TESTING [V] --------------------------------
+
+path = "D:\\Z_Tirocinio_Dati\\tree_test.jld2"
+save_object(path, tree)
+loaded_tree = load_object(path)
+si.check(loaded_tree)
+
+l_res = findPolygon(loaded_tree, si.Point((xt1, yt1)))
+l_res = findPolygon(loaded_tree, si.Point((xt2, yt2)))
+l_res = findPolygon(loaded_tree, si.Point((xt3, yt3)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
