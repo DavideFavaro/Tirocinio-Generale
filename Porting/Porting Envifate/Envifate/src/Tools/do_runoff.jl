@@ -353,6 +353,18 @@ csoil_shp = Shapefile.Table(csoil_file)
 perm_shp = Shapefile.Table(perm_file)
 ccs_shp = Shapefile.Table(ccs_file)
 
+any( in.( ccs_shp.geometry[1].points, Ref(ccs_shp.geometry[2].points) ) )
+
+for i in 2:1000
+    if si.intersects( mbr(ccs_shp.geometry[1]), mbr(ccs_shp.geometry[i]) )
+        return i
+    end
+end
+
+
+si.intersects( mbr(ccs_shp.geometry[1]), mbr(ccs_shp.geometry[2]) )
+
+
 # Creation of the final raster
 originX = dtm.dims[1][1]
 originY = dtm.dims[2][1]
@@ -361,35 +373,41 @@ stepY = dtm.dims[2][2] - originY
 dims =  X( Projected( originX:stepX:dtm.dims[1][end]+stepX; order=Rasters.ForwardOrdered(), span=Rasters.Regular(stepX), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) ),
         Y( Projected( originY:stepY:dtm.dims[2][end]+stepY; order=Rasters.ReverseOrdered(), span=Rasters.Regular(stepY), sampling=Rasters.Intervals(Rasters.Start()), crs=EPSG(4326) ) )
 
-csoil = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
-perm = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
+#   csoil = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
+#   perm = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
 ccs = Raster( fill(dtm.missingval, dims); missingval=dtm.missingval )
 
 # CAMBIARE IL VALORE ASSOCIATO A "X" IN missingval O SIMILI, METTERE VALORI SENSATI E SISTEMARE I VALORI DELLE COPPIE
-cdict = Dict( val => Float32(i) for (i, val) in enumerate(unique(csoil_shp.gr_idrolog)) )
-for (shape, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
-    rasterize!( csoil, shape; fill=cdict[value], order=(X, Y) )
-end
+#   cdict = Dict( val => Float32(i) for (i, val) in enumerate(unique(csoil_shp.gr_idrolog)) )
+#   for (shape, value) in zip(csoil_shp.geometry, csoil_shp.gr_idrolog)
+#       rasterize!( csoil, shape; fill=cdict[value], order=(X, Y) )
+#   end
+#   
+#   Rasters.write( "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.tiff", csoil )
 
-Rasters.write( "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.tiff", csoil )
 
-
-pdict = Dict( val => isnothing(tryparse(Float32, val)) ? 0.f0 : tryparse(Float32, val) for (i, val) in enumerate(unique(perm_shp.perm_clas)) )
-for (shape, value) in zip(perm_shp.geometry, perm_shp.perm_clas)
-    rasterize!( perm, shape; fill=pdict[value], order=(X, Y) )
-end
-
-Rasters.write( "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff", perm )
+#   pdict = Dict( val => isnothing(tryparse(Float32, val)) ? 0.f0 : tryparse(Float32, val) for (i, val) in enumerate(unique(perm_shp.perm_clas)) )
+#   for (shape, value) in zip(perm_shp.geometry, perm_shp.perm_clas)
+#       rasterize!( perm, shape; fill=pdict[value], order=(X, Y) )
+#   end
+#   
+#   Rasters.write( "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.tiff", perm )
 
 
 ccdict = Dict( desc => Float32(i) for (i, desc) in enumerate(unique(ccs_shp.legenda)) )
-for (shape, value) in zip(ccs_shp.geometry, ccs_shp.legenda)
+for (shape, value) in zip(ccs_shp.geometry[1:2], ccs_shp.legenda[1:2])
     rasterize!( ccs, shape; fill=ccdict[value], order=(X, Y) )
 end
 
-Rasters.write( "D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.tiff", ccs )
+rasterize!( ccs, ccs_shp.geometry[1]; fill=1.f0, order=(X, Y) )
+rasterize!( ccs, ccs_shp.geometry[394066]; fill=3.f0, order=(X, Y) )
+rasterize!( ccs, ccs_shp.geometry[2]; fill=2.f0, order=(X, Y) )
 
+Rasters.write( "D:\\Z_Tirocinio_Dati\\test.tiff", ccs )
 
+# I poligoni 1 e 2 sono molto vicini ma non sono esattamente adiacenti (i loro mbr si intersecano) in mezzo a loro due c'è il poligono 394066.
+#   Dopo la rasterizzazione i due poligoni si toccano coprendo il poligono che dovrebbe stare tra i due.
+#   Rasterizzado tutti e tre non sembrano esserci sovrapposizioni nelle celle, ma i poligoni sono di piccole dimensioni e non sono rasterizzati con precisione.
 
 
 
@@ -691,7 +709,7 @@ end
 
 function mbr( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
     boundingbox = agd.envelope(polygon)
-    return SpatialIndexing.Rect{Float64, 2}( (boundingbox.MinX, boundingbox.MinY), (boundingbox.MaxX, boundingbox.MaxY))
+    return SpatialIndexing.Rect{Float64, 2}( (boundingbox.MinX, boundingbox.MinY), (boundingbox.MaxX, boundingbox.MaxY) )
 end
 
 
@@ -720,6 +738,10 @@ function printTree( node, n::Int64=0 )
     else
         printTree(node.root, 0)
     end
+end
+
+
+function plotTree( node )
 end
 
 
@@ -763,18 +785,40 @@ end
 # ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
 ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
-tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=4, leaf_capacity=4)
+
+tree = nothing
+GC.gc()
+tree = RTree{Float64, 2}(Float64, Float64, branch_capacity=4, leaf_capacity=4)
 # C'E' QUALCHE PROBLEMA CON L'INSERIMENTO CHE CAUSA PROBLEMI NELL'ORGANIZZAZIONE DELL'ALBERO
-for feature in reverse(features)
-    insert!( tree, mbr(agd.getgeom(feature, 0)), agd.getfield(feature, :objectid), agd.getfield(feature, :codice_num) )
+    # Inserire solo con mbr valido non rimuove l'errore
+    # Inserire solo un sottoinsieme a volte da' l'errore altre no
+        # Potrebbe dipendere dal numero di elementi da inserire
+for feature in features[1:21]
+    feature_mbr = mbr(agd.getgeom(feature, 0))
+    if si.isvalid(feature_mbr)
+        insert!( tree, feature_mbr, agd.getfield(feature, :objectid), agd.getfield(feature, :codice_num) )
+    end
 end
 si.check(tree)
+
+#=
+1:end÷4         ERROR       len = 99343
+1:end÷8         WORKING     len = 49672 lvls = 51 
+end÷8 + 1:end÷4 ERROR       len = 49671 lvls = 144
+m = 74508
+49673:74508     ERROR       len = 24835 lvls = 116
+m = 62090
+49673:62090     WORKING     len = 12417 lvls = 41
+62091:74508     WORKING     len = 12417 lvls = 26
+
+=#
+
 
 
 # ---------------------------- QUERY TESTING [V] --------------------------------
 
 # Multilinea di contorno al poligono
-geom = agd.getgeom( agd.getgeom(features[31113]), 0 )
+geom = agd.getgeom( agd.getgeom(features[21]), 0 )
 # NUmber of vertexes of the poligon
 num_points = agd.ngeom(geom)
 # Coordinates of points inside the polygon:
@@ -806,11 +850,13 @@ l_res = findPolygon(loaded_tree, si.Point((xt3, yt3)))
 
 
 
+using Plots
+
+plot(tree)
 
 
 
-
-
+plot(mbr(agd.getgeom(features[1])))
 
 
 
