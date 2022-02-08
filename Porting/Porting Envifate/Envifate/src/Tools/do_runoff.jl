@@ -299,7 +299,6 @@ function flow( band::Matrix{Float32}, rain, permeability, noDataValue::Real )
 end
 
 
-
 #=
 Problema:
 Trovare il percorso seguito dall'acqua tenendo conto che se il percorso trova un'avvallamento e si ferma li, l'acqua si accumula e con il
@@ -315,6 +314,25 @@ Calcolato questo percorso ideale utlizzando i dati della piovosità ecc calcolar
 =#
 
 
+
+
+function flowpath!( mat::Matrix{Float32}, band::Matrix{Float32}, noDataValue::Real, row::Int64, col::Int64, )
+    if band[row, col] != noDataValue
+        r, c = row, col
+        directions, Δhmin = mindir(band, row, col)
+        while Δhmin < 0
+            if lenght(directions) > 1
+                for dir in directions[2:end]
+                    Δr, Δc = hash_adjacent(dir)
+                    mat[r + Δr, c + Δc] = 1.f0
+                    flowpath!( mat, band, noDataValue, r + Δr, c + Δc )
+                end
+            end
+            r, c .+= hash_adjacent(directions[1])
+            directions, Δhmin = mindir(band, r, c)
+        end
+    end
+end
 
 
 
@@ -458,103 +476,102 @@ wrg = weightedrastergraph(
 #=
 Problema:
 Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un punto del poligono che lo contiene.
-
-Idea:
-Per questo tipo di problema si può utilizzare una struttura ad albero.
-Si può usare un kdtree contenente i centroidi dei poligoni del ccs, associando ad ongi nodo l'indice del poligono nel vettore ottenuto dallo shapefile, o, ancora meglio, il
-poligono stesso, insieme ai dati sul suo contenuto, in questo modo dovrebbe esere possibile, dato un punto di coordinate x e y, il centroide più vicino e quindi il poligono
-che lo contiene ed ogni altro valore associato.
-La struttura potrebbe essere salvata in un file a se stante, in modo da non doverne ripetere la creazione e non dovrebbe occupare spazio di troppo maggiore rispetto ai dati
-contenuti nello shapefile.
-Un alterativa sono gli R-tree, che fanno più o meno la stessa cosa, apperentemente sono meglio per gestire aree invece di punti.
-
-
-KDTrees e RTrees
-    https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a
-
-Discourse a proposito di R-trees:
-    https://discourse.julialang.org/t/implementations-of-spatial-indices/7638
-
-RegionTrees.jl pare faccia ciò che ci serve:
-    https://github.com/rdeits/RegionTrees.jl
-
-Pacchetto per RTrees
-    https://github.com/alyst/SpatialIndexing.jl
-
-Pacchetto in Julia pr KDTrees:
-    https://github.com/KristofferC/NearestNeighbors.jl
-
-Potenzialmente esattamente quello che bisogna implementare:
-    https://pdfs.semanticscholar.org/7dc5/61b784d831aeb37247f3425cf449817ceb81.pdf
-
-Implementazione di una cosa simile in R:
-    https://cran.r-project.org/web/packages/RapidPolygonLookup/vignettes/RapidPolygonLookup.pdf
-
-Considerazioni su bilanciamento e ricorsione con kdtrees:
-    http://lin-ear-th-inking.blogspot.com/2021/10/query-kd-trees-100x-faster-with-this.html
-
-
-Gli alberi KD sembrano funzionare con punti e non poligoni ma possiamo utilizzare i centroidi dei poligoni, ottenere come risultato della ricerca un insieme di risultati e
-    trovare quello che effettivamente contiene il punto tramite funzioni come "inpolygon".
-Gli alberi R dividono lo spazio in aree rettangolari utilizzando dei bounding box, quindi sono meglio applicabili a dei poligoni, ma non sembrano essere generalmente binari,
-    il che può complicare la ricerca.
-
-
-NearestNeighbors.jl:
-    + Offre esattamente le operazioni richieste (ricerca dei "k" nodi più vicini ad un punto e ricerca dei nodi in un certo range).
-    + Permette di creare l'albero direttamente dai dati in modo automatico.
-    = I nodi contengono punti e non poligoni (si può ovviare usando i centroidi dei poligoni).
-    = Gli alberi non sembrano supportare le coordinate angolari come metriche(?) (si possono usare i file originali e non i WGS84).
-    - Non sembra possibile aggiungere ulteriori dati oltre ai punti.
-    - 0 documentazione.
-    
-    NON UTILIZZABILE:
-        Non è possibile ottenere i poligoni che contengono/sono più vicini ad un punto, perchè non supporta i poligoni, ne ritorna un'indice
-        che identifica necessariamente lo stesso elemento nei vettori di poligoni/valori e non può nemmeno contenere dati al di fuori dei punti.
-
-
-RegionalTrees.jl:
-    + Può aggiungere informazioni aggiuntive ai nodi oltre alle informazioni spaziali.
-    + Si possono salvare gli alberi creati con "JLD2.jl"
-    - Le chaivi e i loro nodi sono definite una ad una dall'utente, il che rende lungo e complicato creare un'albero
-        da dati preesistenti.
-    - Esiste la possibilità di passare i dati e una politica di divisione per creare l'albero, ma ancgìhein questo modo è troppo complicato.
-        (la politica dovrebbe far in modo di dividere solo se ci sono più poligoni in un'area o se un singolo poligono è in un'area molto più grande,
-        facendo attenzione a non dividere tagliando poligoni).
-    - 0 documentazione.
-
-    NON UTILIZZABILIE:
-        Mettersi li a definire ogni nodo uno ad uno per 400k poligoni è fuori discussione.
-        In generale il pacchetto adotta un metodo top down per la suddivisione dell'area in aree più piccole e questo si adatta poco alla necessità di
-        rappresentare i poligoni.
-
-
-SpatialIndexing.jl:
-    + Può rappresentare poligoni attraverso il loro bounding box.
-    + Gli alberi creati si auto-bilanciano.
-    + Operazioni di inserimento  cancellazione sono efficienti.
-    + Nell'insert sembra possibile inserire un id, potrebbe essere quindi possibile utilizzare *1 e *2 (Vedi considerazioni su "LibSpatialIndex.jl") in caso di necessità.
-    + Sembra possibile inserire un valore nei nodi.
-    - Non sembra possibile aggiungere ulteriori dati oltre ai rettangoli.
-
-
-
-LibSpatialIndex.jl
-    + Supporta le operazioni che ci servono (le stesse di "NearestNeighbors.jl").
-    + Crea RTrees (che quindi possono rappresentare poligoni)
-    + Può creare RTrees vuoti con numero di figli massimi predefinito.
-    + Si può popolare l'albero utilizzando solo "insert!".
-   -= "insert!" richiede di specificare un'id per l'elemento inserito.
-   -= L'id può essere solo intero (si può usare come id il codice associato al tipo di terreno convertito in intero [1], in alternativa si può assegnare come
-        id l'indice del poligono all'interno del vettore di geometrie [2]).
-        N.B. Applicando *2 si rende necessario mantenere anche i vettori dei poligoni e dei valori associati (con 1 forse sarebbe possibile scartarli,
-        liberando quindi memoria)
-   -= "intersects" ritorna un vettore degli id che intersecano l'input, che può essere anche un punto (congiuntamente a quanto scritto sopra (*1), permette di
-        ottenere velocemente il tipo di terreno al punto specificato e o il tipo di terreno nei poligoni circostanti, usando invece la strategia *2, dovrebbe
-        risultare possibile ottenere lo stesso risultato).
-   -= "intersects" non permette di ottenere il poligono che soddisfa la condizione, ma solo il suo id, in particolare, se viene applicato
-        l'escamotage sopra riportato (*1), risulta molto difficile trovare il poligono risultante.
-        Se invece si applica *2, dovrebbe essere abbastanza veloce ottenere anche il poligono.
+ 
+ Idea:
+ Per questo tipo di problema si può utilizzare una struttura ad albero.
+ Si può usare un kdtree contenente i centroidi dei poligoni del ccs, associando ad ongi nodo l'indice del poligono nel vettore ottenuto dallo shapefile, o, ancora meglio, il
+ poligono stesso, insieme ai dati sul suo contenuto, in questo modo dovrebbe esere possibile, dato un punto di coordinate x e y, il centroide più vicino e quindi il poligono
+ che lo contiene ed ogni altro valore associato.
+ La struttura potrebbe essere salvata in un file a se stante, in modo da non doverne ripetere la creazione e non dovrebbe occupare spazio di troppo maggiore rispetto ai dati
+ contenuti nello shapefile.
+ Un alterativa sono gli R-tree, che fanno più o meno la stessa cosa, apperentemente sono meglio per gestire aree invece di punti.
+ 
+ 
+ KDTrees e RTrees
+     https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a
+ 
+ Discourse a proposito di R-trees:
+     https://discourse.julialang.org/t/implementations-of-spatial-indices/7638
+ 
+ RegionTrees.jl pare faccia ciò che ci serve:
+     https://github.com/rdeits/RegionTrees.jl
+ 
+ Pacchetto per RTrees
+     https://github.com/alyst/SpatialIndexing.jl
+ 
+ Pacchetto in Julia pr KDTrees:
+     https://github.com/KristofferC/NearestNeighbors.jl
+ 
+ Potenzialmente esattamente quello che bisogna implementare:
+     https://pdfs.semanticscholar.org/7dc5/61b784d831aeb37247f3425cf449817ceb81.pdf
+ 
+ Implementazione di una cosa simile in R:
+     https://cran.r-project.org/web/packages/RapidPolygonLookup/vignettes/RapidPolygonLookup.pdf
+ 
+ Considerazioni su bilanciamento e ricorsione con kdtrees:
+     http://lin-ear-th-inking.blogspot.com/2021/10/query-kd-trees-100x-faster-with-this.html
+ 
+ 
+ Gli alberi KD sembrano funzionare con punti e non poligoni ma possiamo utilizzare i centroidi dei poligoni, ottenere come risultato della ricerca un insieme di risultati e
+     trovare quello che effettivamente contiene il punto tramite funzioni come "inpolygon".
+ Gli alberi R dividono lo spazio in aree rettangolari utilizzando dei bounding box, quindi sono meglio applicabili a dei poligoni, ma non sembrano essere generalmente binari,
+     il che può complicare la ricerca.
+ 
+ 
+ NearestNeighbors.jl:
+     + Offre esattamente le operazioni richieste (ricerca dei "k" nodi più vicini ad un punto e ricerca dei nodi in un certo range).
+     + Permette di creare l'albero direttamente dai dati in modo automatico.
+     = I nodi contengono punti e non poligoni (si può ovviare usando i centroidi dei poligoni).
+     = Gli alberi non sembrano supportare le coordinate angolari come metriche(?) (si possono usare i file originali e non i WGS84).
+     - Non sembra possibile aggiungere ulteriori dati oltre ai punti.
+     - 0 documentazione.
+     
+     NON UTILIZZABILE:
+         Non è possibile ottenere i poligoni che contengono/sono più vicini ad un punto, perchè non supporta i poligoni, ne ritorna un'indice
+         che identifica necessariamente lo stesso elemento nei vettori di poligoni/valori e non può nemmeno contenere dati al di fuori dei punti.
+ 
+ 
+ RegionalTrees.jl:
+     + Può aggiungere informazioni aggiuntive ai nodi oltre alle informazioni spaziali.
+     + Si possono salvare gli alberi creati con "JLD2.jl"
+     - Le chaivi e i loro nodi sono definite una ad una dall'utente, il che rende lungo e complicato creare un'albero
+         da dati preesistenti.
+     - Esiste la possibilità di passare i dati e una politica di divisione per creare l'albero, ma ancgìhein questo modo è troppo complicato.
+         (la politica dovrebbe far in modo di dividere solo se ci sono più poligoni in un'area o se un singolo poligono è in un'area molto più grande,
+         facendo attenzione a non dividere tagliando poligoni).
+     - 0 documentazione.
+ 
+     NON UTILIZZABILIE:
+         Mettersi li a definire ogni nodo uno ad uno per 400k poligoni è fuori discussione.
+         In generale il pacchetto adotta un metodo top down per la suddivisione dell'area in aree più piccole e questo si adatta poco alla necessità di
+         rappresentare i poligoni.
+ 
+ 
+ SpatialIndexing.jl:
+     + Può rappresentare poligoni attraverso il loro bounding box.
+     + Gli alberi creati si auto-bilanciano.
+     + Operazioni di inserimento  cancellazione sono efficienti.
+     + Nell'insert sembra possibile inserire un id, potrebbe essere quindi possibile utilizzare *1 e *2 (Vedi considerazioni su "LibSpatialIndex.jl") in caso di necessità.
+     + Sembra possibile inserire un valore nei nodi.
+ 
+ 
+ 
+ LibSpatialIndex.jl
+     + Supporta le operazioni che ci servono (le stesse di "NearestNeighbors.jl").
+     + Crea RTrees (che quindi possono rappresentare poligoni)
+     + Può creare RTrees vuoti con numero di figli massimi predefinito.
+     + Si può popolare l'albero utilizzando solo "insert!".
+    -= "insert!" richiede di specificare un'id per l'elemento inserito.
+    -= L'id può essere solo intero (si può usare come id il codice associato al tipo di terreno convertito in intero [1], in alternativa si può assegnare come
+         id l'indice del poligono all'interno del vettore di geometrie [2]).
+         N.B. Applicando *2 si rende necessario mantenere anche i vettori dei poligoni e dei valori associati (con 1 forse sarebbe possibile scartarli,
+         liberando quindi memoria)
+    -= "intersects" ritorna un vettore degli id che intersecano l'input, che può essere anche un punto (congiuntamente a quanto scritto sopra (*1), permette di
+         ottenere velocemente il tipo di terreno al punto specificato e o il tipo di terreno nei poligoni circostanti, usando invece la strategia *2, dovrebbe
+         risultare possibile ottenere lo stesso risultato).
+    -= "intersects" non permette di ottenere il poligono che soddisfa la condizione, ma solo il suo id, in particolare, se viene applicato
+         l'escamotage sopra riportato (*1), risulta molto difficile trovare il poligono risultante.
+         Se invece si applica *2, dovrebbe essere abbastanza veloce ottenere anche il poligono.
 =#
 
 
@@ -655,6 +672,7 @@ LibSpatialIndex.jl
 
 
 
+
 using ArchGDAL
 using SpatialIndexing
 using JLD2
@@ -663,42 +681,6 @@ using JLD2
 const agd = ArchGDAL
 const si = SpatialIndexing
 
-
-
-#= NON HA MOLTO SENSO
-    """
-    Se il nodo è una foglia, cioè se non ha come figi altri nodi ma gli elementi
-    """
-    function knn!( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N}
-        for (i, elem) in enumerate(si.children(node))
-            if length(res) < k && si.contains(si.mbr(elem), point)
-                push!(res, (elem, i))
-            end
-        end
-    end
-
-    """
-    Se il nodo è interno, cioè non ha come figli i dati ma solo altri nodi
-    """
-    function knn!( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64, res::Vector ) where {T, N, V}
-        if length(res) < k
-            for child in si.children(node)
-                if si.contains(si.mbr(child), point)
-                    knn!(child, point, k, res)
-                end
-            end
-        end
-    end
-
-    """
-    Dato un `RTree` un punto ed un intero `k` trova i k poligoni che contengono il punto
-    """
-    function kNearestneighbors( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
-        res = []
-        knn!(tree.root, point, k, res)
-        return res
-    end
-=#
 
 
 
@@ -741,26 +723,27 @@ function printTree( node, n::Int64=0 )
 end
 
 
-function plotTree( node )
-end
 
-
-
-"""
-Se il nodo è una foglia, cioè se non ha come figi altri nodi.
-"""
 function findPolygon( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
-    for (i, elem) in enumerate(si.children(node))
-        if si.contains(si.mbr(elem), point)
-            return elem, i
-        end
+    # The point falls in the area reppresented by the leaf node, so it is theoreticelly contained in one of its children
+    # Find the index of the polygon for which the point falls closer to its centroid and the distance
+    min_dist, ind = findmin( element -> agd.distance( agd.centroid(element.val[2]), agd.createpoint(point.coord...) ), node.children )
+    # If the point is not contained within the closest polygon return nothing else return the polygon
+    if min_dist == -1
+        error("An error occured while calculating the minimum distance")
     end
-    return nothing
+    return agd.contains( node.children[ind].val[2], agd.createpoint(point.coord...) ) ? (node.children[ind], ind, min_dist) : nothing
+ #= 
+     for (i, elem) in enumerate(si.children(node))
+         if agd.contains( elem.val[2], agd.createpoint(point.coord...) )
+
+            return node, i
+         end
+     end
+     return nothing
+ =#
 end
 
-"""
-Se il nodo è interno, cioè se ha come figli altri nodi.
-"""
 function findPolygon( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N} ) where {T, N, V}
     for child in si.children(node)
         if si.contains(si.mbr(child), point)
@@ -774,51 +757,81 @@ function findPolygon( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexin
 end
 
 """
-Dato un `RTree`, un punto ed un intero `k` trova il poligono che contiene il punto.
+    findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
+
+Return the polygon of `tree` that contains `point` or nothing if it doesn't exist.
 """
 function findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
     return findPolygon(tree.root, point)
 end
 
 
+function findPolygon( node::SpatialIndexing.Leaf{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
+    intersection = false
+    for (i, elem) in enumerate(si.children(node))
+        if agd.contains(elem.val[2], polygon)
+           return node, i
+        end
+        if agd.intersects(elem.val[2], polygon)
+            intersection = true
+            break
+        end
+    end
+    return intersection ? node : nothing
+end
 
-# ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+function findPolygon( node::SpatialIndexing.Branch{T,N,V}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N, V}
+    for child in si.children(node)
+        if si.contains(si.mbr(child), mbr(polygon))
+            res = findPolygon(child, polygon)
+            if !isnothing(res)
+                return res
+            end
+        end
+    end
+    return nothing
+end
+
+"""
+    findpolygon( tree::SpatialIndexing.RTree{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
+
+Return all the polygons of `tree` intersected by `polygon`, or the polygon that conains it, or nothing if there is no such polygon.
+"""
+function findPolygon( tree::SpatialIndexing.RTree{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
+    return findPolygon(tree.root, polygon)
+end
+
+
+
+ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+#   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
 
 tree = nothing
 GC.gc()
-tree = RTree{Float64, 2}(Float64, Float64, branch_capacity=4, leaf_capacity=4)
+tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=7, leaf_capacity=7)
 # C'E' QUALCHE PROBLEMA CON L'INSERIMENTO CHE CAUSA PROBLEMI NELL'ORGANIZZAZIONE DELL'ALBERO
+#  DIPENDE DALLA DIMENSIONE DI BRANCH E LEAVES
     # Inserire solo con mbr valido non rimuove l'errore
     # Inserire solo un sottoinsieme a volte da' l'errore altre no
         # Potrebbe dipendere dal numero di elementi da inserire
-for feature in features[1:21]
-    feature_mbr = mbr(agd.getgeom(feature, 0))
+for feature in features
+    geom = agd.getgeom(feature, 0)
+    feature_mbr = mbr(geom)
     if si.isvalid(feature_mbr)
-        insert!( tree, feature_mbr, agd.getfield(feature, :objectid), agd.getfield(feature, :codice_num) )
+        insert!( tree, feature_mbr, agd.getfield(feature, :objectid), ( agd.getfield(feature, :codice_num), geom ) )
     end
 end
 si.check(tree)
+tree.nnodes_perlevel
 
-#=
-1:end÷4         ERROR       len = 99343
-1:end÷8         WORKING     len = 49672 lvls = 51 
-end÷8 + 1:end÷4 ERROR       len = 49671 lvls = 144
-m = 74508
-49673:74508     ERROR       len = 24835 lvls = 116
-m = 62090
-49673:62090     WORKING     len = 12417 lvls = 41
-62091:74508     WORKING     len = 12417 lvls = 26
-
-=#
 
 
 
 # ---------------------------- QUERY TESTING [V] --------------------------------
 
 # Multilinea di contorno al poligono
-geom = agd.getgeom( agd.getgeom(features[21]), 0 )
+geom = agd.getgeom( agd.getgeom(features[4750]), 0 )
 # NUmber of vertexes of the poligon
 num_points = agd.ngeom(geom)
 # Coordinates of points inside the polygon:
@@ -831,11 +844,26 @@ yt2 = sum( j -> agd.gety(geom, j), 0:2 ) / 3.0
 #   In the middle of an edge (mean of 2 vertexes)
 xt3 = sum( j -> agd.getx(geom, j), 0:1 ) / 2.0
 yt3 = sum( j -> agd.gety(geom, j), 0:1 ) / 2.0
+# In the first half of the polygon
+xt4 = sum( j -> agd.getx(geom, j), 0:(num_points÷2)-1 ) / (num_points÷2)
+yt4 = sum( j -> agd.gety(geom, j), 0:(num_points÷2)-1 ) / (num_points÷2)
+
 
 # Results for each ponint
-res = findPolygon(tree, si.Point((xt1, yt1)))
-res = findPolygon(tree, si.Point((xt2, yt2)))
-res = findPolygon(tree, si.Point((xt3, yt3)))
+res = findPolygon(tree, si.Point((xt1, yt1)));
+res = findPolygon(tree, si.Point((xt2, yt2)));
+res = findPolygon(tree, si.Point((xt3, yt3)));
+res = findPolygon(tree, si.Point((xt4, yt4)));
+
+
+
+
+sat_shp = agd.read("D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp")
+sat = agd.getgeom(collect(agd.getlayer(sat_shp, 0))[1])
+
+res = findPolygon(tree, sat);
+
+
 
 
 # ---------------------------- SAVE TESTING [V] --------------------------------
@@ -850,13 +878,115 @@ l_res = findPolygon(loaded_tree, si.Point((xt3, yt3)))
 
 
 
-using Plots
 
-plot(tree)
+# ---------------------------- PLOT TESTING [V] --------------------------------
+# PRESO DA "plot_utils.jl" CONTENUTO IN "https://github.com/alyst/SpatialIndexing.jl/tree/master/examples"
+
+using PlotlyJS
+using Printf: @sprintf
+
+const SI = SpatialIndexing
+
+# webcolor palette for R-tree levels
+const LevelsPalette = Dict(
+    1 => "#228B22", # Forest Green
+    2 => "#DAA520", # Goldenrod
+    3 => "#FF6347", # Tomato
+    4 => "#B22222", # Firebrick
+    5 => "#4B0082", # Indigo
+    6 => "#800080", # Purple
+    7 => "#4169E1", # Royal blue
+    8 => "#008080", # Teal
+    9 => "#00FFFF", # Cyan
+)
+
+# create plotly trace for a single R-tree `node` (rectangle edges)
+function node_trace(node::SI.Node{<:Any,2}, ix::Union{Integer, Nothing};
+                    showlegend::Bool)
+    nbr = SI.mbr(node)
+    res = scatter(x = [nbr.low[1], nbr.high[1], nbr.high[1], nbr.low[1], nbr.low[1]],
+                  y = [nbr.low[2], nbr.low[2], nbr.high[2], nbr.high[2], nbr.low[2]],
+                  mode=:lines, line_color=get(LevelsPalette, SI.level(node), "#708090"),
+                  line_width=SI.level(node),
+                  hoverinfo=:text, hoveron=:points,
+                  text="lev=$(SI.level(node)) ix=$(ix !== nothing ? ix : "none")<br>nchildren=$(length(node)) nelems=$(SI.nelements(node)) area=$(@sprintf("%.2f", SI.area(SI.mbr(node))))",
+                  name="level $(SI.level(node))",
+                  legendgroup="level $(SI.level(node))", showlegend=showlegend)
+    return res
+end
+
+# create plotly trace for a single R-tree `node` (cube edges)
+function node_trace(node::SI.Node, ix::Union{Integer, Nothing};
+                    showlegend::Bool)
+    nbr = SI.mbr(node)
+    res = scatter3d(x = [nbr.low[1],  nbr.high[1], nbr.high[1], nbr.low[1], nbr.low[1],
+                         nbr.low[1],  nbr.high[1], nbr.high[1], nbr.low[1], nbr.low[1],
+                         NaN, nbr.low[1], nbr.low[1],
+                         NaN, nbr.high[1], nbr.high[1],
+                         NaN, nbr.high[1], nbr.high[1]],
+                    y = [nbr.low[2],  nbr.low[2],  nbr.high[2], nbr.high[2], nbr.low[2],
+                         nbr.low[2],  nbr.low[2],  nbr.high[2], nbr.high[2], nbr.low[2],
+                         NaN, nbr.high[2], nbr.high[2],
+                         NaN, nbr.high[2], nbr.high[2],
+                         NaN, nbr.low[2], nbr.low[2]],
+                    z = [nbr.low[3],  nbr.low[3],  nbr.low[3],  nbr.low[3], nbr.low[3],
+                         nbr.high[3], nbr.high[3], nbr.high[3], nbr.high[3], nbr.high[3],
+                         NaN, nbr.low[3], nbr.high[3],
+                         NaN, nbr.low[3], nbr.high[3],
+                         NaN, nbr.low[3], nbr.high[3]],
+                  mode=:lines, line_color=get(LevelsPalette, SI.level(node), "#708090"),
+                  line_width=SI.level(node),
+                  hoverinfo=:text, hoveron=:points,
+                  text="lev=$(SI.level(node)) ix=$(ix !== nothing ? ix : "none")<br>nchildren=$(length(node)) nelems=$(SI.nelements(node)) area=$(@sprintf("%.2f", SI.area(SI.mbr(node))))",
+                  name="level $(SI.level(node))",
+                  legendgroup="level $(SI.level(node))", showlegend=showlegend)
+    return res
+end
+
+# create plotly traces for the nodes in a subtree with the `node` root
+# and append them to `node_traces`
+function append_subtree_traces!(node_traces::Vector{PlotlyBase.AbstractTrace},
+                                node::SI.Node, ix::Union{Integer, Nothing},
+                                levels::Set{Int})
+    push!(node_traces, node_trace(node, ix, showlegend = SI.level(node) ∉ levels))
+    push!(levels, SI.level(node)) # show each level once in legend
+    if node isa SI.Branch
+        for (i, child) in enumerate(SI.children(node))
+            append_subtree_traces!(node_traces, child, i, levels)
+        end
+    end
+    return nothing
+end
+
+data_trace(tree::RTree{<:Any, 2}) =
+    scatter(mode=:markers, name=:data, marker_color = "#333333", marker_size = 2,
+            x=[SI.center(SI.mbr(x)).coord[1] for x in tree],
+            y=[SI.center(SI.mbr(x)).coord[2] for x in tree],
+            text=["id=$(SI.id(x))" for x in tree], hoverinfo=:text)
+
+data_trace(tree::RTree) =
+    scatter3d(mode=:markers, name=:data, marker_color = "#333333", marker_size = 2,
+              x=[SI.center(SI.mbr(x)).coord[1] for x in tree],
+              y=[SI.center(SI.mbr(x)).coord[2] for x in tree],
+              z=[SI.center(SI.mbr(x)).coord[3] for x in tree],
+              text=["id=$(SI.id(x))" for x in tree], hoverinfo=:text)
+
+# create Plotly plot of the given tree
+function PlotlyJS.plot(tree::RTree)
+    ndims(tree) == 1 && throw(ArgumentError("1-D R-trees not supported"))
+    ndims(tree) > 3 && @warn("Only 1st-3rd dimensions would be shown for $(ndims(tree))-D trees")
+    node_traces = Vector{PlotlyBase.AbstractTrace}()
+    append_subtree_traces!(node_traces, tree.root, nothing, Set{Int}())
+    PlotlyJS.plot([node_traces; [data_trace(tree)]], Layout(hovermode=:closest))
+end
+
+# MOLTO PESANTE A LIVELLO DI PRESTAZIONI
+tree_plot = plot(tree);
+open( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\tree_plot.png", "w" ) do io
+    PlotlyJS.savefig(io, tree_plot, width=900, height=1000)
+end
 
 
-
-plot(mbr(agd.getgeom(features[1])))
 
 
 
@@ -1034,74 +1164,6 @@ end
 
 
 end # module
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
