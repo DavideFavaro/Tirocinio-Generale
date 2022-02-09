@@ -99,7 +99,6 @@ function connectivity( dem_band::Matrix{T}, batch_size::Integer, noDataValue::Re
 end
 
 
-
 function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractString )
     mat = connectivity(band_mat, 2048, ndv)
     dtm = agd.read(dtm_path)
@@ -127,6 +126,22 @@ function createRasterizedConnectivity( file::AbstractString, dtm_path::AbstractS
 
     agd.destroy(target_ds)
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -319,12 +334,12 @@ Calcolato questo percorso ideale utlizzando i dati della piovosità ecc calcolar
 function flowpath!( mat::Matrix{Float32}, band::Matrix{Float32}, noDataValue::Real, row::Int64, col::Int64, )
     if band[row, col] != noDataValue
         r, c = row, col
+        mat[r, c] = 1.f0
         directions, Δhmin = mindir(band, row, col)
         while Δhmin < 0
             if lenght(directions) > 1
                 for dir in directions[2:end]
                     Δr, Δc = hash_adjacent(dir)
-                    mat[r + Δr, c + Δc] = 1.f0
                     flowpath!( mat, band, noDataValue, r + Δr, c + Δc )
                 end
             end
@@ -333,6 +348,23 @@ function flowpath!( mat::Matrix{Float32}, band::Matrix{Float32}, noDataValue::Re
         end
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -370,18 +402,6 @@ dtm = Raster(dtm_file)
 csoil_shp = Shapefile.Table(csoil_file)
 perm_shp = Shapefile.Table(perm_file)
 ccs_shp = Shapefile.Table(ccs_file)
-
-any( in.( ccs_shp.geometry[1].points, Ref(ccs_shp.geometry[2].points) ) )
-
-for i in 2:1000
-    if si.intersects( mbr(ccs_shp.geometry[1]), mbr(ccs_shp.geometry[i]) )
-        return i
-    end
-end
-
-
-si.intersects( mbr(ccs_shp.geometry[1]), mbr(ccs_shp.geometry[2]) )
-
 
 # Creation of the final raster
 originX = dtm.dims[1][1]
@@ -461,6 +481,23 @@ wrg = weightedrastergraph(
     condition_raster = dtm,
     condition = ( hs, hd ) -> hs != dtm.missingval && hd != dtm.missingval && hs >= hd
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -584,42 +621,7 @@ Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un
 
 
 
-#= CON "LibSpatialIndex"
-    using Rasters
-    using Shapefile
-    using LibSpatialIndex
-    using ArchGDAL
 
-
-    const agd = ArchGDAL
-    const lsi = LibSpatialIndex
-
-
-    function mbr( polygon::Shapefile.Polygon )
-        return [ minimum( point -> point.x, polygon.points), minimum( point -> point.y, polygon.points) ],
-               [ maximum( point -> point.x, polygon.points), maximum( point -> point.y, polygon.points) ]
-    end
-
-    function mbr( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
-        boundingbox = agd.envelope(polygon)
-        return [ boundingbox.MinX, boundingbox.MaxY ], [ boundingbox.MaxX, boundingbox.MinY ]
-    end
-
-
-    LibSpatialIndex.
-
-
-    ccs_shp = Shapefile.Table("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-    tree = lsi.RTree(2, indexcapacity=4, leafcapacity=4)
-    for i in 1:34   #length(ccs_shp.geometry)
-        lsi.insert!(tree, ccs_shp.codice_num[i], mbr(ccs_shp.geometry[i])... )
-    end
-
-    xavg = sum(point -> point.x, ccs_shp.geometry[1].points) / 90.0
-    yavg = sum(point -> point.y, ccs_shp.geometry[1].points) / 90.0
-
-    res = lsi.knn(tree, [xavg, yavg], 3)
-=#
 
 
 
@@ -803,8 +805,56 @@ end
 
 
 
-ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-#   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+
+
+function enqueue!( q::Vector, data, priority::Real ) where {T}
+    pos = searchsortedfirst( q, priority, lt=(x, y) -> y > x[2] )
+    insert!(q, pos, [data, priority])
+end
+
+"""
+    distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} )
+
+Compute the distance between `region` and `element`.
+Used by `kNearestNeighbor` function.
+"""
+distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} ) = agd.distance(
+    region isa SpatialIndexing.Point ? agd.createpoint(region.coord...) :
+        let (xl, yl) = region.low, (xh, yh) = region.high
+            agd.createpolygon([(xl, yh), (xh, yh), (xh, yl), (xl, yl), (xl, yh)])
+        end,
+    element isa SpatialIndexing.SpatialElem ? element.val[2] :
+        let (xl, yl) = element.mbr.low, (xh, yh) = element.mbr.high
+            agd.createpolygon([(xl, yh), (xh, yh), (xh, yl), (xl, yl), (xl, yh)])
+        end
+)
+
+# Based on:
+# http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.386.8193&rep=rep1&type=pdf
+function NearestNeighbors( tree::SpatialIndexing.RTree, region::SpatialIndexing.Region, k::Int64 ) 
+    # Priority queue using distance as priority
+    queue = [[tree.root, 0.0]]
+    while !isempty(queue)
+        element = queue[1][1]
+        deleteat!(queue, 1)
+        if element isa SpatialIndexing.SpatialElem
+            if !isempty(queue) && distance(region, element) > queue[1][2]
+                enqueue!( queue, element, distance(region, element) )
+            else
+                return element, distance(region, element)
+            end
+        else # "element" is a "SpatialIndexing.Node" ("Branch" or "Leaf")
+            for child in element.children
+                enqueue!( queue, child, distance(region, child) )
+            end
+        end
+    end
+end
+
+
+
+#   ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
 
 tree = nothing
@@ -855,6 +905,11 @@ res = findPolygon(tree, si.Point((xt2, yt2)));
 res = findPolygon(tree, si.Point((xt3, yt3)));
 res = findPolygon(tree, si.Point((xt4, yt4)));
 
+
+res1 = kNearestNeighbors( tree, si.Point((xt1, yt1)), 3 );
+res2 = kNearestNeighbors( tree, si.Point((xt2, yt2)), 3 );
+res3 = kNearestNeighbors( tree, si.Point((xt3, yt3)), 3 );
+res4 = kNearestNeighbors( tree, si.Point((xt4, yt4)), 3 );
 
 
 
