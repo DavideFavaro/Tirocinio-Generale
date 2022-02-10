@@ -396,6 +396,8 @@ dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 csoil_file = "D:\\Z_Tirocinio_Dati\\Classi suolo WGS84\\Classi suolo.shp"
 perm_file = "D:\\Z_Tirocinio_Dati\\Permeabilità suolo WGS84\\Permeabilità suolo.shp"
 ccs_file = "D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp"
+ccs_file = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp"
+
 
 dtm = Raster(dtm_file)
 # sat_shp = Shapefile.Handle(sat_file).shapes[1]
@@ -448,6 +450,12 @@ Rasters.write( "D:\\Z_Tirocinio_Dati\\test.tiff", ccs )
 #   Rasterizzado tutti e tre non sembrano esserci sovrapposizioni nelle celle, ma i poligoni sono di piccole dimensioni e non sono rasterizzati con precisione.
 
 
+# DA "unique(ccs)" VENGONO 58 VALORI DIVERSI, AL POSTO DI 86 (un valore per ogni poligono più uno per il "-9999.0") QUINDI DEI POLIGONI VENGONO COPERTI DA ALTRI
+res_ids = tryparse.( Int64, split( read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt", String), "\n", keepempty=false ) )
+for (i, id) in enumerate(res_ids)
+    rasterize!( ccs, ccs_shp.geometry[id], fill=Float32(i), order=(X,Y) )
+end
+Rasters.write( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\sat_polys.tiff", ccs )
 
 
 
@@ -674,7 +682,6 @@ Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un
 
 
 
-
 using ArchGDAL
 using SpatialIndexing
 using JLD2
@@ -682,7 +689,6 @@ using JLD2
 
 const agd = ArchGDAL
 const si = SpatialIndexing
-
 
 
 
@@ -699,7 +705,7 @@ end
 
 
 """
-Guven a "SpatialIndexing.RTree" or "Node" either("Spatialindexing.Branch" or "Spatialindexing.Leaf") print the content of the tree
+Given a "SpatialIndexing.RTree" or "Node" either("Spatialindexing.Branch" or "Spatialindexing.Leaf") print the content of the tree
 """
 function printTree( node, n::Int64=0 )
     if node isa SpatialIndexing.Leaf
@@ -769,29 +775,30 @@ end
 
 
 function findPolygon( node::SpatialIndexing.Leaf{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
-    intersection = false
-    for (i, elem) in enumerate(si.children(node))
-        if agd.contains(elem.val[2], polygon)
-           return node, i
-        end
-        if agd.intersects(elem.val[2], polygon)
-            intersection = true
-            break
-        end
-    end
-    return intersection ? node : nothing
+    res::Vector{SpatialIndexing.SpatialElem} = [
+        child
+        for child in node.children
+        if agd.contains(polygon, child.val[2]) ||
+            agd.contains(child.val[2], polygon) ||
+            agd.intersects(polygon, child.val[2]) 
+    ]
+    return res
 end
 
 function findPolygon( node::SpatialIndexing.Branch{T,N,V}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N, V}
-    for child in si.children(node)
-        if si.contains(si.mbr(child), mbr(polygon))
-            res = findPolygon(child, polygon)
-            if !isnothing(res)
-                return res
+    res = Vector{SpatialIndexing.SpatialElem}()
+    for child in node.children
+        poly_mbr = mbr(polygon)
+        if si.intersects( child.mbr, poly_mbr ) || si.contains( child.mbr, poly_mbr ) || si.contains( poly_mbr, child.mbr )
+            results = findPolygon(child, polygon)
+            if !isnothing(results) && !isempty(results)
+                for result in results
+                    push!(res, result)
+                end
             end
         end
     end
-    return nothing
+    return isempty(res) ? nothing : res
 end
 
 """
@@ -853,18 +860,13 @@ end
 
 
 
-#   ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+#   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
 
 tree = nothing
 GC.gc()
 tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=7, leaf_capacity=7)
-# C'E' QUALCHE PROBLEMA CON L'INSERIMENTO CHE CAUSA PROBLEMI NELL'ORGANIZZAZIONE DELL'ALBERO
-#  DIPENDE DALLA DIMENSIONE DI BRANCH E LEAVES
-    # Inserire solo con mbr valido non rimuove l'errore
-    # Inserire solo un sottoinsieme a volte da' l'errore altre no
-        # Potrebbe dipendere dal numero di elementi da inserire
 for feature in features
     geom = agd.getgeom(feature, 0)
     feature_mbr = mbr(geom)
@@ -916,8 +918,43 @@ res4 = kNearestNeighbors( tree, si.Point((xt4, yt4)), 3 );
 sat_shp = agd.read("D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp")
 sat = agd.getgeom(collect(agd.getlayer(sat_shp, 0))[1])
 
-res = findPolygon(tree, sat);
+res = findPolygon(tree, sat)
 
+# Id di tutti i poligoni intersecati dal poligono "sette_sorelle" (ottenuti con QGIS)
+objectids = [
+    192271, 192307, 197591, 214336, 214356, 214422,
+    214518, 214606, 214777, 214840, 214967, 214999,
+    215264, 215314, 215391, 215555, 215918, 215944,
+    221275, 221300, 221335, 221415, 221641, 222633,
+    223271, 231330, 232459, 232478, 232492, 232541,
+    240004, 240325, 240533, 240803, 240903, 241012,
+    241266, 241369, 241738, 249519, 249534, 249542,
+    249588, 249619, 249622, 252658, 252687, 252737,
+    252754, 252931, 258981, 261396, 261404, 261417,
+    262501, 263548, 263567, 263578, 263584, 263602,
+    263625, 265696, 265697, 265699, 265700, 265701,
+    265702, 265703, 265704, 265705, 265706, 265708,
+    265709, 265711, 265712, 265714, 265715, 267016,
+    267021, 267029, 267043, 267064, 395922, 396242,
+    396281
+]
+
+# Test per controllare che i poligoni trovati siano gli stessi trovati da QGIS
+all(r -> r.id in objectids, res)
+
+resids = [ Int64(r.id) for r in res ]
+
+# Test per controllare che non ci siano poligoni mancanti
+all(id -> id in resids, objectids)
+
+
+path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt"
+path = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\polygon_ids.txt"
+open( path, "w" ) do io
+    for id in objectids
+        write(io, "$id\n")
+    end
+end
 
 
 
