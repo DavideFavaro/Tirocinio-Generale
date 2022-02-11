@@ -382,10 +382,6 @@ end
 
 
 
-
-
-
-
 GC.gc()
 # Per porre a 1 tutte le celle di un raster che stanno dentro and un poligono delimitato da uno shapefile
 using Rasters
@@ -450,12 +446,23 @@ Rasters.write( "D:\\Z_Tirocinio_Dati\\test.tiff", ccs )
 #   Rasterizzado tutti e tre non sembrano esserci sovrapposizioni nelle celle, ma i poligoni sono di piccole dimensioni e non sono rasterizzati con precisione.
 
 
+using ArchGDAL
+const agd = ArchGDAL
+
 # DA "unique(ccs)" VENGONO 58 VALORI DIVERSI, AL POSTO DI 86 (un valore per ogni poligono più uno per il "-9999.0") QUINDI DEI POLIGONI VENGONO COPERTI DA ALTRI
 res_ids = tryparse.( Int64, split( read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt", String), "\n", keepempty=false ) )
+#   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+features =  collect( agd.getlayer( agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp"), 0 ) )
+sort!(res_ids, lt=(x, y) -> isless( agd.geomarea.( agd.getgeom.(features[[x, y]]) )... ) )
 for (i, id) in enumerate(res_ids)
     rasterize!( ccs, ccs_shp.geometry[id], fill=Float32(i), order=(X,Y) )
 end
 Rasters.write( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\sat_polys.tiff", ccs )
+
+
+
+
+
 
 
 
@@ -621,21 +628,6 @@ Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #= TEST CON POLIGONI DI "Shapefile.jl" 
     using Shapefile
     using SpatialIndexing
@@ -681,7 +673,6 @@ Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un
 
 
 
-
 using ArchGDAL
 using SpatialIndexing
 using JLD2
@@ -692,11 +683,20 @@ const si = SpatialIndexing
 
 
 
+"""
+    mbrtype( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
+
+Return the type of the mbr returned by function `mbr()` applied to `polygon`
+"""
 function mbrtype( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
     return SpatialIndexing.HasMBR{ SpatialIndexing.Rect{Float64, 2} }
 end
 
+"""
+    mbr( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
 
+Return the minimum bounding rectangle of `polygon` as a `SpatialIndexing.Rect{T, N}`
+"""
 function mbr( polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )
     boundingbox = agd.envelope(polygon)
     return SpatialIndexing.Rect{Float64, 2}( (boundingbox.MinX, boundingbox.MinY), (boundingbox.MaxX, boundingbox.MaxY) )
@@ -732,15 +732,23 @@ end
 
 
 
-function findPolygon( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
+# ----------------------------------------------------------------- RICERCA TRAMITE PUNTO --------------------------------------------------------------------------------------------
+#=  NON SEMBRA FUNZIONARE COME DOVREBBE, MA TANTO `knn` FA QUASI LA STESSA COSA E FUNZIONA BENE
+ """
+    findPolygon( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
+
+ Return the child of `node` that contains `point`, or `nothing` if ther's no such child.
+ """
+ function findPolygon( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
     # The point falls in the area reppresented by the leaf node, so it is theoreticelly contained in one of its children
     # Find the index of the polygon for which the point falls closer to its centroid and the distance
-    min_dist, ind = findmin( element -> agd.distance( agd.centroid(element.val[2]), agd.createpoint(point.coord...) ), node.children )
+    agd_point = agd.createpoint(point.coord...)
+    min_dist, ind = findmin( element -> agd.distance( agd.centroid(element.val.geometry), agd_point ), node.children )
     # If the point is not contained within the closest polygon return nothing else return the polygon
     if min_dist == -1
         error("An error occured while calculating the minimum distance")
     end
-    return agd.contains( node.children[ind].val[2], agd.createpoint(point.coord...) ) ? (node.children[ind], ind, min_dist) : nothing
+    return agd.contains( node.children[ind].val.geometry, agd_point ) ? (node.children[ind], ind, min_dist) : nothing
  #= 
      for (i, elem) in enumerate(si.children(node))
          if agd.contains( elem.val[2], agd.createpoint(point.coord...) )
@@ -750,61 +758,91 @@ function findPolygon( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Po
      end
      return nothing
  =#
-end
+ end
+ 
+ """
+    findPolygon( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N} ) where {T, N, V}
 
-function findPolygon( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N} ) where {T, N, V}
-    for child in si.children(node)
-        if si.contains(si.mbr(child), point)
-            res = findPolygon(child, point)
-            if !isnothing(res)
-                return res
+ Return the element of the subtree rooted in `node` that contains `point`
+ """
+ function findPolygon( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N} ) where {T, N, V}
+    # Take all the polygons that contain `point`
+    results = filter!( # Remove the `nothing` results
+        !isnothing,
+        findPolygon.( # Obtain the result for each remaining child
+            filter!( # Remove the children whose geometry does not contain the point
+                child -> si.contains(child.mbr, point),
+                node.children
+            ),
+            Ref(point)
+        )
+    )
+    # If there is no remaining result return nothing else return the geometry closest to the point.
+    return isempty(results) ? nothing : results[ findmin( result -> result[3], results )[2] ]
+ #=
+    mindist = Inf
+    res = nothing
+    for child in node.children
+        if si.contains(child.mbr, point)
+            candidate = findPolygon(child, point)
+            if !isnothing(candidate) && candidate[3] < mindist
+                res = candidate
             end
         end
     end
-    return nothing
-end
-
-"""
+    return res
+ =#
+ end
+ 
+ """
     findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
 
-Return the polygon of `tree` that contains `point` or nothing if it doesn't exist.
-"""
-function findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
+ Return the element of `tree` that contains `point` or nothing if it doesn't exist.
+ """
+ function findPolygon( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N} ) where {T, N}
     return findPolygon(tree.root, point)
-end
+ end
+=#
 
 
-function findPolygon( node::SpatialIndexing.Leaf{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
-    res::Vector{SpatialIndexing.SpatialElem} = [
+
+# --------------------------------------------------------------- RICERCA TRAMITE POLIGONO [V] ---------------------------------------------------------------------------------------
+"""
+    findPolygon( node::SpatialIndexing.Leaf{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )::Vector{SpatialIndexing.SpatialElem} where {T, N}
+
+Find and return all the `SpatialIndexing.SpatialElem`s children of `node` that intersect, contain or are containded in `polygon`.
+"""
+function findPolygon( node::SpatialIndexing.Leaf{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} )::Vector{SpatialIndexing.SpatialElem} where {T, N}
+    return [
         child
         for child in node.children
-        if agd.contains(polygon, child.val[2]) ||
-            agd.contains(child.val[2], polygon) ||
-            agd.intersects(polygon, child.val[2]) 
+        if agd.contains(polygon, child.val.geometry) || agd.contains(child.val.geometry, polygon) || agd.intersects(polygon, child.val.geometry) 
     ]
-    return res
 end
 
+"""
+    findPolygon( node::SpatialIndexing.Branch{T,N,V}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N, V}
+
+Find and return a `Vector{SpatialIndexing.SpatialElem}` that contains all the elements of the subtree rooted in `node` that intersect, contain or are contained in `polygon`.
+"""
 function findPolygon( node::SpatialIndexing.Branch{T,N,V}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N, V}
     res = Vector{SpatialIndexing.SpatialElem}()
     for child in node.children
         poly_mbr = mbr(polygon)
-        if si.intersects( child.mbr, poly_mbr ) || si.contains( child.mbr, poly_mbr ) || si.contains( poly_mbr, child.mbr )
+        if si.intersects(child.mbr, poly_mbr) || si.contains(child.mbr, poly_mbr) || si.contains(poly_mbr, child.mbr)
             results = findPolygon(child, polygon)
-            if !isnothing(results) && !isempty(results)
-                for result in results
-                    push!(res, result)
-                end
+            if !isempty(results)
+                append!(res, results)
             end
         end
     end
-    return isempty(res) ? nothing : res
+    return res
 end
 
 """
     findpolygon( tree::SpatialIndexing.RTree{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
 
-Return all the polygons of `tree` intersected by `polygon`, or the polygon that conains it, or nothing if there is no such polygon.
+Return all the polygons of `tree` intersected by, contained in or containing `polygon`, or the polygon that conains it, or an empty `Vector{SpatialIndexing.SpatialElem}`, if there is no such polygon.
 """
 function findPolygon( tree::SpatialIndexing.RTree{T,N}, polygon::ArchGDAL.IGeometry{ArchGDAL.wkbPolygon} ) where {T, N}
     return findPolygon(tree.root, polygon)
@@ -812,20 +850,13 @@ end
 
 
 
-
-
-function enqueue!( q::Vector, data, priority::Real ) where {T}
-    pos = searchsortedfirst( q, priority, lt=(x, y) -> y > x[2] )
-    insert!(q, pos, [data, priority])
-end
-
+# ----------------------------------------------------------------------- RICERCA KNN [V] --------------------------------------------------------------------------------------------
 """
-    distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} )
+    distance( element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node}, region::SpatialIndexing.Region )
 
-Compute the distance between `region` and `element`.
-Used by `kNearestNeighbor` function.
+Compute the distance between `element` and `region`.
 """
-distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} ) = agd.distance(
+distance( element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node}, region::SpatialIndexing.Region ) = agd.distance(
     region isa SpatialIndexing.Point ? agd.createpoint(region.coord...) :
         let (xl, yl) = region.low, (xh, yh) = region.high
             agd.createpolygon([(xl, yh), (xh, yh), (xh, yl), (xl, yl), (xl, yh)])
@@ -836,9 +867,83 @@ distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.Spatial
         end
 )
 
-# Based on:
-# http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.386.8193&rep=rep1&type=pdf
-function NearestNeighbors( tree::SpatialIndexing.RTree, region::SpatialIndexing.Region, k::Int64 ) 
+
+
+"""
+    knn( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
+
+Return the `k` `SpatialIndexing.SpatialElem`s children of `node` that are closest to `point` (at most k elements will be returned).
+"""
+function knn( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
+    agd_point = agd.createpoint(point.coord...)
+    results = sort!(
+        map(
+            element -> (
+                element,
+                agd.distance(
+                    agd.centroid(element.val.geometry),
+                    agd_point
+                )
+            ),
+            node.children
+        ),
+        lt=(x, y) -> x[2] < y[2]
+    )
+    return results[1:min(k, length(results))]
+end
+
+"""
+    function knn( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N, V}
+
+Return the `k` `SpatialIndexing.SpatialElem`s of the subtree rooted in `node` that are closest to `point` (at most k elements will be returned).
+"""
+function knn( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N, V}
+    # Children of `node` sorted by increasing distance from `point`
+    #   candidates = sort!( map( child -> ( child, distance(child, point) ), node.children ), lt=isless2 )
+    candidates = sort( node.children, lt=(x, y) -> distance(x, point) < distance(y, point) )
+    results = sort!(
+        reduce(
+            vcat,
+            knn.(
+                candidates[1:min(k, length(candidates))],
+                Ref(point),
+                k
+            )
+        ),
+        lt=(x, y) -> x[2] < y[2]
+    )
+    return results[1:min(k, length(results))]
+end
+
+"""
+    knn( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
+
+Return the `k` `SpatialIndexing.SpatialElem`s contained in `tree` that are closest to `point` (at most k elements will be returned).
+"""
+function knn( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
+    return knn(tree.root, point, k)
+end
+
+
+
+
+
+#= BELLA L'IDEA MA NON FUNZIONA
+    function enqueue!( q::Vector, data, priority::Real ) where {T}
+    pos = searchsortedfirst( q, priority, lt=(x, y) -> y > x[2] )
+    insert!(q, pos, [data, priority])
+    end
+
+    """
+    distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} )
+
+    Compute the distance between `region` and `element`.
+    Used by `kNearestNeighbor` function.
+    """
+
+    # Based on:
+    # http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.386.8193&rep=rep1&type=pdf
+    function NearestNeighbors( tree::SpatialIndexing.RTree, region::SpatialIndexing.Region, k::Int64 ) 
     # Priority queue using distance as priority
     queue = [[tree.root, 0.0]]
     while !isempty(queue)
@@ -856,7 +961,9 @@ function NearestNeighbors( tree::SpatialIndexing.RTree, region::SpatialIndexing.
             end
         end
     end
-end
+    end
+=#
+
 
 
 
@@ -866,12 +973,12 @@ features =  collect(agd.getlayer(ccs_shp, 0))
 
 tree = nothing
 GC.gc()
-tree = RTree{Float64, 2}(Float64, Tuple, branch_capacity=7, leaf_capacity=7)
+tree = RTree{Float64, 2}(Float64, NamedTuple, branch_capacity=7, leaf_capacity=7)
 for feature in features
     geom = agd.getgeom(feature, 0)
     feature_mbr = mbr(geom)
     if si.isvalid(feature_mbr)
-        insert!( tree, feature_mbr, agd.getfield(feature, :objectid), ( agd.getfield(feature, :codice_num), geom ) )
+        si.insert!( tree, feature_mbr, agd.getfield(feature, :objectid), ( code=agd.getfield(feature, :codice_num), geometry=geom ) )
     end
 end
 si.check(tree)
@@ -879,11 +986,10 @@ tree.nnodes_perlevel
 
 
 
-
 # ---------------------------- QUERY TESTING [V] --------------------------------
 
 # Multilinea di contorno al poligono
-geom = agd.getgeom( agd.getgeom(features[4750]), 0 )
+geom = agd.getgeom( agd.getgeom(features[311113]), 0 )
 # NUmber of vertexes of the poligon
 num_points = agd.ngeom(geom)
 # Coordinates of points inside the polygon:
@@ -901,24 +1007,25 @@ xt4 = sum( j -> agd.getx(geom, j), 0:(num_points÷2)-1 ) / (num_points÷2)
 yt4 = sum( j -> agd.gety(geom, j), 0:(num_points÷2)-1 ) / (num_points÷2)
 
 
-# Results for each ponint
-res = findPolygon(tree, si.Point((xt1, yt1)));
-res = findPolygon(tree, si.Point((xt2, yt2)));
-res = findPolygon(tree, si.Point((xt3, yt3)));
-res = findPolygon(tree, si.Point((xt4, yt4)));
+#= Results for each ponint
+    res = findPolygon(tree, si.Point((xt1, yt1)))
+    res = findPolygon(tree, si.Point((xt2, yt2)))
+    res = findPolygon(tree, si.Point((xt3, yt3)))
+    res = findPolygon(tree, si.Point((xt4, yt4)))
+=#
 
-
-res1 = kNearestNeighbors( tree, si.Point((xt1, yt1)), 3 );
-res2 = kNearestNeighbors( tree, si.Point((xt2, yt2)), 3 );
-res3 = kNearestNeighbors( tree, si.Point((xt3, yt3)), 3 );
-res4 = kNearestNeighbors( tree, si.Point((xt4, yt4)), 3 );
+res1 = knn( tree, si.Point((xt1, yt1)), 3 )
+res2 = knn( tree, si.Point((xt2, yt2)), 3 )
+res3 = knn( tree, si.Point((xt3, yt3)), 3 )
+res4 = knn( tree, si.Point((xt4, yt4)), 3 )
 
 
 
 sat_shp = agd.read("D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp")
 sat = agd.getgeom(collect(agd.getlayer(sat_shp, 0))[1])
-
 res = findPolygon(tree, sat)
+# Get the result in decreasing order based on the surface of the polygon
+sort!(res, lt=(x, y) -> agd.geomarea(x.val.geometry) < agd.geomarea(y.val.geometry), rev=true )
 
 # Id di tutti i poligoni intersecati dal poligono "sette_sorelle" (ottenuti con QGIS)
 objectids = [
@@ -939,22 +1046,21 @@ objectids = [
     396281
 ]
 
-# Test per controllare che i poligoni trovati siano gli stessi trovati da QGIS
+# Check that all the returned polygons are correct
 all(r -> r.id in objectids, res)
-
 resids = [ Int64(r.id) for r in res ]
-
-# Test per controllare che non ci siano poligoni mancanti
+# Check whether there are any missing polygon 
 all(id -> id in resids, objectids)
 
-
-path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt"
-path = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\polygon_ids.txt"
-open( path, "w" ) do io
-    for id in objectids
-        write(io, "$id\n")
+#=  PER SALVARE GLI ID TROVATI
+    path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt"
+    path = "D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\polygon_ids.txt"
+    open( path, "w" ) do io
+        for id in objectids
+            write(io, "$id\n")
+        end
     end
-end
+=#
 
 
 
@@ -967,7 +1073,6 @@ si.check(loaded_tree)
 l_res = findPolygon(loaded_tree, si.Point((xt1, yt1)))
 l_res = findPolygon(loaded_tree, si.Point((xt2, yt2)))
 l_res = findPolygon(loaded_tree, si.Point((xt3, yt3)))
-
 
 
 
