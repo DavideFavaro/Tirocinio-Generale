@@ -277,7 +277,7 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    refsys = refsys = agd.getproj(dem)
+    refsys = agd.getproj(dem)
 
     if agd.importWKT(refsys) != agd.getspatialref(geom)
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
@@ -480,6 +480,26 @@ agd.getgeomtype(layer) == agd.wkbPolygon
 
 
 agd.getspatialref(layer)
+
+
+agd.create( "D:\\Z_Tirocinio_Dati\\source.shp", driver=agd.getdriver("ESRI Shapefile") ) do ds
+    agd.createlayer( geom=GDAL.wkbPoint, spatialref=agd.importEPSG(4326) ) do layer
+        agd.createfeature(layer) do feature
+            agd.setgeom!( feature, agd.createpoint(lon, lat) )
+        end
+        agd.copy(layer, dataset=ds)
+    end
+end
+
+
+
+
+
+
+
+
+
+
 
 
 

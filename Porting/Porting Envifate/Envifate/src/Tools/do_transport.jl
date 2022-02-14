@@ -1,54 +1,23 @@
 module Transport
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 #=
     def help(self):         
         #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
         #QMessageBox.about(self.dlg,"Credits", self.credits ) 
         if platform.uname()[0]=="Windows":
             os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_solute.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_solute.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_solute.pdf")
-
-    def tesi_or(self):         
-        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-        #QMessageBox.about(self.dlg,"Credits", self.credits ) 
-        if platform.uname()[0]=="Windows":
-            os.system("start "+os.path.dirname(__file__)+"/../tutorial/gebbert2007_diplom_stroemung_grass_gis.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/gebbert2007_diplom_stroemung_grass_gis.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/gebbert2007_diplom_stroemung_grass_gis.pdf")    
-
-
-        self.popolacombo()
 =#
 
+
+
+using ArchGDAL
+
+
+const agd = ArchGDAL
+
+
                       # top          bottom          q                      phead
-function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piezomatic_head, status, source, srs, tensorx::Real, tensory::Real, porosity::Real, dispersiveness_t::Real,
+function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piezomatic_head, status, source, srs, tensor_x::Real, tensor_y::Real, porosity::Real, dispersiveness_t::Real,
                         dispersiveness_l::Real, storativity::Real=0.0001, break_error::Real=0.000001, delay::Real=1.0, time::Integer, resolution::Integer, output_path::AbstractString=".\\" )
 
 
@@ -71,11 +40,11 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
     self.text_conc = str(self.combo_conc.currentText())
  =#
 
+    src_geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
 
-
-   if agd.geomdim(source) != 0
-       throw(DomainError(source, "`source` must be a point"))
-   end
+    if agd.geomdim(source) != 0
+        throw(DomainError(source, "`source` must be a point"))
+    end
  
 
    time *= 3600 
@@ -140,8 +109,6 @@ function run_transport( aquifer_top, aquifer_bottom, concentration_sources, piez
   # Rimpiazza i null value in "source" con 0
     run_command("r.null", map="source", null=0)
  """
-   src_feature = collect(agd.getfeature(source))
-   src_geom = agd.getgeom(src_feature[1])
    x_source = agd.getx(src_geom, 0)
    y_source = agd.gety(src_geom, 0)
    r_source, c_source = toIndexes(dtm, x_source, y_source)

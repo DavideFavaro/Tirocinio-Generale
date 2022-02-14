@@ -6,8 +6,6 @@ module Noise
 
 using ArchGDAL
 using GeoArrays
-using GeoRegions
-using GeoStats
 using Plots
 using Shapefile
 
@@ -28,11 +26,11 @@ rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc
 
 Compute the transmission loss of a noise over `r` distance
 """
-function transmission_loss( radius::Float64 )
+function transmission_loss( radius::Real )
     return 20log10(radius)
 end
 
-function atmospheric_absorpion_loss( radius::Float64, height_m::Float64, relative_humidity::Float64, temperature_k::Float64, frequency::Float64 )
+function atmospheric_absorpion_loss( radius::Real, height_m::Real, relative_humidity::Real, temperature_k::Real, frequency::Real )
     # Calculate atmospheric absorption coefficient using ANSI S1.26-1995 standard
     # Convert elevation to atmospheric pressure
     atmospheric_pressure = 101.325( 1 - ( 2.25577 * 10^(-5) * height_m ) )^5.25588
@@ -60,7 +58,7 @@ function atmospheric_absorpion_loss( radius::Float64, height_m::Float64, relativ
     return α * radius / 100
 end
 
-function minmax( profile::Vector, rel_h_src::Float64=0.0, rel_h_rec::Float64=0.0 )::Vector{Tuple{Int64, Float64}}
+function minmax( profile::Vector, rel_h_src::Real=0.0, rel_h_rec::Real=0.0 )::Vector{Tuple{Int64, Real}}
     if length(profile) <= 1
         return [ (1, -rel_h_src), (1, -rel_h_rec) ]
     end
@@ -100,7 +98,7 @@ function minmax( profile::Vector, rel_h_src::Float64=0.0, rel_h_rec::Float64=0.0
     return [min, max]
 end
 
-function delbaz( freq::Float64, flow_res::Float64 )::Complex
+function delbaz( freq::Real, flow_res::Real )::Complex
     dumr = 1.0 + 9.08 * (flow_res/freq)^0.75
     dumi = -11.9 * (flow_res/freq)^0.73
     return complex(dumr, dumi)
@@ -489,18 +487,18 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
 
  # Mirror Source
     # Distance from image source to top of hill
-    Δx, Δy = hills[3] - src_loc[2]
+    Δx, Δy = hills[3] .- src_loc[2]
     rr = √( Δx^2 + Δy^2 )
     # Angle from image to top of hill
     θi = atan( Δy, Δx )
     # Angle of the hillside
-    Δxh, Δyh = hills[3] - hills[2]
+    Δxh, Δyh = hills[3] .- hills[2]
     θh = atan( Δyh, Δxh )
     
     qs = 0.0 + 0.0im
     if θi < θh
         # Angle of the flat
-        Δxf, Δyf = hills[2] - hills[1]
+        Δxf, Δyf = hills[2] .- hills[1]
         θf = atan( Δyf, Δxf )
         # Angle of the image path relative to the flat
         θ = θi - θf
@@ -542,7 +540,7 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
     #   qr = isnothing(rr_Δz) ? 0.0 + 0.0im : qq( rr_Δz..., waveno, dbs[1]  )
 
  # Wedge Angle
-    Δx, Δz = hills[3] - hills[2]
+    Δx, Δz = hills[3] .- hills[2]
     θ1 = atan( Δx, Δz )
     Δx = hills[4][1] - hills[3][1]
     Δz = hills[3][2] - hills[4][2]
@@ -563,7 +561,7 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
                                     i == 4 ? qs * qr : 1.0 + 0.0im
 
         # Get length and angle of path from source to top of wedge
-        Δx, Δz = hills[3] - src_loc[src_i]
+        Δx, Δz = hills[3] .- src_loc[src_i]
         # Distance
         rh0 = √( Δx^2 + Δz^2 )
         # Angle, clockwise from straight down
@@ -575,7 +573,7 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
         rh1 = √( Δx^2 + Δz^2 )
         # Angle, counterclockwise from straight down
         θ = atan( Δx, Δz )
-        f1 = 2.0 * π - θ1 - θh
+        f1 = 2π - θ1 - θh
 
         if i == 1
             f0dir = f0
@@ -623,27 +621,27 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
 
  # Direct path source to receiver
     if π + f0dir - f1dir > 0
-        Δx, Δz = rec_loc[1] - src_loc[1]
+        Δx, Δz = rec_loc[1] .- src_loc[1]
         rd = √( Δx^2 + Δz^2 )
         po = ℯ^complex(0.0, waveno*rd) / complex(rd, 0.0)
         pt += po
     end
  # Path mirrored source to receiver
     if π + f0refl - f1dir > 0
-        Δx, Δz = rec_loc[1] - src_loc[2]
+        Δx, Δz = rec_loc[1] .- src_loc[2]
         rd = √( Δx^2 + Δz^2 )
         po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, dbs[1] ) / complex(rd, 0.0)
         pt += po
     end   
  # Path source to mirrored receiver
     if π + f0dir - f1refl > 0
-        Δx, Δz = rec_loc[2] - src_loc[1]
+        Δx, Δz = rec_loc[2] .- src_loc[1]
         rd = √( Δx^2 + Δz^2 )
         po = ℯ^complex(0.0, waveno*rd) * qq( rd, Δz, waveno, dbs[1] ) / complex(rd, 0.0)
         pt += po
     end
 
-    Δx, Δz = rec_loc[1] - src_loc[1]
+    Δx, Δz = rec_loc[1] .- src_loc[1]
     rd = √( Δx^2 + Δz^2 )
     level = 4.34log( (rd * abs(pt))^2 )
 
@@ -830,7 +828,7 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     #   xs = [ point[1] for point in profile[ points[2][1]+1:ntemp ] ] 
     #   res = minmax( xs, 0.0, rec_h )[1]
     res = minmax( profile[ points[2][1]+1:ntemp ], 0.0, rec_h )[1]
-    points[3] = (points[2][1]-1, 0.0) + res
+    points[3] = (points[2][1]-1, 0.0) .+ res
 
     hillxz = [ profile[1] ]
     klocs = [1]
@@ -866,13 +864,13 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     end
 
     if hillxz[1][1] == hillxz[2][1]
-        dx, dy = hillxz[3] - hillxz[1]
-        hillxz[2] = hillxz[1] + 0.1(dx, dy)
+        dx, dy = hillxz[3] .- hillxz[1]
+        hillxz[2] = hillxz[1] .+ 0.1 .* (dx, dy)
     end
 
     if hillxz[4][1] == hillxz[5][1]
-        dx, dy = hillxz[5] - hillxz[3]
-        hillxz[4] = hillxz[3] + 0.1(dx, dy)
+        dx, dy = hillxz[5] .- hillxz[3]
+        hillxz[4] = hillxz[3] .+ 0.1 .* (dx, dy)
     end
 
  # ================================================= Profile and Supporting Stuff Established ============================================================
@@ -927,7 +925,7 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         # Set up the source and receiver locations, normal to the corresponding plateaus
         cosθ = 1.0
         sinθ = 0.0
-        Δx, Δz = hillxz[2] - hillxz[1]
+        Δx, Δz = hillxz[2] .- hillxz[1]
         if Δx > 0
             θ = atan(Δz, Δx)
             cosθ = cos(θ)
@@ -935,13 +933,13 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         end
 
         # Source location is hs above the start of the terrain cut
-        srcloc = [ hillxz[1] + (0, src_h) ]
+        srcloc = [ hillxz[1] .+ (0, src_h) ]
         # Reflect the original source image
-        push!( srcloc, srcloc[1] + 2*src_h*cosθ*(sinθ, -cosθ) )
+        push!( srcloc, srcloc[1] .+ (2*src_h*cosθ).*(sinθ, -cosθ) )
 
         cosθ = 1.0
         sinθ = 0.0
-        Δx, Δz = hillxz[5] - hillxz[4]
+        Δx, Δz = hillxz[5] .- hillxz[4]
         if Δx > 0
             θ = atan(Δz, Δx)
             cosθ = cos(θ)
@@ -949,9 +947,9 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
         end
 
         # Right over the end of the cut receiver
-        recloc = [ hillxz[5] + (0, rec_h) ]
+        recloc = [ hillxz[5] .+ (0, rec_h) ]
         # reflect the original receiver image
-        push!( recloc, recloc[1] + 2*rec_h*cosθ*(sinθ, -cosθ) )
+        push!( recloc, recloc[1] .+ (2*rec_h*cosθ).*(sinθ, -cosθ) )
 
         for j in 1:nfreq
             if ihard > 0
@@ -972,15 +970,15 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
   # ------------------------------------------------ Valley Model --------------------------------------------------- 
 
     if nmm == 3 && zz2 < zcrit
-        diff1 = profile[ klocs[2] ] - profile[ klocs[1] ]
-        diff2 = profile[ klocs[3] ] - profile[ klocs[2] ]
+        diff1 = profile[ klocs[2] ] .- profile[ klocs[1] ]
+        diff2 = profile[ klocs[3] ] .- profile[ klocs[2] ]
 
         α1 = atan( diff1[2], diff1[1] )
         α2 = atan( diff2[2], diff2[1] )
         α = α2 - α1 + π
-        # d0 = √( diff1[1]^2 + diff1[2]^2 )
-        # d1 = √( diff2[1]^2 + diff2[2]^2 )
-        d0, d1 = @. √sum( [diff1, diff2]^2 )
+        # d0, d1 = @. √sum( [diff1^2, diff2^2] )
+        d0 = @. √( diff1[1]^2 + diff1[2]^2 )
+        d1 = @. √( diff2[1]^2 + diff2[2]^2 )
 
         for j in 1:nfreq
             attenh = 0.0
@@ -1043,7 +1041,7 @@ function ground_loss( x0::Real, y0::Real, dB::Real, heights_dtm, impedences_dtm 
     r0, c0 = GeoArrays.indices(heights_dtm, [x0, y0])
     h0 = dtm[r0, c0][1]
     max_radius = ceil(10^(dB/20))
-    cell_num = ceil( Int64, max_radius/Δx )
+    cell_num = ceil(Int64, max_radius/Δx)
 
     row_begin = r0 - cell_num
     row_end = r0 + cell_num
@@ -1140,7 +1138,7 @@ dtm = GeoArrays.read(dtm_file)
 x1, y1 = GeoArrays.coords( dtm, [1,1] )
 xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
 # Dimensioni in metri di una cella
-Δx, Δy = (xn-x1, y1-yn) / size(dtm)[1:2]
+Δx, Δy = (xn-x1, y1-yn) ./ size(dtm)[1:2]
 dB = 110 - 32
 r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
 h0 = dtm[r0, c0][1]

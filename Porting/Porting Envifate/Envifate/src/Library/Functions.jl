@@ -25,34 +25,6 @@ export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extr
 
 
 
-#= Old version
-    Base.convert(::Type{Int64}, n::Float64) = round(Int64, n)
-    Base.:-( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] - y[1], x[2] - y[2] )
-    Base.:-( x::Vector{T}, y::Tuple{T, T} ) where {T <: Number} = length(x) == length(y) ? [ e1 - e2 for (e1, e2) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:-( x::Tuple{T, T}, y::Vector{T} ) where {T <: Number} = length(x) == length(y) ? Tuple( e1 - e2 for (e1, e2) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:+( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] + y[1], x[2] + y[2] )
-    Base.:*( x::Tuple{Number, Number}, y::Number ) = ( x[1] * y, x[2] * y )
-    Base.:*( x::Number, y::Tuple{Number, Number} ) = y * x
-    Base.:*( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] * y[1], y[1] * y[2] )
-    Base.:/( x::Tuple{Number, Number}, y::Number ) = ( x[1] / y, x[2] / y )
-    Base.:/( x::Number, y::Tuple{Number, Number} ) = y / x
-    Base.:/( x::Tuple{Number, Number}, y::Tuple{Number, Number} ) = ( x[1] / y[1], x[2] / y[2] )
-    Base.:^( x::Tuple{Number, Number}, y::Number ) = ( x[1]^y, x[2]^y )
-=#
-#= Non sono necessarie basta usare il broadcasting
-    Base.:+( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:+( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi+yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:-( x::Tuple{T1, T2}, y::Tuple{T1, T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:-( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:-( x::Vector{T1}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? [ xi-yi for (xi, yi) in zip(x, y) ] : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:*( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi*yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:*( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi*y for xi in x )
-    Base.:*( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = y * x
-    Base.:/( x::Tuple{Vararg{T1}}, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi/yi for (xi, yi) in zip(x,y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-    Base.:/( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi/y for xi in x )
-    Base.:/( x::T1, y::Tuple{Vararg{T2}} ) where {T1<:Number, T2<:Number} = Tuple( x/yi for yi in y )
-    Base.:^( x::Tuple{Vararg{T1}}, y::T2 ) where {T1<:Number, T2<:Number} = Tuple( xi^y for xi in x )
-=#
 """
 Convert a floating point number to integer by rounding it
 """
@@ -365,17 +337,7 @@ end
 
 
 end # module
-
-
-
-
-
-
-
-
-
-
-
+#=
 """ Main problems with raster data handling:
 - There seems to be no direct way to convert spatial measurements in degrees to meters.
 - There is no one package that seems to be complete, the two more promising for the sake of the project seems to be `ArchGDAL.jl` and `Rasters.jl`
@@ -403,6 +365,9 @@ end # module
     even read `Shapefiles` (however, it does support the use of shapefiles, read through the `Shapefile.jl` package, as input for
     some of its methods).
 """
+=#
+#= TESTING 
+
 
 import ArchGDAL as agd
 using Rasters
@@ -497,3 +462,5 @@ agd.write!(target_ds, data, 1)
 
 agd.setgeotransform!(target_ds, gtf)
 agd.setproj!(target_ds, rfs)
+
+=#

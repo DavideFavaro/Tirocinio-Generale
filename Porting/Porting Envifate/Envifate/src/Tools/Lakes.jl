@@ -1,37 +1,21 @@
 module Lakes
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 
 
-import ArchGDAL as agd
+using ArchGDAL
 using ArgParse
 using Dates
 using Sys
 
+
 include("../Library/Functions.jl")
 
+
 export run_lake
+
+
+
+const agd = ArchGDAL
 
 
 
@@ -53,25 +37,24 @@ mutable struct Lake
 end
 
 
-
 function calc_concentration!( l::Lake )
-#=
-    c1_1 = l.distance_x - ( l.velocity_x * l.time )
-    c1_2 = c1_1^2
-    c1_3 = c1_2 / ( 4 * l.fickian_x * l.time )
-  
-    c2_1 = l.distance_y - ( l.velocity_y * l.time )
-    c2_2 = c2_1^2
-    c2_3 = c2_2 / ( 4 * l.fickian_y * l.time )
-  
-    c3_2 = exp( -(c1_3 + c2_3) )
-    c3_1 = exp( -l.λk * l.time )
-  
-    c4 = c3_2 * c3_1
-  
-    c5 = l.ma / ( 4π * l.time * √(l.fickian_x * l.fickian_y) ) 
-    l.C = c4 * c5
-=#
+ #=
+     c1_1 = l.distance_x - ( l.velocity_x * l.time )
+     c1_2 = c1_1^2
+     c1_3 = c1_2 / ( 4 * l.fickian_x * l.time )
+   
+     c2_1 = l.distance_y - ( l.velocity_y * l.time )
+     c2_2 = c2_1^2
+     c2_3 = c2_2 / ( 4 * l.fickian_y * l.time )
+   
+     c3_2 = exp( -(c1_3 + c2_3) )
+     c3_1 = exp( -l.λk * l.time )
+   
+     c4 = c3_2 * c3_1
+   
+     c5 = l.ma / ( 4π * l.time * √(l.fickian_x * l.fickian_y) ) 
+     l.C = c4 * c5
+ =#
     c1, c2 = ( (l.distance_x, l.distance_y) - ( (l.velocity_x, l.velocity_y) * l.time ) )^2 / ( 4 * (l.fickian_x, l.fickian_y) * l.time )
     c3 = ℯ^( -(c1 + c2) - (l.λk * l.time) )
     c4 = l.concentration / ( 4π * l.time * √(l.fickian_x * l.fickian_y) )

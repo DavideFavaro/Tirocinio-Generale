@@ -430,12 +430,8 @@ end
 
 
 
-
-
-
-
-
-function run_light( dem, source, resolution::Integer, intenisty::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286, processing_memory::Integer=500, output_path::AbstractString=".\\light_intensity.tiff"  )
+function run_light( dem, source, resolution::Integer, intenisty::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286,
+                    output_path::AbstractString=".\\light_intensity.tiff"  )
 
  """ CONTROLLO SUL RASTER dem
     if not self.dem.isValid():
@@ -446,11 +442,14 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
         throw(DomainError(intenisty, "`intenisty` must be positive"))
     end
 
-    if agd.geomdim(source) != 0
+    src_layer = agd.getlayer(source, 0)
+    src_geoms = agd.getgeom.(collect(src_layer))
+
+    if any( geom -> agd.geomdim(geom) != 0, src_geoms )
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    refsys = agd.getspatialref(source)
+    refsys = agd.getspatialref(src_layer)
 
     if agd.importWKT(agd.getproj(dem)) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
@@ -533,8 +532,7 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
         # Compute the light intensity in said area of the dtm
         for row in row_begin:row_end
             for col in col_begin:col_end
-                cfr_viewshed = viewshed[row, col]
-                if cfr_viewshed == 1
+                if viewshed[row, col] == 1
                     x, y = toCoords(dtm, row, col)
                     dist = √( (y - y_source)^2 + (x - x_source)^2 )
                     new_intensity = intensity / dist
@@ -559,6 +557,7 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
 
 
 end
+
 
 
 end # module

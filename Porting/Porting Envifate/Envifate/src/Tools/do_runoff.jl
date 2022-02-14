@@ -452,12 +452,15 @@ const agd = ArchGDAL
 # DA "unique(ccs)" VENGONO 58 VALORI DIVERSI, AL POSTO DI 86 (un valore per ogni poligono più uno per il "-9999.0") QUINDI DEI POLIGONI VENGONO COPERTI DA ALTRI
 res_ids = tryparse.( Int64, split( read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\res_ids.txt", String), "\n", keepempty=false ) )
 #   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+#= IL SORTING VIENE EFFETUATO PRIMA DI SALVARE GLI ID
 features =  collect( agd.getlayer( agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp"), 0 ) )
 sort!(res_ids, lt=(x, y) -> isless( agd.geomarea.( agd.getgeom.(features[[x, y]]) )... ) )
-for (i, id) in enumerate(res_ids)
+=#
+for (i, id) in enumerate(resids)
     rasterize!( ccs, ccs_shp.geometry[id], fill=Float32(i), order=(X,Y) )
 end
 Rasters.write( "C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\sat_polys.tiff", ccs )
+Rasters.write( "D:\\Z_Tirocinio_Dati\\sat_polys.tiff", ccs )
 
 
 
@@ -525,106 +528,7 @@ wrg = weightedrastergraph(
 
 
 
-#=
-Problema:
-Rappresentare i poligoni del "ccs" in un modo che semplifichi la ricerca dato un punto del poligono che lo contiene.
- 
- Idea:
- Per questo tipo di problema si può utilizzare una struttura ad albero.
- Si può usare un kdtree contenente i centroidi dei poligoni del ccs, associando ad ongi nodo l'indice del poligono nel vettore ottenuto dallo shapefile, o, ancora meglio, il
- poligono stesso, insieme ai dati sul suo contenuto, in questo modo dovrebbe esere possibile, dato un punto di coordinate x e y, il centroide più vicino e quindi il poligono
- che lo contiene ed ogni altro valore associato.
- La struttura potrebbe essere salvata in un file a se stante, in modo da non doverne ripetere la creazione e non dovrebbe occupare spazio di troppo maggiore rispetto ai dati
- contenuti nello shapefile.
- Un alterativa sono gli R-tree, che fanno più o meno la stessa cosa, apperentemente sono meglio per gestire aree invece di punti.
- 
- 
- KDTrees e RTrees
-     https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a
- 
- Discourse a proposito di R-trees:
-     https://discourse.julialang.org/t/implementations-of-spatial-indices/7638
- 
- RegionTrees.jl pare faccia ciò che ci serve:
-     https://github.com/rdeits/RegionTrees.jl
- 
- Pacchetto per RTrees
-     https://github.com/alyst/SpatialIndexing.jl
- 
- Pacchetto in Julia pr KDTrees:
-     https://github.com/KristofferC/NearestNeighbors.jl
- 
- Potenzialmente esattamente quello che bisogna implementare:
-     https://pdfs.semanticscholar.org/7dc5/61b784d831aeb37247f3425cf449817ceb81.pdf
- 
- Implementazione di una cosa simile in R:
-     https://cran.r-project.org/web/packages/RapidPolygonLookup/vignettes/RapidPolygonLookup.pdf
- 
- Considerazioni su bilanciamento e ricorsione con kdtrees:
-     http://lin-ear-th-inking.blogspot.com/2021/10/query-kd-trees-100x-faster-with-this.html
- 
- 
- Gli alberi KD sembrano funzionare con punti e non poligoni ma possiamo utilizzare i centroidi dei poligoni, ottenere come risultato della ricerca un insieme di risultati e
-     trovare quello che effettivamente contiene il punto tramite funzioni come "inpolygon".
- Gli alberi R dividono lo spazio in aree rettangolari utilizzando dei bounding box, quindi sono meglio applicabili a dei poligoni, ma non sembrano essere generalmente binari,
-     il che può complicare la ricerca.
- 
- 
- NearestNeighbors.jl:
-     + Offre esattamente le operazioni richieste (ricerca dei "k" nodi più vicini ad un punto e ricerca dei nodi in un certo range).
-     + Permette di creare l'albero direttamente dai dati in modo automatico.
-     = I nodi contengono punti e non poligoni (si può ovviare usando i centroidi dei poligoni).
-     = Gli alberi non sembrano supportare le coordinate angolari come metriche(?) (si possono usare i file originali e non i WGS84).
-     - Non sembra possibile aggiungere ulteriori dati oltre ai punti.
-     - 0 documentazione.
-     
-     NON UTILIZZABILE:
-         Non è possibile ottenere i poligoni che contengono/sono più vicini ad un punto, perchè non supporta i poligoni, ne ritorna un'indice
-         che identifica necessariamente lo stesso elemento nei vettori di poligoni/valori e non può nemmeno contenere dati al di fuori dei punti.
- 
- 
- RegionalTrees.jl:
-     + Può aggiungere informazioni aggiuntive ai nodi oltre alle informazioni spaziali.
-     + Si possono salvare gli alberi creati con "JLD2.jl"
-     - Le chaivi e i loro nodi sono definite una ad una dall'utente, il che rende lungo e complicato creare un'albero
-         da dati preesistenti.
-     - Esiste la possibilità di passare i dati e una politica di divisione per creare l'albero, ma ancgìhein questo modo è troppo complicato.
-         (la politica dovrebbe far in modo di dividere solo se ci sono più poligoni in un'area o se un singolo poligono è in un'area molto più grande,
-         facendo attenzione a non dividere tagliando poligoni).
-     - 0 documentazione.
- 
-     NON UTILIZZABILIE:
-         Mettersi li a definire ogni nodo uno ad uno per 400k poligoni è fuori discussione.
-         In generale il pacchetto adotta un metodo top down per la suddivisione dell'area in aree più piccole e questo si adatta poco alla necessità di
-         rappresentare i poligoni.
- 
- 
- SpatialIndexing.jl:
-     + Può rappresentare poligoni attraverso il loro bounding box.
-     + Gli alberi creati si auto-bilanciano.
-     + Operazioni di inserimento  cancellazione sono efficienti.
-     + Nell'insert sembra possibile inserire un id, potrebbe essere quindi possibile utilizzare *1 e *2 (Vedi considerazioni su "LibSpatialIndex.jl") in caso di necessità.
-     + Sembra possibile inserire un valore nei nodi.
- 
- 
- 
- LibSpatialIndex.jl
-     + Supporta le operazioni che ci servono (le stesse di "NearestNeighbors.jl").
-     + Crea RTrees (che quindi possono rappresentare poligoni)
-     + Può creare RTrees vuoti con numero di figli massimi predefinito.
-     + Si può popolare l'albero utilizzando solo "insert!".
-    -= "insert!" richiede di specificare un'id per l'elemento inserito.
-    -= L'id può essere solo intero (si può usare come id il codice associato al tipo di terreno convertito in intero [1], in alternativa si può assegnare come
-         id l'indice del poligono all'interno del vettore di geometrie [2]).
-         N.B. Applicando *2 si rende necessario mantenere anche i vettori dei poligoni e dei valori associati (con 1 forse sarebbe possibile scartarli,
-         liberando quindi memoria)
-    -= "intersects" ritorna un vettore degli id che intersecano l'input, che può essere anche un punto (congiuntamente a quanto scritto sopra (*1), permette di
-         ottenere velocemente il tipo di terreno al punto specificato e o il tipo di terreno nei poligoni circostanti, usando invece la strategia *2, dovrebbe
-         risultare possibile ottenere lo stesso risultato).
-    -= "intersects" non permette di ottenere il poligono che soddisfa la condizione, ma solo il suo id, in particolare, se viene applicato
-         l'escamotage sopra riportato (*1), risulta molto difficile trovare il poligono risultante.
-         Se invece si applica *2, dovrebbe essere abbastanza veloce ottenere anche il poligono.
-=#
+
 
 
 
@@ -928,47 +832,8 @@ end
 
 
 
-#= BELLA L'IDEA MA NON FUNZIONA
-    function enqueue!( q::Vector, data, priority::Real ) where {T}
-    pos = searchsortedfirst( q, priority, lt=(x, y) -> y > x[2] )
-    insert!(q, pos, [data, priority])
-    end
-
-    """
-    distance( region::SpatialIndexing.Region, element::Union{SpatialIndexing.SpatialElem, SpatialIndexing.Node} )
-
-    Compute the distance between `region` and `element`.
-    Used by `kNearestNeighbor` function.
-    """
-
-    # Based on:
-    # http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.386.8193&rep=rep1&type=pdf
-    function NearestNeighbors( tree::SpatialIndexing.RTree, region::SpatialIndexing.Region, k::Int64 ) 
-    # Priority queue using distance as priority
-    queue = [[tree.root, 0.0]]
-    while !isempty(queue)
-        element = queue[1][1]
-        deleteat!(queue, 1)
-        if element isa SpatialIndexing.SpatialElem
-            if !isempty(queue) && distance(region, element) > queue[1][2]
-                enqueue!( queue, element, distance(region, element) )
-            else
-                return element, distance(region, element)
-            end
-        else # "element" is a "SpatialIndexing.Node" ("Branch" or "Leaf")
-            for child in element.children
-                enqueue!( queue, child, distance(region, child) )
-            end
-        end
-    end
-    end
-=#
-
-
-
-
-ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
-#   ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
+#   ccs_shp = agd.read("C:\\Users\\DAVIDE-FAVARO\\Desktop\\Dati\\ccs WGS84\\ccs.shp")
+ccs_shp = agd.read("D:\\Z_Tirocinio_Dati\\ccs WGS84\\ccs.shp")
 features =  collect(agd.getlayer(ccs_shp, 0))
 
 tree = nothing
@@ -1021,11 +886,11 @@ res4 = knn( tree, si.Point((xt4, yt4)), 3 )
 
 
 
-sat_shp = agd.read("D:\\Documents and Settings\\DAVIDE-FAVARO\\My Documents\\GitHub\\Tirocinio\\Mappe\\sat WGS84\\sette_sorelle.shp")
+sat_shp = agd.read(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\sat WGS84\\sette_sorelle.shp")
 sat = agd.getgeom(collect(agd.getlayer(sat_shp, 0))[1])
 res = findPolygon(tree, sat)
 # Get the result in decreasing order based on the surface of the polygon
-sort!(res, lt=(x, y) -> agd.geomarea(x.val.geometry) < agd.geomarea(y.val.geometry), rev=true )
+sort!( res, lt=(x, y) -> agd.geomarea(x.val.geometry) < agd.geomarea(y.val.geometry), rev=true )
 
 # Id di tutti i poligoni intersecati dal poligono "sette_sorelle" (ottenuti con QGIS)
 objectids = [

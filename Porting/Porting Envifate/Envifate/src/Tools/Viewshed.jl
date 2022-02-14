@@ -89,7 +89,7 @@ function generate_profiles( dtm::AbstractArray, x0::Real, y0::Real, points_numbe
     for α in [0, 90, 180, 270]
         for β in 0:89
             rn, cn = rotate_point(rn, c0, r0, c0, α+β)
-            values, indexes = DDA(dtm, r0, c0, rn, cn)
+            values, indexes = getprofile(dtm, r0, c0, rn, cn)
             push!(values_profiles, values)
             push!(indexes_profiles, indexes)
         end

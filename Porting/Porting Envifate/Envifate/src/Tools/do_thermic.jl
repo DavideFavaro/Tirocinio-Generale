@@ -197,11 +197,16 @@ module Thermic
 
 function run_thermic( dem::AbstractArray, source, river, source_temperature::Real, source_flow_rate::Real, river_temperature::Real, river_flow_rate::Real, output_path::AbstractString=".\\")
 
-    if agd.geomdim(source) != 0
+    src_geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
+
+    if agd.geomdim(src_geom) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    if agd.geomdim(river) != 1
+    river_layer = agd.getlayer(river, 0)
+
+ # IL CONTROLLO SULLA GEOMETRIA PUO' ESSERE FATTO SOLO SU FEATURES
+    if agd.geomdim(river_layer) != 1
         throw(DomainError(source, "`river` must be a line"))
     end
 

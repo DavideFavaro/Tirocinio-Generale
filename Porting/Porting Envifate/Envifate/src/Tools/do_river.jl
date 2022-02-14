@@ -1,32 +1,11 @@
 module Rivers
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
 
 
 import ArchGDAL as agd
 using ArgParse
 using Dates
+
 
 include("../Library/Functions.jl")
 
@@ -48,7 +27,9 @@ mutable struct River
   # element=river(args.concentration,args.time,args.distance,args.fickian,args.velocity)
   River( ma, t, x, dl, v, w, k ) = new(ma,t,x,dl,v,w,k)
 end
- 
+
+
+
 function calc_concentration!( r::River )   
   c1 = r.x - (r.v * r.t)
   c1_1 = -(c1^2)
@@ -64,15 +45,7 @@ function calc_concentration!( r::River )
 end
 
 #=
-    def help(self):         
-        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-        #QMessageBox.about(self.dlg,"Credits", self.credits ) 
-        if platform.uname()[0]=="Windows":
-            os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_dispersione_fluviale.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_dispersione_fluviale.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_dispersione_fluviale.pdf")
+   os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_dispersione_fluviale.pdf")
 =#
 
 
@@ -90,31 +63,34 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
         QMessageBox.warning(self,"Warning", u"Il DEM è mancante o non valido" )
         return False
  """
-    if agd.geomdim(source) != 0
+
+    src_geom = agd.getgeom(collect(agd.getlayer(source, 0))[1])
+
+    if agd.geomdim(geom) != 0
         throw(DomainError(source, "`source` must be a point"))
     end
 
-    layer = agd.getlayer(river, 0)
+   river_layer = agd.getlayer(river, 0)
 
- # NON SONO SICURO CHE IL CONTROLLO SIA EQUIVALENTE A: `self.river.wkbType()!=5`
-    if agd.geomdim(river) != 1
-        throw(DomainError(source, "`river` must be a line"))
-    end
+ # IL CONTROLLO SI PUO' FARE SOLO SULLE SINGOLE FEATURES
+   if agd.geomdim(river) != 1
+      throw(DomainError(source, "`river` must be a line"))
+   end
 
-    refsys = agd.getspatialref(source)
+   refsys = agd.getspatialref(geom)
 
-    if agd.getspatialref(layer) != refsys || agd.importWKT(agd.getproj(slope)) != refsys || agd.importWKT(agd.getproj(dem)) != refsys
-        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
-    end
+   if agd.getspatialref(river_layer) != refsys || agd.importWKT(agd.getproj(slope)) != refsys || agd.importWKT(agd.getproj(dem)) != refsys
+      throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+   end
 
-    if start_time >= end_time
-        throw(DomainError("`end_time` must be greater than `start_time`"))
-    end
+   if start_time >= end_time
+      throw(DomainError("`end_time` must be greater than `start_time`"))
+   end
 
 
  # messaggio+='ALGORITMO UTILIZZATO: Fickian Mixing Process (Hemond, Harold F., and Elizabeth J. Fechner. Chemical fate and transport in the environment. Elsevier, 2014.)\n\n'
 
-    start_sec, end_sec, int_sec = 60( time_start, time_end, time_interval )
+    start_sec, end_sec, int_sec = 60 .* ( time_start, time_end, time_interval )
     #calcolo ciclo intervallo temporale di analisi
     cicles = ( (end_time - start_time) / time_interval ) + 1
         
@@ -123,9 +99,6 @@ function run_river( dem, slope, river, source, start_time, end_time, time_interv
     #   geomfeature = feature.geometry()
     #   features = self.river.getFeatures()
     features = agd.getgeom.(collect(layer))
-
-    src_feature = collect(agd.getlayer(source))
-    src_geom = agd.getgeom(src_feature[1])
     x_source = agd.getx(src_geom, 0)
     y_source = agd.gety(src_geom, 0)
     r_source, c_source = toIndexes(dem, x_source, y_source)
