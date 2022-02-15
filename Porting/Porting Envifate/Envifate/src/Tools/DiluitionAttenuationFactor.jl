@@ -352,6 +352,7 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
         geotransform[[1, 4]] .+= (minR - 1, maxC - 1) .* geotransform[[2, 6]]
 
         #   data = [ isnothing( findfirst(p -> p == (r, c), points) ) ? noData : values[findfirst(p -> p == (r, c), points)] for r in minR:maxR, c in minC:maxC ]
+        noDataValue = -9999.f0
         data = fill(noDataValue, maxR-minR, maxC-minC)
         for r in minR:maxR, c in minC:maxC
             match = findfirst(p -> p == (r, c), points)
@@ -359,7 +360,7 @@ function leach( source, contaminants, concentrations, aquifer_depth, acquifer_fl
                 data[r-minR+1, c-minC+1] = values[match]
             end
         end
-        Functions.writeRaster(data, gtiff_driver, geotransform, resolution, refsys, noData, path, false)
+        Functions.writeRaster(data, gtiff_driver, geotransform, resolution, refsys, noDataValue, path, false)
     end
 
 

@@ -1,432 +1,198 @@
 module Lights
 
-# -*- coding: utf-8 -*-
-#=
-/***************************************************************************
- OpenRisk
-                                 A QGIS plugin
- Open Risk: Open source tool for environmental risk analysis
-                              -------------------
-        begin                : 2016-07-15
-        git sha              : $Format:%H$
-        copyright            : (C) 2016 by Francesco Geri
-        email                : fgeri@icloud.com
- ***************************************************************************/
 
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
-=#
-#=
-    def help(self):
-        #self.credits = u"Università della Tuscia\n Viterbo - Italy\nRaffaele Pelorosso, Federica Gobattoni\nDeveloper: Francesco Geri"
-        #QMessageBox.about(self.dlg,"Credits", self.credits )
-        if platform.uname()[0]=="Windows":
-            os.system("start "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_inquinamento_luminoso.pdf")
-        if platform.uname()[0]=="Linux":
-            os.system("xdg-open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_inquinamento_luminoso.pdf")
-        else:
-            os.system("open "+os.path.dirname(__file__)+"/../tutorial/manuale_envifate_inquinamento_luminoso.pdf")
-=#
 
 import ArchGDAL as agd
 
 include("..\\Library\\Functions.jl")
 
 
-#=
-def run_light(self):
 
-        self.text_line_intensity=str(self.tableWidget.item(3,0).text())
-        self.text_line_hsource=str(self.tableWidget.item(3,0).text())
-        self.text_line_htarget=str(self.tableWidget.item(4,0).text())
-        self.text_line_rarefraction=str(self.tableWidget.item(5,0).text())
-        self.text_line_memory=str(self.tableWidget.item(6,0).text())
-
-
-        self.text_vector = str(self.combo_source.currentText())
-        self.text_area = str(self.combo_bound.currentText())
-        self.text_dem = str(self.combo_dem.currentText())
-
-
-        self.res=int(self.spinRes.text())
-
-
-
-        if self.text_line_hsource!='':
-            try:
-                self.hsource=float(self.text_line_hsource)
-            except Exception as e:
-                QMessageBox.warning(self,"Warning", "Errore nell'altezza della sorgente" )
-                return
-        else:
-            self.hsource=0.00
-
-        if self.text_line_htarget!='':
-            try:
-                self.htarget=float(self.text_line_htarget)
-            except Exception as e:
-                QMessageBox.warning(self,"Warning", "Errore nell'altezza dell'osservatore" )
-                return
-        else:
-            self.htarget=1.75
-
-
-        if self.text_line_rarefraction!='':
-            try:
-                self.rarefraction=float(self.text_line_rarefraction)
-            except Exception as e:
-                QMessageBox.warning(self,"Warning", "Errore nel coefficiente di rarefrazione" )
-                return
-        else:
-            self.rarefraction=0.14286
-
-
-        if self.text_line_memory!='':
-            try:
-                self.memory=int(self.text_line_memory)
-            except Exception as e:
-                QMessageBox.warning(self,"Warning", "Errore nell'indicazione della memoria di processing" )
-                return
-        else:
-            self.memory=500
-
-
-        # wkbType: 1:point, 6:multipolygon, 2: Linestring
-
-        self.dem=self.listalayers[self.text_dem]
-
-        if not self.dem.isValid():
-            QMessageBox.warning(self,"Warning", "The dem file is not valid" )
-            return
-
-        self.source=self.listalayers[self.text_vector]
-
-        if self.source.wkbType()!=1:
-            QMessageBox.warning(self,"Warning", "The source file must have point geometry" )
-            return
-
-        self.areastudio=self.listalayers[self.text_area]
-
-
-        if self.areastudio.wkbType()!=6:
-            QMessageBox.warning(self,"Warning", "The boundaries file must have polygon geometry" )
-            return
-
-        self.path_output=self.line_output.text()
-        if self.path_output=="":
-            self.path_output=os.path.dirname(__file__)+"/light_intensity.tif"
-
-
-        if self.areastudio.crs().authid()!=self.source.crs().authid() or self.dem.crs().authid()!=self.source.crs().authid():
-            QMessageBox.warning(self,"Warning", "Errore: i sistemi di riferimento non sono uniformi. Impossibile continuare con l'analisi." )
-            return
-
-        self.refsys=self.source.crs().authid().split(':')[1]
-
-
-        #recupero dati database
-
-
-        messaggio="Inizio elaborazione analisi inquinamento luminoso\n"
-        messaggio+="---------------------------\n\n"
-        messaggio+="FILE DI INPUT:\n"
-        messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-        messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-        messaggio+="DTM: "+str(self.text_dem)+"\n\n"
-
-        messaggio+="VARIABILI:\n"
-        messaggio+="Altezza sorgente: "+str(self.text_line_hsource)+" m\n"
-        messaggio+="Altezza osservatore: "+str(self.text_line_htarget)+" m\n"
-        messaggio+="Coefficiente rarefrazione: "+str(self.rarefraction)+"\n"
-        messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-        messaggio+='ALGORITMO UTILIZZATO: decadimento dell\'onda luminosa in funzione della distanza; analisi di intervisibilità r.viewshed\n\n'
-        messaggio+="---------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-
-        self.label_status.setText("Preparazione dati")
-        self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-
-
-        path_layer=self.areastudio.dataProvider().dataSourceUri()
-        path=path_layer.split("|")
-        source_ds = ogr.Open(path[0])
-        area_layer = source_ds.GetLayer()
-        x_min=int(area_layer.GetExtent()[0])
-        y_min=int(area_layer.GetExtent()[2])
-        x_max=int(area_layer.GetExtent()[1])
-        y_max=int(area_layer.GetExtent()[3])
-
-        drivermem = gdal.GetDriverByName('MEM')
-        pixel_size = self.res
-        NoData_value = -9999
-
-        # Create the destination data source
-        x_res = (x_max - x_min) / pixel_size
-        y_res = (y_max - y_min) / pixel_size
-
-        target_ds = gdal.GetDriverByName('GTiff').Create(self.path_output, int(x_res), int(y_res), 1, gdal.GDT_Float32)
-        target_ds.SetGeoTransform((x_min, pixel_size, 0, y_max, 0, -pixel_size))
-        projectionfrom = target_ds.GetProjection()
-
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(int(self.refsys))
-        target_ds.SetProjection( srs.ExportToWkt() )
-
-        target_ds.SetMetadata({'credits':'Envifate - Francesco Geri, Oscar Cainelli, Paolo Zatelli, Gianluca Salogni, Marco Ciolli - DICAM Università degli Studi di Trento - Regione Veneto',
-                               'modulo':'Analisi inquinamento luminoso',
-                               'descrizione':'Simulazione di inquinamento luminoso da sorgente puntuale singola o multipla',
-                               'srs':self.source.crs().authid(),
-                               'data':datetime.datetime.now().strftime("%d-%m-%y")})
-        # geotransform = target_ds.GetGeoTransform()
-
-
-        band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(float(NoData_value))
-        band.Fill(NoData_value)
-        xsize = band.XSize
-        ysize = band.YSize
-
-
-        outData = np.array(band.ReadAsArray(0, 0, xsize,ysize).astype(np.float))
-
-
-        nfeature=0
-
-        features=self.source.getFeatures()
-
-        for feature in features:
-
-            geom = feature.geometry().asPoint()
-            x_source=geom[0]
-            y_source=geom[1]
-
-
-            idxlevel = self.source.fields().indexFromName('level')
-            intensity=feature.attributes()[idxlevel]
-
-            nfeature+=1
-
-            polygons = [feature for feature in self.areastudio.getFeatures()]
-
-            rows=ysize-1
-            cols=xsize-1
-
-            max_progress=rows*cols
-            self.progressBar.setMaximum(max_progress)
-            start_time = time.time()
-
-
-            self.label_status.setText("Processing data")
-            self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-            grass_area=str(x_min)+','+str(x_max)+','+str(y_min)+','+str(y_max)+' ['+str(self.areastudio.crs().authid())+']'
-            grass_coord=str(x_source)+','+str(y_source)+' ['+str(self.source.crs().authid())+']'
-
-            nameviewshed='viewshedanalysis'+str(nfeature)
-
-            params = { '-b' : True, '-c' : False, '-e' : False, '-r' : False, 'GRASS_RASTER_FORMAT_META' : '', 'GRASS_RASTER_FORMAT_OPT' : '',
-                       'GRASS_REGION_CELLSIZE_PARAMETER' : 0, 'GRASS_REGION_PARAMETER' :grass_area, 'coordinates' : grass_coord,
-                       'input' : self.dem.dataProvider().dataSourceUri(), 'max_distance' : -1, 'memory' : self.memory, 'observer_elevation' : self.hsource, 'output' : nameviewshed,
-                       'refraction_coeff' : self.rarefraction, 'target_elevation' : self.htarget }
-            viewshed_proc = processing.run('grass7:r.viewshed', params)
-            #viewshed=viewshed_proc['output']
-
-
-            #QgsProject.instance().mapLayersByName("memory:viewshed")[0]
-
-
-
-
-            #aggiungo per controllo la viewshed alla toc
-            iface.addRasterLayer(viewshed_proc['output'])
-
-            viewshed=QgsProject.instance().mapLayersByName(nameviewshed)[0]
-
-
-            index_progress=0
-            controllo=1
-            if controllo==1:
-
-                for row in range(rows):
-
-                    for col in range(cols):
-                        index_progress+=1
-                        self.progressBar.setValue(index_progress)
-                        x = col*pixel_size+x_min+(pixel_size/2)
-                        y = row*pixel_size+y_min+(pixel_size/2)
-
-
-                        punto_controllo = QgsPointXY(x,y)
-
-
-
-                        for pol in polygons:
-                            poly = pol.geometry()
-                            if poly.contains(punto_controllo):
-
-                                cfr_viewshed=viewshed.dataProvider().identify(QgsPointXY(x, y),QgsRaster.IdentifyFormatValue)
-
-
-                                if cfr_viewshed.results()[1]==1:
-                                    deltax=x-x_source
-                                    deltay=y-y_source
-                                    dist=math.sqrt(math.pow(deltay,2)+math.pow(deltax,2))
-
-
-                                    #new_intensity=(1/math.pow(dist,2))*intensity
-                                    new_intensity=(1/dist)*intensity
-
-
-                                    if nfeature==1:
-                                        if new_intensity>0:
-                                            outData[row,col]=new_intensity
-                                        else:
-                                            outData[row,col]=0
-                                    else:
-
-                                        if new_intensity>0:
-                                            outData[row,col]=outData[row,col]+new_intensity
-                                        else:
-                                            outData[row,col]=outData[row,col]
-
-                                else:
-                                    outData[row,col]=0
-
-
-
-            self.label_status.setText("Preparazione output")
-            self.label_status.setStyleSheet('color : #e8b445;font-weight:bold')
-
-            outData_raster=outData[::-1]
-            band.WriteArray(outData_raster)
-
-
-        band= None
-        target_ds = None
-
-
-
-        base_raster_name=os.path.basename(self.path_output)
-        raster_name=os.path.splitext(base_raster_name)[0]
-        self.iface.addRasterLayer(self.path_output, raster_name)
-
-
-        layer=None
-        for lyr in list(QgsProject.instance().mapLayers().values()):
-            if lyr.name() == raster_name:
-                layer = lyr
-
-
-        functions.applystyle(layer,'gr',0.5)
-
-
-        tempoanalisi=time.time() - start_time
-        tempostimato=time.strftime("%H:%M:%S", time.gmtime(tempoanalisi))
-        messaggio="---------------------------------\n"
-        messaggio+="Fine modellazione\n"
-        messaggio+="\nTempo di analisi: "+tempostimato+"\n"
-        messaggio+="---------------------------------\n\n"
-        self.console.appendPlainText(messaggio)
-
-        self.label_status.setText("In attesa di dati")
-        self.label_status.setStyleSheet('color : green; font-weight:bold')
-
-=#
-
-
-
-# === VIEWSHED TEST ===========================================================================================================================
-
-profile1 = [
-    (0,12),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,13),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
-profile2 = [
-    (0,500),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,9),
-    (125,11),
-    (150,15),
-    (175,14),
-    (200,23)
-]
-profile3 = [
-    (0,12),
-    (25,12),
-    (50,8),
-    (75,10),
-    (100,16),
-    (125,11),
-    (150,500),
-    (175,14),
-    (200,23)
-]
-profile = profile3
-
-visible = [ profile[1], profile[2] ]
-vali = abs( ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] ) )
-for i in 3:length(profile)
-    println("vali: $vali")
-    val = ( profile[i][2] - profile[i-1][2] ) / ( profile[i][1] - profile[i-1][1] )
-    print("$(profile[i]): $val")
-    if val >= abs(vali)
-        print("    PUSH")
-        push!( visible, profile[i] )
+function run_light( dem, source, resolution::Integer, intensity::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286;
+                    output_path::AbstractString=".\\light_intensity.tiff"  )
+ # *VERSIONE CON INTENSITA'/FONTI MULTIPLE
+ #= *
+    if any( i -> i < 0, intensity )
+        throw(DomainError(intenisty, "`intenisty` must be greater than 0."))
     end
-    println("\n")
-    vali = vali < 0 ? vali+val : vali-val
+ =#
+    if intensity < 0
+        throw(DomainError(intenisty, "`intenisty` must be greater than 0."))
+    end
+
+    src_layer = agd.getlayer(source, 0)
+ # * src_geoms = agd.getgeom.(collect(src_layer))
+    src_geom = agd.getgeom(collect(src_layer)[1])
+
+ #= *
+    if any( geom -> agd.geomdim(geom) != 0, src_geoms )
+        throw(DomainError(source, "`source` must be a point."))
+    end
+ =#
+    if agd.geomdim(src_geom) != 0
+        throw(DomainError(source, "`source` must be a point."))
+    end
+
+    refsys = agd.getspatialref(src_layer)
+
+    if agd.importWKT(agd.getproj(dem)) != refsys
+        throw(DomainError("The reference systems are not uniform. Aborting analysis."))
+    end
+
+ #= *
+    nfeature = 0
+    features = agd.getgeom.( agd.getlayer(source, 0) )
+    for feature in features
+        x_source = agd.getx(feature, 0)
+        y_source = agd.gety(feature, 0)
+        nfeature += 1
+        # The assumption is that the lightsource can only project in a downward emisphere (like a streetlight) and so all terrain that is higher than the source will
+        #   block the light for the terrain beyond.
+        vis_mat = Viewshed.viewshed( dem, x_source, y_source, source_height )
+    end
+ =#
+    x_source = agd.getx(src_geom, 0)
+    y_source = agd.gety(src_geom, 0)
+    # The assumption is that the lightsource can only project in a downward emisphere (like a streetlight) and so all terrain that is higher than the source will
+    #   block the light for the terrain beyond.
+    vis_mat = Viewshed.viewshed( dem, x_source, y_source, source_height )
+    rows, cols = size(vis_mat)
+    noDataValue = -9999.f0
+    data = fill(noDataValue, rows, cols)
+    @inbounds for r in 1:rows, c in 1:cols
+        if dem[r, c] != noDataValue
+            if !vis_mat[r, c]
+                data[r, c] = 0.f0
+            else
+                # I₂ = ( d₁^2 / d₂^2 ) * I₁
+                #  d₁ = 1.0 -> I₂ = I₁ * ( 1 / d₂^2 ) = I₁ / d₂^2
+                data[r, c] = intensity / Viewshed.distance( toCoords(dem, r, c), (x_source, y_source) )^2
+            end    
+        end
+    end
+    Functions.writeRaster( data, agd.getdriver("GTiff"), agd.getgeotransform(dem), resolution, refsys, noDataValue, output_path, false )
 end
-visible
-
-# ============================================================================================================================================
 
 
 
+end # module
 
-function veiwshed( profile::AbstractVector, result::Symbol=:visible )::AbstractVector
-    if result ∉ [:visible, :invisible]
-        throw(DomainError(result, "result must either be :visible or :invisible"))
-    end
-    if result == :visible
-        visible = [ profile[1], profile[2] ]
-        slope = ( profile[2][2] - profile[1][2] ) / ( profile[2][1] - profile[1][1] )
-        for i in 3:length(profile)
-            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
+
+
+
+# ------------------------------------------------------------------------------- TESTING ---------------------------------------------------------------------------------------------
+
+rotate_x( xp::Number, yp::Number, xc::Number, yc::Number, θ::Number )::Int64 = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
+rotate_y( xp::Number, yp::Number, xc::Number, yc::Number, θ::Number ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
+rotate_point( xp::Number, yp::Number, xc::Number, yc::Number, θ::Number ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
+distance( x0, y0, x1, y1 ) = √( ( x1 - x0 )^2 + ( y1 - y0 )^2 )
+distance( p0, p1 ) = √( ( p1[1] - p0[1] )^2 + ( p1[2] - p0[2] )^2 )
+
+function toCoords(dem, r, c)
+    return Tuple{Float64, Float64}(ga.coords(dem, [r, c]))
+end
+
+function toIndexes(dem, x, y)
+    return Tuple{Int64, Int64}(ga.indices(dem, [x, y]))
+end
+
+function viewshed( dtm, x0::Real, y0::Real, h0::Real )
+    # Source cell
+    r0, c0 = toIndexes(dtm, x0, y0)
+    # Final point of the right horizontal profile 
+    rm = size(dtm, 1)
+    # Total height of the source accounting for terrain
+    th0 = dtm[r0, c0][1] + h0
+    # Visibility matrix
+    vizmat = falses(size(dtm)...)
+    # The source is always visible
+    vizmat[r0, c0] = true
+    # Check the visibility along 360 lines radially expanding from the source at an angle of 1° between two adjacent.
+    for α in 1:89, β in [0, 90, 180, 270]
+        # Final point of the profile of the line with agle `α + β`
+        rn, cn = rotate_point( rm, c0, r0, c0, α + β )
+        Δr, Δc = (rn - r0, cn - c0)
+        # Values to add to row and column of a cell on the line to pass to another cell of the line
+        r_inc, c_inc = (Δr, Δc) ./ max( abs(Δr), abs(Δc) )
+        # Indexes of the first cell after the source cell
+        r1, c1 = round.(Int64, (r0, c0) .+ c_inc)
+        # The first cell after the source is always visible
+        vizmat[r1, c1] = true
+        # Slope between the source and the first cell
+        slope = ( dtm[r1, c1] - dtm[r0, c0] ) / distance( toCoords.(Ref(dtm), r1, c1), (0, 0) )
+        # Iterate over each cell of the profile on the line
+        for (r, c) in zip(r1:r_inc:rn, c1:c_inc:cn)
+            # Calculate the precise indexes of the cell
+            rint, cint = round.(Int64, [r, c])
+            # Skip cell already known to be visible
+            !vizmat[rint, cint] && continue
+            # Compute the slope of the new cell 
+            new_slope = (dtm[rint, cint] - dtm[r0, c0]) / distance( toCoords.(Ref(dtm), r1, c1), (0, 0) )
+            # If the new slope is greater than the original one the cell is visible
             if new_slope >= slope
-                push!( visible, profile[i] )
+                vizmat[rint, cint] = true
                 slope = new_slope
             end
+            # If the cell is higher than the source al cell beyond the current ne will be hidden
+            dtm[rint, cint][1] > th0 && break
         end
-        return visible
-    else
-        invisible = []
-        for i in 3:length(profile)
-            new_slope = ( profile[i][2] - profile[1][2] ) / ( profile[i][1] - profile[1][1] )
-            if new_slope < slope
-                push!( nonvisible, profile[i] )
-                slope = new_slope
-            end
-        end
-        return invisible
     end
+    return vizmat
 end
+
+function run_light( dem, source::Tuple{Float64, Float64}, resolution::Integer, intensity::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286;
+                    output_path::AbstractString=".\\light_intensity.tiff"  )
+    if intensity < 0
+        throw(DomainError(intenisty, "`intenisty` must be greater than 0."))
+    end
+
+    x_source, y_source = source
+    # The assumption is that the lightsource can only project in a downward emisphere (like a streetlight) and so all terrain that is higher than the source will
+    #   block the light for the terrain beyond.
+    vis_mat = viewshed( dem, x_source, y_source, source_height )
+    rows, cols = size(vis_mat)
+    noDataValue = -9999.f0
+    data = fill(noDataValue, rows, cols)
+    @inbounds for r in 1:rows, c in 1:cols
+        if dem[r, c] != noDataValue
+            if !vis_mat[r, c]
+                data[r, c] = 0.f0
+            else
+                # I₂ = ( d₁^2 / d₂^2 ) * I₁
+                #  d₁ = 1.0 -> I₂ = I₁ * ( 1 / d₂^2 ) = I₁ / d₂^2
+                data[r, c] = intensity / distance( toCoords(dem, r, c), (x_source, y_source) )^2
+            end
+        end
+    end
+    return data
+    #   Functions.writeRaster( data, agd.getdriver("GTiff"), agd.getgeotransform(dem), resolution, refsys, noDataValue, output_path, false )
+end
+
+
+
+using GeoArrays
+const ga = GeoArrays
+
+
+dtm = ga.read(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff")
+#   dtm = ga.read(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff")
+
+src = (726454.9302346368, 5.025993899219433e6)
+#   src = (11.930065824163105,45.425861311724816)
+
+
+run_light( dtm, src, 25, 15.0, 1.0, output_path="C:\\Users\\DAVIDE-FAVARO\\Desktop\\test_light.tiff" )
+
+
+
+
+
+
+
+
+
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -438,15 +204,15 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
         QMessageBox.warning(self,"Warning", "The dem file is not valid" )
         return
  """
-    if intensity < 0
-        throw(DomainError(intenisty, "`intenisty` must be positive"))
+    if any( i -> i < 0, intensity )
+        throw(DomainError(intenisty, "`intenisty` must be greater than 0."))
     end
 
     src_layer = agd.getlayer(source, 0)
     src_geoms = agd.getgeom.(collect(src_layer))
 
     if any( geom -> agd.geomdim(geom) != 0, src_geoms )
-        throw(DomainError(source, "`source` must be a point"))
+        throw(DomainError(source, "`source` must be a point."))
     end
 
     refsys = agd.getspatialref(src_layer)
@@ -454,25 +220,6 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
     if agd.importWKT(agd.getproj(dem)) != refsys
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
-
- """ PRINT DI COSE
-    #recupero dati database
-    messaggio="Inizio elaborazione analisi inquinamento luminoso\n"
-    messaggio+="---------------------------\n\n"
-    messaggio+="FILE DI INPUT:\n"
-    messaggio+="Vettoriale sorgente: "+str(self.text_vector)+"\n"
-    messaggio+="Vettoriale confine: "+str(self.text_area)+"\n"
-    messaggio+="DTM: "+str(self.text_dem)+"\n\n"
-
-    messaggio+="VARIABILI:\n"
-    messaggio+="Altezza sorgente: "+str(self.text_line_hsource)+" m\n"
-    messaggio+="Altezza osservatore: "+str(self.text_line_htarget)+" m\n"
-    messaggio+="Coefficiente rarefrazione: "+str(self.rarefraction)+"\n"
-    messaggio+="Risoluzione: "+str(self.res)+"\n\n"
-    messaggio+='ALGORITMO UTILIZZATO: decadimento dell\'onda luminosa in funzione della distanza; analisi di intervisibilità r.viewshed\n\n'
-    messaggio+="---------------------------\n\n"
-    self.console.appendPlainText(messaggio)
- """
 
     nfeature = 0
     features = agd.getgeom.( agd.getlayer(source, 0) )
@@ -489,11 +236,14 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
 
         #   start_time = time.time()
 
-
-        # BISOGNA TROVARE IL MODO DI CALCOLARE IL RANGE MASSIMO POSSIBILE DELLA LUCE
-        max_points = ?
-        profiles = Viewshed.generate_profiles( max_points, x_source, y_source )
+        # The assumption is that the lightsource can only project in a downward emisphere (like a streetlight) and so all terrain that is higher than the source will
+        #   block the light for the terrain beyond.
+        profiles = Viewshed.generate_profiles(dem, x_source, y_source, source_height)
         viewshed = Viewshed.viewshed(profiles)
+
+
+
+
 
      """ SERVE LA VIEWSHED COME RASTER CREDO """
         viewshed=QgsProject.instance().mapLayersByName(nameviewshed)[0]
@@ -557,27 +307,6 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
 
 
 end
-
-
-
-end # module
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

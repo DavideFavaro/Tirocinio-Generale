@@ -14,7 +14,7 @@ include("..\\Library\\Functions.jl")
 
 
 repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
-# Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)" 
+# Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)"
 rotate_x( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
 rotate_y( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
 rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
@@ -776,16 +776,16 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
-function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::AbstractVector, src_h::Real, rec_h::Real, nfreq::Int64, freqs::AbstractVector )
+function onCut( distances::Vector{T}, heights::Vector{T}, impdcs::Vector{T}, src_h::Real, rec_h::Real, nfreq::Int64, freqs::Vector{Int64} ) where {T <: Real}
 
     ihard = 0
     isoft = 0 
     flow_ress = [0.0, 0.0]
     atten = 0.0
-    attenuations = []
-    profile = []
-    flowpr = []
-    ignd = []
+    attenuations = Vector{Float64}()
+    profile = Vector{Tuple{Float64, Float64}}()
+    flowpr = Vector{Tuple{Float64, Float64}}()
+    ignd = Vector{Int64}()
 
 
  # ====================================================== Section to Process Profile =====================================================================
@@ -828,7 +828,7 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
     #   xs = [ point[1] for point in profile[ points[2][1]+1:ntemp ] ] 
     #   res = minmax( xs, 0.0, rec_h )[1]
     res = minmax( profile[ points[2][1]+1:ntemp ], 0.0, rec_h )[1]
-    points[3] = (points[2][1]-1, 0.0) .+ res
+    points[3] = ( points[2][1] - 1 + res[1], res[2] )
 
     hillxz = [ profile[1] ]
     klocs = [1]
@@ -908,8 +908,8 @@ function onCut( distances::AbstractVector, heights::AbstractVector, impdcs::Abst
 
   # ------------------------------------------------- Hill Model ---------------------------------------------------- 
     
-    zz2 = 0
-    zcrit = 0
+    zz2 = 0.0
+    zcrit = 0.0
     if nmm == 3
         # Total distance dist and distance to second point dsl
         dist = profile[ klocs[3] ][1] - profile[ klocs[1] ][1]
@@ -1011,14 +1011,14 @@ function DDA( map, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
     steps = max( abs(Δr), abs(Δc) )
     r_inc = Δr / steps
     c_inc = Δc / steps
-    r = r0
-    c = c0
-    heigths_profile = []
-    coords_profile = []
+    r = Float64(r0)
+    c = Float64(c0)
+    heigths_profile = Vector{Float64}()
+    coords_profile = Vector{Tuple{Float64, Float64}}()
     for i in 1:steps
         rint, cint = round.(Int64, [r, c])
         push!( heigths_profile, map[rint, cint][1] )
-        push!( coords_profile, Tuple(GeoArrays.coords( map, [rint, cint])) )
+        push!( coords_profile, Tuple{Float64, Float64}(GeoArrays.coords( map, [rint, cint])) )
         c += r_inc
         r += c_inc
     end
@@ -1130,9 +1130,11 @@ end
 
 # ========================================================== TESTING =========================================================================================================
 
-x0 = 710705.0
-y0 = 5065493.0
+#   x0, y0 = (710705.0, 5065493.0)
+x0, y0 = (726454.9302346368, 5.025993899219433e6)
+#   x0, y0 = (11.930065824163105,45.425861311724816)
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+#   dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 dtm = GeoArrays.read(dtm_file)
 # Coordinate dei punti
 x1, y1 = GeoArrays.coords( dtm, [1,1] )
@@ -1244,8 +1246,8 @@ current()
 =#
 
 
-
-mat = Array{Union{Missing, Real}}( missing, row_end - row_begin, col_end - col_begin )
+noData = -9999.f0
+mat = fill( noData, row_end - row_begin, col_end - col_begin )
 for point in endpoints
     for α in [0, 90, 180, 270]
         rm, cm = rotate_point( point[1], point[2], r0, c0, α )
@@ -1257,17 +1259,17 @@ for point in endpoints
         for j in 2:length(heights)
             atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )[end]
             r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
-            if ismissing(mat[r, c]) || atten > mat[r, c]
+            if mat[r, c] == noData || atten > mat[r, c]
                 mat[r, c] = atten
             end
         end
     end
 end
 
-cmat = deepcopy(mat)
-#   cmat = map( x -> x = ismissing(x) ? -100.0 : x, deepcopy(mat) )
+#   cmat = deepcopy(mat)
+cmat = map( x -> x = x == noData ? 0.0 : x, mat )
 cols, rows = size(cmat)
-heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
+heatmap( 1:cols, 1:rows, cmat, c=cgrad([:blue, :white, :yellow, :red]) )
 
 
 
