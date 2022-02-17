@@ -780,6 +780,8 @@ Return the `k` `SpatialIndexing.SpatialElem`s children of `node` that are closes
 """
 function knn( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
     agd_point = agd.createpoint(point.coord...)
+
+ # FORSE SI PUO' UNIRE TUTTA L'ESPRESSIONE E RITORNARLA DIRETTAMENTE, METTENDO LA PARTE DI INDEXING ALLA FINE DELL'ESPRESSIONE
     results = sort!(
         map(
             element -> (
@@ -804,6 +806,9 @@ Return the `k` `SpatialIndexing.SpatialElem`s of the subtree rooted in `node` th
 function knn( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N, V}
     # Children of `node` sorted by increasing distance from `point`
     #   candidates = sort!( map( child -> ( child, distance(child, point) ), node.children ), lt=isless2 )
+
+
+ # FORSE SI PUO' UNIRE TUTTA L'ESPRESSIONE E RITORNARLA DIRETTAMENTE, METTENDO LA PARTE DI INDEXING ALLA FINE DELL'ESPRESSIONE
     candidates = sort( node.children, lt=(x, y) -> distance(x, point) < distance(y, point) )
     results = sort!(
         reduce(
@@ -826,6 +831,62 @@ Return the `k` `SpatialIndexing.SpatialElem`s contained in `tree` that are close
 """
 function knn( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, k::Int64 ) where {T, N}
     return knn(tree.root, point, k)
+end
+
+
+
+
+
+
+function knn( node::SpatialIndexing.Leaf{T,N}, point::SpatialIndexing.Point{T,N} distance::Float64 ) where {T, N}
+    agd_point = agd.createpoint(point.coord...)
+    return filter!(
+        res -> res[2] <= distance,
+        sort!(
+            map(
+                element -> (
+                    element,
+                    agd.distance(
+                        agd.centroid(element.val.geometry),
+                        agd_point
+                    )
+                ),
+                node.children
+            ),
+            lt=(x, y) -> x[2] < y[2]
+        )
+    )
+end
+
+function knn( node::SpatialIndexing.Branch{T,N,V}, point::SpatialIndexing.Point{T,N}, distance::Float64 ) where {T, N, V}
+    # Children of `node` within `distance` from `point`, sorted by increasing distance from `point`.
+
+ # FORSE NON E' NECESARIO FILTRARE UN'ALTRA VOLTA
+    return filter!(
+        res -> res <= distance,
+        sort!(
+            reduce(
+                vcat,
+                knn.(
+                    filter!(
+                        child -> distance(child, point) <= distance,
+                        sort(
+                            node.children,
+                            lt=(x, y) -> distance(x, point) < distance(y, point)
+                        )
+                    ),
+                    Ref(point),
+                    distance
+                )
+            ),
+            lt=(x, y) -> x[2] < y[2]
+        )
+    )
+    return results
+end
+
+function knn( tree::SpatialIndexing.RTree{T,N}, point::SpatialIndexing.Point{T,N}, distance::Float64 ) where {T, N}
+    return knn(tree.root, point, distance)
 end
 
 
