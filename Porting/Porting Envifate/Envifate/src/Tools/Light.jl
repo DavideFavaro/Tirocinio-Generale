@@ -205,6 +205,8 @@ condition( x::Float64, xn::Float64, y::Float64, yn::Float64, θ::Int64 ) = θ ==
                                                                                   θ == 180 ? (x >= xn && y <= yn) :
                                                                                       θ == 270 ? (x <= xn && y <= yn) : throw(DomainError(β, "`β` must either be 0, 90, 180 or 270."))
 
+findNearest( dtm::Raster{Float32, 3}, x0::Float64, y0::Float64 ) = findmin( x -> abs(x - x0), dtm.dims[1].val )[2], findmin( y -> abs(y - y0), dtm.dims[2].val )[2]
+
 function viewshed( dtm::Raster{Float32, 3}, x0::Float64, y0::Float64, h0::Float32 )
     # Dimensions of the raster.
         # N.B. Y axis is in decreasing order.
@@ -214,7 +216,7 @@ function viewshed( dtm::Raster{Float32, 3}, x0::Float64, y0::Float64, h0::Float3
     ymin = dtm.dims[2][end]
     # Displacement from a cell to the next alogn the two axis.
     xstep = dtm.dims[1][2] - xmin
-    ystep = dtm.dims[2][2] - ymin
+    ystep = dtm.dims[2][2] - ymax
     # Total height of the source accounting for terrain.
     th0 = dtm[x0, y0] + h0
     # Visibility matrix.
@@ -226,11 +228,13 @@ function viewshed( dtm::Raster{Float32, 3}, x0::Float64, y0::Float64, h0::Float3
     for α in [0, 90, 180, 270], β in 0:89
         # Final point of the profile of the line with agle `α + β`.
         xn, yn = rotate_point(xmax, y0, x0, y0, α + β)
+ #=
         # Diplacement between the center and the final point along the two axis.
         Δx = xn - x0
         Δy = yn - y0
+ =#
         # Values to add to row and column of a cell on the line to pass to another cell of the line.
-        x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx), abs(Δy)) ) .* (xstep, ystep)
+        x_inc, y_inc = ( (xn - x0, yn - y0) ./ max(abs(xn - x0), abs(yn - y0)) ) .* (xstep, ystep)
         # Coordinates of the first cell after the source cell.
         x = x0 + x_inc
         y = y0 + y_inc
@@ -292,8 +296,145 @@ end
 
 
 
+x0, y0 = src
+xmin = dtmr.dims[1][1]
+xmax = dtmr.dims[1][end]
+ymax = dtmr.dims[2][1]
+ymin = dtmr.dims[2][end]
+xstep = dtmr.dims[1][2] - xmin
+ystep = dtmr.dims[2][2] - ymax
+th0 = dtmr[x0, y0] + 1.0f0
+
+# Punti profilo a 184°
+xn, yn = rotate_point(xmax, y0, x0, y0, 184)
+Δx = xn - x0
+Δy = yn - y0
+x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
+x = x0 + x_inc
+y = y0 + y_inc
+arr1 = [ (x, y) for (x, y) in zip(x0 + 2x_inc:x_inc:xn, y0 + 2y_inc:y_inc:yn) ]
+plot(arr1)
+
+# Punti profilo a 96°
+xn, yn = rotate_point(xmax, y0, x0, y0, 96)
+Δx = xn - x0
+Δy = yn - y0
+x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
+x = x0 + x_inc
+y = y0 + y_inc
+arr2 = [ (x, y) for (x, y) in zip(x0 + 2x_inc:x_inc:xn, y0 + 2y_inc:y_inc:yn) ]
+plot!(arr2)
+
+# Punti profilo a 48°
+xn, yn = rotate_point(xmax, y0, x0, y0, 48)
+Δx = xn - x0
+Δy = yn - y0
+x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
+x = x0 + x_inc
+y = y0 + y_inc
+arr3 = [ (x, y) for (x, y) in zip(x0 + 2x_inc:x_inc:xn, y0 + 2y_inc:y_inc:yn) ]
+plot(arr3)
+
+# Punti profilo a 290°
+xn, yn = rotate_point(xmax, y0, x0, y0, 290)
+Δx = xn - x0
+Δy = yn - y0
+x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
+x = x0 + x_inc
+y = y0 + y_inc
+arr4 = [ (x, y) for (x, y) in zip(x0 + 2x_inc:x_inc:xn, y0 + 2y_inc:y_inc:yn) ]
+plot!(arr4)
+
+# Forma dei profili
+plot([dtmr[xy...] for xy in arr1])
+# Slope (La moltiplicazione per 10000 serve a rendere comprensibile la curva)
+plot!([ (dtmr[arr1[i]...] - dtmr[x0, y0]) / distance(arr1[i], (x0, y0)) * 10000 for i in 2:length(arr1) ])
+
+plot([dtmr[xy...] for xy in arr2])
+plot([dtmr[xy...] for xy in arr3])
+plot([dtmr[xy...] for xy in arr4])
 
 
+
+
+
+plot(dtmr[4000:end, 6000:end])
+
+function viewshed( dtm::Raster{Float32, 3}, x0::Float64, y0::Float64, h0::Float32 )
+    # Dimensions of the raster.
+        # N.B. Y axis is in decreasing order.
+    xmin = dtm.dims[1][1]
+    xmax = dtm.dims[1][end]
+    ymax = dtm.dims[2][1]
+    ymin = dtm.dims[2][end]
+    # Displacement from a cell to the next alogn the two axis.
+    xstep = dtm.dims[1][2] - xmin
+    ystep = dtm.dims[2][2] - ymax
+    # Total height of the source accounting for terrain.
+    th0 = dtm[x0, y0] + h0
+    # Visibility matrix.
+    vizmat = Raster(zeros(Int64, size(dtm)...), dtm.dims, missingval=0)
+    # The source is always visible.
+    vizmat[x0, y0] = 1
+    # Check the visibility along 360 lines radially expanding from the source at an angle of 1° between two adjacent ones.
+        # Iterating over the four quadrants and then on the angles in each of them makes easier to check the coordinates.
+    for α in  1:89, β in [0, 90, 180, 270]
+        println("Θ = $(α + β)")
+        # Final point of the profile of the line with agle `α + β`.
+        xn, yn = rotate_point(xmax, y0, x0, y0, α + β)
+        # Diplacement between the center and the final point along the two axis.
+        Δx = xn - x0
+        Δy = yn - y0
+        # Values to add to row and column of a cell on the line to pass to another cell of the line.
+        x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
+        # Coordinates of the first cell after the source cell.
+        x = x0 + x_inc
+        y = y0 + y_inc
+        # The first cell after the source is always visible.
+        vizmat[x, y] = 1
+        # Slope between the source and the first cell.
+        slope = (dtm[x, y] - dtm[x0, y0]) / distance((x0, y0), (x, y))
+        # Iterate over each cell of the profile on the line.
+        for (y, x) in zip( (y0 + 2y_inc):y_inc:yn, (x0 + 2x_inc):x_inc:xn )
+            # If the coordinates are outside of the raster break.
+            ( x < xmin || x > xmax || y < ymin || y > ymax ) && break
+            # If the cell has already been visited and set visible and it doesn't hold a missing value continue to the next cell
+            ( vizmat[x, y] != 1 && dtm[x, y] == dtm.missingval ) && continue
+            # Compute the slope of the new cell.
+            new_slope = (dtm[x, y] - dtm[x0, y0]) / Float32(distance((x0, y0), (x, y)))
+            # If the new slope is greater than the original one the cell is visible.
+            if new_slope >= slope
+                vizmat[x, y] = 1
+                slope = new_slope
+            end
+            # If the cell is higher than the source, all cells beyond it will be hidden.
+            dtm[x, y] > th0 && break
+        end
+ #=
+        while xmin <= x <= xmax && ymin <= y <= ymax && condition(x, xn, y, yn, α)
+            # Skip cells already known to be visible.
+            vizmat[x, y] == 1 && continue
+            # Compute the slope of the new cell.
+            new_slope = (dtm[x, y] - dtm[x0, y0]) / distance((x0, y0), (x, y))
+            # If the new slope is greater than the original one the cell is visible.
+            if new_slope >= slope
+                vizmat[x, y] = 1
+                slope = new_slope
+            else
+                vizmat[x, y] = -1
+            end
+            # If the cell is higher than the source, all cells beyond it will be hidden.
+            dtm[x, y] > th0 && break
+            # Go to the following cell.
+            x += x_inc
+            y += y_inc
+        end
+ =#
+    end
+    return vizmat
+end
+
+# FUNZIONA ED E' RAGIONEVOLMENTE VELOCE MA NON SONO CERTO CHE IL RISULTATO SIA CORRETTO
 function run_light( dem::Raster{Float32, 3}, intensity::Float32, x0::Float64, y0::Float64, h0::Float32 )
     # Dimensions of the raster.
         # N.B. Y axis is in decreasing order.
@@ -303,40 +444,57 @@ function run_light( dem::Raster{Float32, 3}, intensity::Float32, x0::Float64, y0
     ymin = dem.dims[2][end]
     # Displacement from a cell to the next alogn the two axis.
     xstep = dem.dims[1][2] - xmin
-    ystep = dem.dims[2][2] - ymin
+    ystep = dem.dims[2][2] - ymax
     # Total height of the source accounting for terrain.
     th0 = dem[x0, y0] + h0
     # Light intensity matrix.
-    data = Raster(fill(dem.missingval, size(dem)...), dem.dims)
+    data = Raster(fill(dem.missingval, size(dem)...), dem.dims, missingval=dem.missingval )
     # The intensity of the light at the source is given
     data[x0, y0] = intensity
     # Check the visibility along 360 lines radially expanding from the source at an angle of 1° between two adjacent ones.
         # Iterating over the four quadrants and then on the angles in each of them makes easier to check the coordinates.
-    for α in [0, 90, 180, 270], β in 0:89
+    for α in 1:89, β in [0, 90, 180, 270]
         # Final point of the profile of the line with agle `α + β`.
         xn, yn = rotate_point(xmax, y0, x0, y0, α + β)
         # Diplacement between the center and the final point along the two axis.
         Δx = xn - x0
         Δy = yn - y0
         # Values to add to row and column of a cell on the line to pass to another cell of the line.
-        x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx), abs(Δy)) ) .* (xstep, ystep)
+        x_inc, y_inc = ( (Δx, Δy) ./ max(abs(Δx / xstep), abs(Δy / ystep)) )
         # Coordinates of the first cell after the source cell.
         x = x0 + x_inc
         y = y0 + y_inc
         # Distance between source and first cell of the profile
-        dist = distance((x, y), (0.0, 0.0))
+        dist = Float32(distance((x0, y0), (x, y)))
         # Slope between the source and the first cell.
         slope = (dem[x, y] - dem[x0, y0]) / dist
         # Value of light intensity at the cell of coordinates (`x`, `y`).
             # I₂ = I₁ * ( d₁^2 / d₂^2 )  ->  d₁ = 1.0  ->  I₂ = I₁ * ( 1 / d₂^2 ) = I₁ / d₂^2.
         data[x, y] = intensity / dist^2
-        # Go to the following cell in the "profile".
-        x += x_inc
-        y += y_inc
         # Iterate over each cell of the profile on the line.
+        for (y, x) in zip( (y0 + 2y_inc):y_inc:yn, (x0 + 2x_inc):x_inc:xn )
+            # If the coordinates are outside of the raster break.
+            ( x < xmin || x > xmax || y < ymin || y > ymax ) && break
+            # If the cell has already been visited and set visible and it doesn't hold a missing value continue to the next cell
+            ( ( data[x, y] != 0.0f0 && data[x, y] != dem.missingval ) || dem[x, y] == dem.missingval ) && continue
+            # Distance of the cell from the source.
+            dist = Float32(distance((x0, y0), (x, y)))
+            # Compute the slope of the new cell.
+            new_slope = (dem[x, y] - dem[x0, y0]) / dist
+            # If the new slope is greater than the original one the cell is visible.
+            if new_slope >= slope
+                data[x, y] = intensity / dist^2
+                slope = new_slope
+            else
+                data[x, y] = 0.0f0
+            end
+            # If the cell is higher than the source, all cells beyond it will be hidden.
+            dem[x, y] > th0 && break
+        end
+ #=
         while xmin <= x <= xmax && ymin <= y <= ymax && condition(x, xn, y, yn, α)
             # Skip cells already known to be visible.
-            ( ( data[x, y] != 0.f0 && data[x, y] != dem.missingval ) || dem[x, y] == dem.missingval ) && continue
+            ( ( data[x, y] != 0.0f0 && data[x, y] != dem.missingval ) || dem[x, y] == dem.missingval ) && continue
             # Distance of the cell from the source.
             dist = distance((x, y), (0.0, 0.0))
             # Compute the slope of the new cell.
@@ -354,6 +512,82 @@ function run_light( dem::Raster{Float32, 3}, intensity::Float32, x0::Float64, y0
             x += x_inc
             y += y_inc
         end
+ =#
+    end
+    return data
+end
+
+function run_light( dem::Raster{Float32, 3}, intensity::Float32, x0::Float64, y0::Float64, h0::Float32 )
+    rmax, cmax = size(dem)
+    r0, c0 = findNearest(dem, x0, y0)
+    # Total height of the source accounting for terrain.
+    th0 = dem[r0, c0] + h0
+    # Light intensity matrix.
+    data = Raster(fill(dem.missingval, rmax, cmax), dem.dims)
+    # The intensity of the light at the source is given
+    data[r0, c0] = intensity
+    # Check the visibility along 360 lines radially expanding from the source at an angle of 1° between two adjacent ones.
+        # Iterating over the four quadrants and then on the angles in each of them makes easier to check the coordinates.
+    for α in 0:89, β in [0, 90, 180, 270]
+        # Final point of the profile of the line with agle `α + β`.
+        rn, cn = rotate_point(rmax, c0, r0, c0, α + β)
+        # Diplacement between the center and the final point along the two axis.
+        Δr = rn - r0
+        Δc = cn - c0
+        # Values to add to row and column of a cell on the line to pass to another cell of the line.
+        r_inc, c_inc = ( (Δr, Δc) ./ max(abs(Δr), abs(Δc)) )
+        # Coordinates of the first cell after the source cell.
+        r = r0 + r_inc
+        c = c0 + c_inc
+        # Distance between source and first cell of the profile
+        dist = Float32(distance((r, c), (0.0, 0.0)))
+        # Slope between the source and the first cell.
+        slope = (dem[r, c] - dem[r0, c0]) / dist
+        # Value of light intensity at the cell of coordinates (`x`, `y`).
+            # I₂ = I₁ * ( d₁^2 / d₂^2 )  ->  d₁ = 1.0  ->  I₂ = I₁ * ( 1 / d₂^2 ) = I₁ / d₂^2.
+        data[r, c] = intensity / dist^2
+        # Iterate over each cell of the profile on the line.
+        for (r, c) in zip( (c0 + 2c_inc):c_inc:cn, (r0 + 2r_inc):r_inc:rn )
+            # If the coordinates are outside of the raster break.
+            ( r < rmin || r > rmax || c < cmin || c > cmax ) && break
+            # If the cell has already been visited and set visible and it doesn't hold a missing value continue to the nert cell
+            ( ( data[r, c] != 0.0f0 && data[r, c] != dem.missingval ) || dem[r, c] == dem.missingval ) && continue
+            # Distance of the cell from the source.
+            dist = Float32(distance((r, c), (0.0, 0.0)))
+            # Compute the slope of the new cell.
+            new_slope = (dem[r, c] - dem[r0, c0]) / dist
+            # If the new slope is greater than the original one the cell is visible.
+            if new_slope >= slope
+                data[r, c] = intensity / dist^2
+                slope = new_slope
+            else
+                data[r, c] = 0.0f0
+            end
+            # If the cell is higher than the source, all cells beyond it will be hidden.
+            dem[r, c] > th0 && break
+        end
+ #=
+        while xmin <= x <= xmax && ymin <= y <= ymax && condition(x, xn, y, yn, α)
+            # Skip cells already known to be visible.
+            ( ( data[x, y] != 0.0f0 && data[x, y] != dem.missingval ) || dem[x, y] == dem.missingval ) && continue
+            # Distance of the cell from the source.
+            dist = distance((x, y), (0.0, 0.0))
+            # Compute the slope of the new cell.
+            new_slope = (dem[x, y] - dem[x0, y0]) / dist
+            # If the new slope is greater than the original one the cell is visible.
+            if new_slope >= slope
+                data[x, y] = intensity / dist^2
+                slope = new_slope
+            else
+                data[x, y] = 0.0f0
+            end
+            # If the cell is higher than the source, all cells beyond it will be hidden.
+            dem[x, y] > th0 && break
+            # Go to the following cell.
+            x += x_inc
+            y += y_inc
+        end
+ =#
     end
     return data
 end
@@ -369,10 +603,10 @@ end
 
 
 
-
-
 using Plots
+using ProfileView
 using Rasters
+using Revise
 dtmr = Raster(split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff")
 src = (726454.9302346368, 5.025993899219433e6)
 
@@ -385,6 +619,8 @@ src = (726454.9302346368, 5.025993899219433e6)
 @code_warntype run_light(dtmr, src, 25, 15.0, 1.0f0, output_path="C:\\Users\\DAVIDE-FAVARO\\Desktop\\test_light.tiff")
 intmat = run_light(dtmr, src, 25, 15.0, 1.0f0, output_path="C:\\Users\\DAVIDE-FAVARO\\Desktop\\test_light.tiff")
 
+ProfileView.@profview viewshed(dtmr, src[1], src[2], 1.0f0)
+ProfileView.@profview run_light(dtmr, 15.0f0, src[1], src[2], 0.0f0)
 
 
 
