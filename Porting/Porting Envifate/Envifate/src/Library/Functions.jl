@@ -268,20 +268,23 @@ allowing to keep track of the changes.
 The function calls to method `compute_result!` of which exists a version specific for each module that employs `expand!`.
 """
 function expand!( condition::Function, positions::AbstractVector, results::AbstractVector, dtm::AbstractArray, indx_x::Integer, indx_y::Integer, object )
+    if indx_x < 1 || indx_x > size(dtm, 1) || indx_y < 1 || indx_y > size(dtm, 1)
+        return nothing
+    end
     if (indx_x, indx_y) in positions
         xs = [ indx_x, indx_x-1, indx_x ]
         ys = [ indx_y+1, indx_y, indx_y-1 ]
-        expand!( condition, positions, concentrations, dtm, indx_x+1, indx_y, object )
-        expand!.( condition, Ref(positions), Ref(concentrations), Ref(dtm), xs, ys, deepcopy(object) )
+        expand!( condition, positions, results, dtm, indx_x+1, indx_y, object )
+        expand!.( condition, Ref(positions), Ref(results), Ref(dtm), xs, ys, deepcopy(object) )
         return nothing
     else
-        result = compute_result!(dtm, positions[1]..., ind_x, ind_y, object)
+        result = compute_result!(dtm, positions[1]..., indx_x, indx_y, object)
         if condition(result)
             push!( positions, (ind_x, ind_y) )
             push!( results, result )
             xs = [ indx_x, indx_x-1, indx_x ]
             ys = [ indx_y+1, indx_y, indx_y-1 ]
-            expand!( condition, positions, concentrations, dtm, indx_x+1, indx_y, object )
+            expand!( condition, positions, results, dtm, indx_x+1, indx_y, object )
             expand!.( condition, Ref(positions), Ref(results), Ref(dtm), xs, ys, deppcopy(object) )
         end
         return nothing

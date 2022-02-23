@@ -633,16 +633,40 @@ ProfileView.@profview run_light(dtmr, 15.0f0, src[1], src[2], 0.0f0)
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+#=
+    ENV["PYTHON"] = raw"C:\Users\DAVIDE-FAVARO\.julia\conda\3\python.exe"
+    using Pkg
+    Pkg.build("PyCall")
+    using PyCall
+    import PyCall.Conda as cnd
+
+    pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library")
+    pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
+=#
+
+using PyCall
+# Serve per indicare a Python dove trovare i moduli aggiuntivi scaricati con Conda (in questo caso "qgis")
+pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library\\python")
+#= ESEMPI DI USO DI Qgis DA Python
+https://gis.stackexchange.com/questions/129513/accessing-processing-with-python
+https://gis.stackexchange.com/questions/279874/using-qgis-3-processing-algorithms-from-pyqgis-standalone-scripts-outside-of-gu
+=#
+py"""
+import qgis
+from qgis import processing
+from qgis.core import *
+
+viewshed_proc = processing.run()
+"""
 
 
-function run_light( dem, source, resolution::Integer, intenisty::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286,
+
+
+
+
+function run_light( dem::AbstractString, source, resolution::Integer, intenisty::Real, source_height::Real=0.0, observer_height::Real=1.75, rarefraction::Real=0.14286,
                     output_path::AbstractString=".\\light_intensity.tiff"  )
 
- """ CONTROLLO SUL RASTER dem
-    if not self.dem.isValid():
-        QMessageBox.warning(self,"Warning", "The dem file is not valid" )
-        return
- """
     if any( i -> i < 0, intensity )
         throw(DomainError(intenisty, "`intenisty` must be greater than 0."))
     end
@@ -660,34 +684,72 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
         throw(DomainError("The reference systems are not uniform. Aborting analysis."))
     end
 
-    nfeature = 0
+    rows, cols = size(dem)
+
     features = agd.getgeom.( agd.getlayer(source, 0) )
+    data = fill(0.0f0, rows, cols)
     for feature in features
         x_source = agd.getx(feature, 0)
         y_source = agd.gety(feature, 0)
+        
+ # L'IDEALE SAREBBE AVERE GLI IMPORT E I VARI SETUP (CHE AL MOMENTO MANCANO) FUORI DAL CICLO (MANTENEDOLO UN CICLO DI JULIA) E FARE SOLO I CALCOLI ALL'INTERNO
+        py"""
+        import qgis
+        from qgis import processing
+        from qgis.core import *
+
+        viewshed = processing.run(
+            "grass7:r.viewshed",
+            {
+                "-c" : false, # Account for earth curvature
+                "-r" : false, # Consider atmospheric rarefraction
+                "-b" : true,  # Return boolean map ( invisible = 0/false, visible = 1/true )
+                "-e" : false, # Assign (non boolean) values to the result ( invisible = NULL, visible = current elevation - viewpoint elevation )
+                "input" : dem,
+                "output" : output_path,
+         # AL POSOTO DI "4326" BISOGNEREBBE METTERE UN COMANDO PER OTTENERE IL CODICE DEL SISTEMA DI RIFERIMENTO UTILIZZATO MA NON TROVO UN COMANDO COSI' IN ArchGDAL 
+                "coordinates" : string(x_source)*","*string(y_source)*"[4326]",
+                "observer_elevation" : source_height,
+                "target_elevation" : observer_height,
+                "max_distance" : -1, # -1 reppresents infinity as maximum possible distance
+                "refraction_coeff" : rarefraction,
+                #   "memory" : memory,
+                "GRASS_RASTER_FORMAT_META" : "",
+                "GRASS_RASTER_FORMAT_OPT" : "",
+                "GRASS_REGION_CELLSIZE_PARAMETER" : 0,
+                #   "GRASS_REGION_PARAMETER" :grass_area,
+            }
+        )
+        """
+
+ # RIGHE E COLONNE DELL MATRICE  viewshed DOVREBBERO ESSERE LE STESSE DEL DEM, QUINDI ANCHE COORDINATE MINIME E MASSIME.
+
+        # Matrix of results
+        for row in 1:rows, col in 1:cols
+            # Coordinates of the point
+            x = (col * resolution) + x_min + (resolution / 2)
+            y = (row * resolution) + y_min + (resolution / 2)
+            # If a point is visible from the source compute the intensity of light at that point.
+            if viewshed[row, col] == true
+                # "data" contains all zeroes after intialization, so instead of making a case to set its values if it's the first
+                #   feature we simply add the maximum between the intensity and 0.
+                data[row, col] += max( # Maximum between the new intensity and 0
+                    intensity / ( # Diatance^2
+                            √( # Distance (x, y) of form (x_source, y_source)
+                                (y - y_source)^2 +
+                                (x - x_source)^2
+                            )
+                        )^2,
+                    0
+                )
+            end
+        end
+    end
+    Functions.writeRaster(data, agd.getdriver("GTiff"), geotransform, resolution, refsys, noData, output_path, false)
 
 
-     # LA/E INTENSITA' LA/E INSERIAMO COME PARAMETRO (SINGOLO VALORE/ARRAY)
-        #   idxlevel = self.source.fields().indexFromName('level')
-        #   intensity=feature.attributes()[idxlevel]
 
-        nfeature += 1
-
-        #   start_time = time.time()
-
-        # The assumption is that the lightsource can only project in a downward emisphere (like a streetlight) and so all terrain that is higher than the source will
-        #   block the light for the terrain beyond.
-        profiles = Viewshed.generate_profiles(dem, x_source, y_source, source_height)
-        viewshed = Viewshed.viewshed(profiles)
-
-
-
-
-
-     """ SERVE LA VIEWSHED COME RASTER CREDO """
-        viewshed=QgsProject.instance().mapLayersByName(nameviewshed)[0]
-     """                                     """
-
+ #=
      # QUESTO O QUALCHE ALTRO MODO PER OTTENERE I LIMITI DEL RASTER VIEWSHED
         # Define the area of the `dtm` that coincides with the area of the `viewshed`
         minX, maxY, maxX, maxY = getSidesDistances()
@@ -741,7 +803,7 @@ function run_light( dem, source, resolution::Integer, intenisty::Real, source_he
 
 
     # MANCA SCRIVERE IL RASTER
-
+ =#
 
 
 
