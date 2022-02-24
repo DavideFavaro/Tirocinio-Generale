@@ -643,22 +643,68 @@ ProfileView.@profview run_light(dtmr, 15.0f0, src[1], src[2], 0.0f0)
     pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library")
     pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
 =#
-
 using PyCall
 # Serve per indicare a Python dove trovare i moduli aggiuntivi scaricati con Conda (in questo caso "qgis")
-pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library\\python")
+#   pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library\\python")
+pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\Lenovo\\.julia\\conda\\3\\Library\\python")
 #= ESEMPI DI USO DI Qgis DA Python
 https://gis.stackexchange.com/questions/129513/accessing-processing-with-python
 https://gis.stackexchange.com/questions/279874/using-qgis-3-processing-algorithms-from-pyqgis-standalone-scripts-outside-of-gu
 =#
+
+dtm = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+output_path = "D:\\Z_Tirocinio_Dati\\test_viewshed.tiff"
+x_source, y_source = (11.930065824163105,45.425861311724816)
+coords = string(x_source)*","*string(y_source)*"[4326]"
+source_height = 1.0
+observer_height = 1.75
+rarefraction = 0.14286
+
 py"""
 import qgis
-from qgis import processing
 from qgis.core import *
 
-viewshed_proc = processing.run()
-"""
+# QGIS installation path
+QgsApplication.setPrefixPath("C:\\Program Files\\QGIS 3.16.16\\bin\\qgis-ltr-bin.exe", True)
+# Reference the application without using a GUI
+qgs = QgsApplication([], False)
+# Load providers
+qgs.initQgis()
 
+import processing
+from porcessing.core.Processing import Processing
+Processing.initialize()
+
+dem = QgsRasterLayer(dtm, "dem")
+
+viewshed = processing.run(
+    "grass7:r.viewshed",
+    {
+        "-c" : True, # Account for earth curvature
+        "-r" : False, # Consider atmospheric rarefraction
+        "-b" : True,  # Return boolean map ( invisible = 0/false, visible = 1/true )
+        "-e" : False, # Assign (non boolean) values to the result ( invisible = NULL, visible = current elevation - viewpoint elevation )
+        "input" : dem,
+        "output" : output_path,
+ # AL POSOTO DI "4326" BISOGNEREBBE METTERE UN COMANDO PER OTTENERE IL CODICE DEL SISTEMA DI RIFERIMENTO UTILIZZATO MA NON TROVO UN COMANDO COSI' IN ArchGDAL 
+        "coordinates" : coords,
+        "observer_elevation" : source_height,
+        "target_elevation" : observer_height,
+        "max_distance" : -1, # -1 reppresents infinity as maximum possible distance
+        "refraction_coeff" : rarefraction,
+        #   "memory" : memory,
+        "GRASS_RASTER_FORMAT_META" : "",
+        "GRASS_RASTER_FORMAT_OPT" : "",
+        "GRASS_REGION_CELLSIZE_PARAMETER" : 0,
+        #   "GRASS_REGION_PARAMETER" :grass_area,
+    }
+)
+
+viewshed
+
+# Remove providers and free memory
+qgs.exitQgis()
+"""
 
 
 
@@ -695,8 +741,15 @@ function run_light( dem::AbstractString, source, resolution::Integer, intenisty:
  # L'IDEALE SAREBBE AVERE GLI IMPORT E I VARI SETUP (CHE AL MOMENTO MANCANO) FUORI DAL CICLO (MANTENEDOLO UN CICLO DI JULIA) E FARE SOLO I CALCOLI ALL'INTERNO
         py"""
         import qgis
-        from qgis import processing
-        from qgis.core import *
+        from qgis.core import QgsApplication, QgsProcessingFeedback, QgsVectorLayer
+
+        QgsApplication.setPrefixPath('C:\\Program Files\\QGIS 3.16.16\\bin', True)
+        qgs = QgsApplication([], False)
+        qgs.initQgis()
+
+        import processing
+        from porcessing.core.Processing import Processing
+        Processing.initialize()
 
         viewshed = processing.run(
             "grass7:r.viewshed",
@@ -720,6 +773,7 @@ function run_light( dem::AbstractString, source, resolution::Integer, intenisty:
                 #   "GRASS_REGION_PARAMETER" :grass_area,
             }
         )
+        qgs.exitQgis()
         """
 
  # RIGHE E COLONNE DELL MATRICE  viewshed DOVREBBERO ESSERE LE STESSE DEL DEM, QUINDI ANCHE COORDINATE MINIME E MASSIME.
