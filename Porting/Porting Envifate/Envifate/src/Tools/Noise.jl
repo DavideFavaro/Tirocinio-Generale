@@ -13,11 +13,13 @@ using Shapefile
 include("..\\Library\\Functions.jl")
 
 
+
 repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
 # Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)"
 rotate_x( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)cos(deg2rad(θ)) - (yp - yc)sin(deg2rad(θ)) + xc )
 rotate_y( xp, yp, xc, yc, θ ) = round( Int64, (xp - xc)sin(deg2rad(θ)) + (yp - yc)cos(deg2rad(θ)) + yc )
 rotate_point( xp, yp, xc, yc, θ ) = θ == 0 ? (xp, yp) : ( rotate_x( xp, yp, xc, yc, θ ), rotate_y( xp, yp, xc, yc, θ ) )
+distance( p0::Tuple{Float64, Float64}, pn::Tuple{Float64, Float64} ) =  √( sum( v -> v^2, pn .- p0 ) )
 
 
 
@@ -343,9 +345,6 @@ function egal( d1::Real, d2::Real, src_h::Real, rec_h::Real, src_flow_res::Real,
     return (levturb, lnot)
 end
 
-
-
-
 #= VERSIONE CON IL CALCOLO DELLE ATTENUAZIONI PARZIALI (FORSE)
 function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Real, rec_h::Real, soft_atten::Real, hard_atten::Real )::Real
     drefl = src_h * dists[end] / (src_h + rec_h)
@@ -414,9 +413,6 @@ function varysurf( dists::AbstractVector, ground_type::AbstractVector, src_h::Re
 
     return sum / denom
 end
-
-
-
 
 function fres( y::Real )::Complex
     c = 0.797885
@@ -776,7 +772,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
-function onCut( distances::Vector{T}, heights::Vector{T}, impdcs::Vector{T}, src_h::Real, rec_h::Real, nfreq::Int64, freqs::Vector{Int64} ) where {T <: Real}
+function onCut( distances::SubArray{T}, heights::SubArray{T}, impdcs::Vector{T}, src_h::AbstractFloat, rec_h::AbstractFloat, nfreq::Int64, freqs::Vector{Int64} ) where {T <: Real}
 
     ihard = 0
     isoft = 0 
@@ -1005,7 +1001,7 @@ end
 """
 Digital Differential Analyzer, for line rasterization
 """
-function DDA( map, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
+function DDA( map::GeoArrays.GeoArray, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
     Δr = rn - r0
     Δc = cn - c0
     steps = max( abs(Δr), abs(Δc) )
@@ -1019,38 +1015,47 @@ function DDA( map, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
         rint, cint = round.(Int64, [r, c])
         push!( heigths_profile, map[rint, cint][1] )
         push!( coords_profile, Tuple{Float64, Float64}(GeoArrays.coords( map, [rint, cint])) )
-        c += r_inc
-        r += c_inc
+        r += r_inc
+        c += c_inc
     end
     return heigths_profile, coords_profile
 end
 
+#=
+function DDA( map::Rasters.Raster{Float32, 3}, x0::Float64, y0::Float64, xn::Float64, yn::Float64, dim_x::Float64, dim_y::Float64 )
+    Δx = xn - x0
+    Δy = yn - y0
+    steps = max( abs(Δx), abs(Δy) )
+    x_inc = Δx / steps * dim_x
+    y_inc = Δy / steps * dim_y
+    heigths_profile = Vector{Float64}()
+    coords_profile = Vector{Tuple{Float64, Float64}}()
+    for i in 0.0:max(abs(x_inc), abs(y_inc)):steps
+        push!(heigths_profile, map[x0, y0])
+        push!(coords_profile, (x0, y0))
+        x0 += x_inc
+        y0 += y_inc
+    end
+    return heigths_profile, coords_profile
+end
+=#
 
-
-
-
-
-
-function ground_loss( x0::Real, y0::Real, dB::Real, heights_dtm, impedences_dtm )
- # BISOGNA DECIDERE SE LEGGERE IL DTM O PASSARLO COME PARAMETRO
-    x1, y1 = GeoArrays.coords( heights_dtm, [1,1] )
-    xn, yn = GeoArrays.coords( heights_dtm, size(heights_dtm)[1:2] )
-    # Real size of a cell
-    Δx, Δy = (xn-x1, y1-yn) / size(heights_dtm)[1:2]
-    dB -= 32
-    r0, c0 = GeoArrays.indices(heights_dtm, [x0, y0])
+function ground_loss( dtm::GeoArrays.GeoArray, x0::Float64, y0::Float64, frequency::Float64 )
+    dB = frequency - 32
+    # Dimensioni in metri di una cella
+    Δx, Δy = ( GeoArrays.coords( dtm, size(dtm)[1:2] ) .- GeoArrays.coords( dtm, [1,1] ) ) ./ size(dtm)[1:2]
+    r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
     h0 = dtm[r0, c0][1]
     max_radius = ceil(10^(dB/20))
-    cell_num = ceil(Int64, max_radius/Δx)
-
+    cell_num = ceil( Int64, max_radius/max(Δx, Δy) )
     row_begin = r0 - cell_num
     row_end = r0 + cell_num
     col_begin = c0 - cell_num
     col_end = c0 + cell_num
 
-    # Array holding all the profiles containing heights of points
+    # Trivial profiles
+    # Profile containing the heights
     heights_profiles = [
-        # Trivial profiles
         dtm[ r0, c0:-1:col_begin ], # x axis first half
         dtm[ r0, c0:col_end ], # x axis second half
         dtm[ r0:-1:row_begin, c0 ], # y axis first half
@@ -1060,58 +1065,65 @@ function ground_loss( x0::Real, y0::Real, dB::Real, heights_dtm, impedences_dtm 
         [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal first half
         [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal second half
     ]
-    # Array holding the profiles containing coordinates of points
+    # Profile containing the positions
     coords_profiles = [
-        # Trivial profiles (in the same order as in heigths_profiles)
-        [ GeoArrays.coords(heights_dtm, [r0, col]) for col in c0:-1:col_begin ],
-        [ GeoArrays.coords(heights_dtm, [r0, col]) for col in c0:col_end ],
-        [ GeoArrays.coords(heights_dtm, [row, c0]) for row in r0:-1:row_begin ],
-        [ GeoArrays.coords(heights_dtm, [row, c0]) for row in r0:row_end ],
-        [ GeoArrays.coords(heights_dtm, [r0+i, c0-i]) for i in 0:-1:-cell_num ],
-        [ GeoArrays.coords(heights_dtm, [r0+i, c0-i]) for i in 0:cell_num ],
-        [ GeoArrays.coords(heights_dtm, [r0+i, c0+i]) for i in 0:-1:-cell_num ],
-        [ GeoArrays.coords(heights_dtm, [r0+i, c0+i]) for i in 0:cell_num ],
+        # x and y axes
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0, col])) for col in c0:-1:col_begin ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0, col])) for col in c0:col_end ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [row, c0])) for row in r0:-1:row_begin ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [row, c0])) for row in r0:row_end ],
+        # diagonals
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0-i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0-i])) for i in 0:cell_num ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0+i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0+i])) for i in 0:cell_num ]
     ]
 
-    top_idxs = [ (row_begin, col) for col in  c0+1:col_end ]
-    right_idxs = [ (row, col_end) for row in  row_begin+1:r0-1 ]
-    # Vector containing the indexis of the points on first quadrant of the border of the area of interest
+    # Indexes of a quarter of the border
+    top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
+    right_idxs = [ (row, col_end) for row in  row_begin+1:r0 ]
+    # Vector containing the indexes of the points on first quadrant of the border of the area of interest
     endpoints = vcat( top_idxs, right_idxs )
-    # For every aforementioned point, compute the profile ranging from its location and the locations of its rotations to the center point
-    for point in endpoints
-        if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
-            continue
-        end
-        # Compute the profiles for the point and the three points obtained by rotating it by 90, 180 and 270 degrees
-        for α in [0, 90, 180, 270]
-            # rotate `point` around the source by an angle `α` 
-            rm, cm = rotate_point( point[1], point[2], r0, c0, α )
-            heights, coords = DDA( dtm, r0, c0, rm, cm )
-            push!( heights_profiles, heights )
-            push!( coords_profiles, coords )
-        end
-    end
-    # Given the coordinates of each point in a profile, compute its distance from  the source
-    distances_profiles = map.( point -> √((point[1] - x0)^2 + (point[2] - y0)^2), coords_profiles )
 
-    attenuations = []
-    for (dists, heights) in zip(distances_profiles, heights_profiles)
-        atten = []
+    noData = -9999.f0
+    mat = fill( noData, row_end - row_begin, col_end - col_begin )
+
+    # Compute and insert the values for the trivial profiles( x and y axis )
+    @inbounds for (heights, coords) in zip(heights_profiles, coords_profiles)
+        dists = [distance((x0, y0), coords[1])]
         for j in 2:length(heights)
-            # Compute the attenuation for each point of the profile
-             # An array of zeroes is passed instead of the profile of impedences
-            a = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )
-            x, y = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
-            push!( atten, ( [x, y], [coords[j]...], a ) )
+            push!( dists, distance((x0, y0), coords[j]) )
+            r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+            if dtm[r, c] != noData
+                atten = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
+                if mat[r, c] == noData
+                    mat[r, c] = max( atten, 0.0f0 )
+                end
+            end
         end
-        push!( attenuations, atten )
     end
+    # Compute the values for the remainder of the area
+    @inbounds for point in endpoints
+        for α in [0, 90, 180, 270]
+            # Arrays of the heigths and the respective coordnates
+            heights, coords = DDA( dtm, r0, c0, rotate_point( point[1], point[2], r0, c0, α )... )
+            # Compute array of the distances of each point of the profile from the source
+            dists = [distance((x0, y0), coords[1])]
+            # Array of the resulting attenuations for each point of a single profile
+            for j in 2:length(heights)
+                push!( dists, distance((x0, y0), coords[j]) )
+                r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+                if dtm[r, c] != noData
+                    atten = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
+                    if mat[r, c] == noData
+                        mat[r, c] = max( atten, 0.0f0 )
+                    end
+                end
+            end
+        end
+    end
+    return mat 
 end
-# Punto 3870, 4420 (centro):
-#   x = 723204.0
-#   y = 5065493.0
-#   ground_loss( x, y, 110, *( @__DIR__, "\\Mappe\\DTM_32.tiff" ) )
-
 
 
 
@@ -1145,57 +1157,16 @@ end
 
 # ========================================================== TESTING =========================================================================================================
 
-#   x0, y0 = (710705.0, 5065493.0)
+freq = 110.0
 x0, y0 = (726454.9302346368, 5.025993899219433e6)
 #   x0, y0 = (11.930065824163105,45.425861311724816)
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 #   dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
 dtm = GeoArrays.read(dtm_file)
-# Coordinate dei punti
-x1, y1 = GeoArrays.coords( dtm, [1,1] )
-xn, yn = GeoArrays.coords( dtm, size(dtm)[1:2] )
-# Dimensioni in metri di una cella
-Δx, Δy = (xn-x1, y1-yn) ./ size(dtm)[1:2]
-dB = 110 - 32
-r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
-h0 = dtm[r0, c0][1]
-max_radius = ceil(10^(dB/20))
-cell_num = ceil( Int64, max_radius/Δx )
-row_begin = r0 - cell_num
-row_end = r0 + cell_num
-col_begin = c0 - cell_num
-col_end = c0 + cell_num
 
-# Trivial profiles
- # Profile containing the heights
-heights_profiles = [
-    dtm[ r0, c0:-1:col_begin ], # x axis first half
-    dtm[ r0, c0:col_end ], # x axis second half
-    dtm[ r0:-1:row_begin, c0 ], # y axis first half
-    dtm[ r0:row_end, c0 ], # y axis second half
-    [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal first half
-    [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal second half
-    [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal first half
-    [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal second half
-]
- # Profile containing the positions
-coords_profiles = [
-    # x and y axes
-    [ GeoArrays.coords(dtm, [r0, col]) for col in c0:-1:col_begin ],
-    [ GeoArrays.coords(dtm, [r0, col]) for col in c0:col_end ],
-    [ GeoArrays.coords(dtm, [row, c0]) for row in r0:-1:row_begin ],
-    [ GeoArrays.coords(dtm, [row, c0]) for row in r0:row_end ],
-    # diagonals
-    [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:-1:-cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0-i]) for i in 0:cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:-1:-cell_num ],
-    [ GeoArrays.coords(dtm, [r0+i, c0+i]) for i in 0:cell_num ]
-]
+ground_loss(dtm, x0, y0, freq)
 
-top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
-right_idxs = [ (row, col_end) for row in  row_begin+1:r0 ]
-# Vector containing the indexes of the points on first quadrant of the border of the area of interest
-endpoints = vcat( top_idxs, right_idxs )
+
 
 
 
@@ -1231,7 +1202,6 @@ for ( profile, results ) in zip( coords_profiles, attenuations )
         end
     end
 end
-
 
 # DA SISTEMARE
 mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
@@ -1281,8 +1251,7 @@ for point in endpoints
     end
 end
 
-#   cmat = deepcopy(mat)
-cmat = map( x -> x = x == noData ? 0.0 : x, mat )
+cmat = map( x -> x = x == noData ? 0.0f0 : x, mat )
 cols, rows = size(cmat)
 heatmap( 1:cols, 1:rows, cmat, c=cgrad([:blue, :white, :yellow, :red]) )
 
@@ -1292,6 +1261,159 @@ cols, rows = size(dtm)
 heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
 
 
+#=
+    #   x0, y0 = (710705.0, 5065493.0)
+    x0, y0 = (726454.9302346368, 5.025993899219433e6)
+    #   x0, y0 = (11.930065824163105,45.425861311724816)
+    dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
+    #   dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
+    dtm = Raster(dtm_file)
+    # Coordinate dei punti
+    x1, y1 = Functions.toCoords(dtm, 1, 1)
+    xn, yn = Functions.toCoords( dtm, size(dtm)[1:2]... )
+    # Dimensioni in metri di una cella
+    Δx, Δy = (xn-x1, yn-y1) ./ size(dtm)[1:2]
+    dB = 110 - 32
+    h0 = dtm[x0, y0]
+    max_radius = ceil(10^(dB/20))
+    cell_num = ceil( Int64, max_radius/Δx )
+    row_begin = x0 - max_radius
+    row_end = x0 + max_radius
+    col_begin = y0 + max_radius
+    col_end = y0 - max_radius
+
+    # Trivial profiles
+    # Profile containing the heights
+    heights_profiles = [
+        dtm[ x0, y0:-Δy:col_begin ], # y axis first half
+        dtm[ x0, y0:Δy:col_end ], # y axis second half
+        dtm[ x0:-Δx:row_begin, y0 ], # x axis first half
+        dtm[ x0:Δx:row_end, c0 ], # x axis second half
+        [ dtm[x0 + (i * Δx), y0 - (i * Δy)] for i in 0:-1:-cell_num ], # first diagonal first half
+        [ dtm[x0 + (i * Δx), y0 - (i * Δy)] for i in 0:cell_num ], # first diagonal second half
+        [ dtm[x0 + (i * Δx), y0 + (i * Δy)] for i in 0:-1:-cell_num ], # second diagonal first half
+        [ dtm[x0 + (i * Δx), y0 + (i * Δy)] for i in 0:cell_num ]  # second diagonal second half
+    ]
+    # Profile containing the positions
+    coords_profiles = [
+        # x and y axes
+        [ Functions.toCoords(dtm, x0, col) for col in c0:-1:col_begin ],
+        [ Functions.toCoords(dtm, x0, col) for col in c0:col_end ],
+        [ Functions.toCoords(dtm, row, y0) for row in r0:-1:row_begin ],
+        [ Functions.toCoords(dtm, row, y0) for row in r0:row_end ],
+        # diagonals
+        [ Functions.toCoords(dtm, x0 + (i * Δx), y0 - (i * Δy)) for i in 0:-1:-cell_num ],
+        [ Functions.toCoords(dtm, x0 + (i * Δx), y0 - (i * Δy)) for i in 0:cell_num ],
+        [ Functions.toCoords(dtm, x0 + (i * Δx), y0 + (i * Δy)) for i in 0:-1:-cell_num ],
+        [ Functions.toCoords(dtm, x0 + (i * Δx), y0 + (i * Δy)) for i in 0:cell_num ]
+    ]
+
+    top_idxs = [ (row_begin, col) for col in  y0+Δy:Δy:col_end-Δy ]
+    right_idxs = [ (row, col_end) for row in  row_begin+Δx:Δx:x0 ]
+    # Vector containing the indexes of the points on first quadrant of the border of the area of interest
+    endpoints = vcat( top_idxs, right_idxs )
+
+
+
+    #=
+    attenuations_points = []
+    for point in endpoints
+        if point[2] == c0 || abs(point[1] - r0) == abs(point[2] - c0)
+            continue
+        end
+        for α in [0, 90, 180, 270]
+            rm, cm = rotate_point( point[1], point[2], r0, c0, α )
+            # Arrays of the heigths and the respective coordnates
+            heights, coords = DDA( dtm, r0, c0, rm, cm )
+            # Compute array of the distances of each point of the profile from the source
+            dists = map( p -> √( ( p[1] - x0 )^2 + ( p[2] - y0 )^2 ), coords )
+            # Array of the resulting attenuations for each point of a single profile
+            atten_point = []
+            for j in 2:length(heights)
+                atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )
+                x, y = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
+                push!( atten_point, ( [x, y], [coords[j]...], atten ) )
+            end
+            push!( attenuations_points, atten_point )
+        end
+    end
+
+    mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
+    for ( profile, results ) in zip( coords_profiles, attenuations )
+        for (coords, atten) in zip(profile, results)
+            row, col = Int64.( GeoArrays.indices(dtm, [coords...]) .- [row_begin, col_begin] )
+            if ismissing(mat[row, col]) || mat[row, col][3]  < atten[1]
+                mat[row, col] = ( coords[1], coords[2], atten[1] )
+            end
+        end
+    end
+
+
+    # DA SISTEMARE
+    mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
+    for points in attenuations_points
+        for point in points
+            if ismissing(mat[point[1]...])
+                mat[point[1]...] = ( point[1][1], point[1][2], point[3][1] )
+            else
+                if mat[point[1]...][3] != point[3][1]
+                    #   println("Attennuazione diversa per lo stesso punto")
+                    #   println("$(mat[point[1]...]) e $point\n")
+                    if point[3][1] > mat[point[1]...][3]
+                        mat[point[1]...] = ( point[1][1], point[1][2], point[3][1] )
+                    end
+                end
+            end
+        end
+    end
+
+    plot( mat[1,2], seriestype=:scatter )
+    for point in mat
+        if !ismissing(point)
+            plot!(point, seriestype=:scatter)
+        end
+    end
+    current()
+    =#
+
+
+
+    xm, ym = endpoints[273]
+    res_h, res_c = DDA(dtm, x0, y0, xm, ym, Δx, Δy)
+
+    plot([(x0, y0), (xm, ym)])
+    plot!(res_c)
+
+    noData = -9999.f0
+    mat = fill( noData, round(Int64, (row_end - row_begin) / Δx), round(Int64, (col_end - col_begin) / Δy) )
+    for point in endpoints
+        for α in [0, 90, 180, 270]
+            rm, cm = rotate_point( point[1], point[2], r0, c0, α )
+            # Arrays of the heigths and the respective coordnates
+            heights, coords = DDA( dtm, r0, c0, rm, cm )
+            # Compute array of the distances of each point of the profile from the source
+            dists = map( p -> √( ( p[1] - x0 )^2 + ( p[2] - y0 )^2 ), coords )
+            # Array of the resulting attenuations for each point of a single profile
+            for j in 2:length(heights)
+                atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )[end]
+                r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+                if mat[r, c] == noData || atten > mat[r, c]
+                    mat[r, c] = atten
+                end
+            end
+        end
+    end
+
+    #   cmat = deepcopy(mat)
+    cmat = map( x -> x = x == noData ? 0.0 : x, mat )
+    cols, rows = size(cmat)
+    heatmap( 1:cols, 1:rows, cmat, c=cgrad([:blue, :white, :yellow, :red]) )
+
+
+
+    cols, rows = size(dtm)
+    heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
+=#
 
 #= COSE CON GEODATA
     using GeoData

@@ -5,19 +5,22 @@ Module containing auxiliary functions
 
 
 
-import ArchGDAL as agd
-
-
+using ArchGDAL
 using CombinedParsers
 using CombinedParsers.Regexp
-#   import DBInterface as dbi
-#   import SQLite as sql
+using Rasters
 
 
 
 export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extract, array2raster!, writeRaster!, applystyle,
-       +, -, *, /, ^,
-       getCellDims, getSidesDistances, toCoords, toIndexes
+       getindex, setindex!, convert, -,
+       getOrigin, getCellDims, getSidesDistances, toCoords, toIndexes,
+       compute_position, expand!
+
+
+
+const agd = ArchGDAL
+
 
 
 @syntax dims = Sequence( "Pixel Size = (", Numeric(Float64), ",", Numeric(Float64), ")" )
@@ -25,12 +28,10 @@ export substance_extract, texture_extract, air_extract, cn_extract, cn_list_extr
 
 
 
-"""
-Convert a floating point number to integer by rounding it
-"""
-Base.convert(::Type{Int64}, n::Real) = round(Int64, n)
+Base.getindex( collection::Raster, x::Float64, y::Float64 ) = collection[X(Near(x)), Y(Near(y))][1]
+Base.setindex!( collection::Raster, v, x::Float64, y::Float64, ) = collection[X(Near(x)), Y(Near(y))] .= v
+Base.convert(::Type{Int64}, n::AbstractFloat) = round(Int64, n)
 Base.:-( x::Tuple{Vararg{T1}}, y::Vector{T2} ) where {T1<:Number, T2<:Number} = length(x) == length(y) ? Tuple( xi-yi for (xi, yi) in zip(x, y) ) : throw(ArgumentError("`x` and `y` must have the same size"))
-
 
 
 #=
@@ -124,7 +125,7 @@ Given a NxMxH dimensional matrix `data`, create a raster file with H NxM bands a
 using `driver` to define the format.
 If `output` is set to true return the new raster, otherwise return nothing.  
 """
-function writeRaster( data::Array{Float32}, driver::agd.Driver, geotransform::Vector{Float64}, resolution::Real, refsys::AbstractString, noDataValue::Real, output_file_path::AbstractString=".\\raster.tiff", output::Bool=false )
+function writeRaster( data::Array{Float32}, driver::ArchGDAL.Driver, geotransform::Vector{Float64}, resolution::Real, refsys::AbstractString, noDataValue::Real, output_file_path::AbstractString=".\\raster.tiff", output::Bool=false )
     rows, cols, bands = length(size(data)) < 3 ? (size(data)..., 1) : size(data) 
     res_raster = agd.create(output_file_path, driver=driver, width=rows, height=cols, nbands=bands, dtype=Float32)
  #= NON SO QUALE SIA IL COMANDO PER SETTARE I METADATI CON `ArchGDAL`
@@ -164,11 +165,11 @@ end
 # Additional functions
 
 """
-    getCellDims( dtm::AbstractDataset )
+    getCellDims( dtm::ArchGDAL.AbstractDataset )
 
 Return the cells' dimentions in meters for an ArchGDAL raster dataset
 """
-function getCellDims( dtm::AbstractDataset )
+function getCellDims( dtm::ArchGDAL.AbstractDataset )
     info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
     pos = findfirst(occursin.("Pixel Size", info))
     size_pars = dims(info[pos])
@@ -178,11 +179,11 @@ end
 
 
 """
-    getOrigin( dtm::AbstractDataset )
+    getOrigin( dtm::ArchGDAL.AbstractDataset )
 
 Return the coordinates of the origin point of the raster
 """
-function getOrigin( dtm::AbstractDataset )
+function getOrigin( dtm::ArchGDAL.AbstractDataset )
     info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
     pos = findfirst(occursin.("Origin", info))
     origin_pars = points(info[pos])
@@ -192,11 +193,11 @@ end
 
 
 """
-    getSidesDistances( dtm::AbstractDataset )
+    getSidesDistances( dtm::ArchGDAL.AbstractDataset )
 
 Return distances from left, upper, right and lower sides of an ArchGDAL raster dataset
 """
-function getSidesDistances( dtm::AbstractDataset )
+function getSidesDistances( dtm::ArchGDAL.AbstractDataset )
     info = split( agd.gdalinfo( dtm ), "\n" , keepempty=false )
     pos = findfirst(occursin.("Upper Left", info))
     dists_pars = points.( getindex.(Ref(info), [pos, pos+3] ) )
@@ -206,27 +207,30 @@ end
 
 
 """
-    toCoords( dtm::AbstractDataset, r::Integer, c::Integer )
+    toCoords( dtm::ArchGDAL.AbstractDataset, r::Integer, c::Integer )
 
 Convert convert the indexes `r` and `c` to the coordinates of the respective cell in `dtm` raster
 """
-function toCoords( dtm::AbstractDataset, r::Integer, c::Integer )
+function toCoords( dtm::ArchGDAL.AbstractDataset, r::Int64, c::Int64 )
     gtf = agd.getgeotransform(dtm)
     return gtf[[1,4]] .+ ( (r + 1/2) .* gtf[[2,5]] ) .+ ( (c + 1/2) .* gtf[[3,6]] )
 end
 
-function toCoords( geotransform::Vector{Float64}, r::Integer, c::Integer )
+function toCoords( geotransform::Vector{Float64}, r::Int64, c::Int64 )
     return geotransform[[1,4]] .+ ( (r + 1/2) .* geotransform[[2,5]] ) .+ ( (c + 1/2) .* geotransform[[3,6]] )
 end
 
+function toCoords( dtm::Rasters.Raster{T}, r::Int64, c::Int64 ) where {T}
+    return dtm.dims[1][r], dtm.dims[2][c]
+end
 
 
 """
-    toIndexes( dtm::AbstractDataset, x::Real, y::Real )
+    toIndexes( dtm::ArchGDAL.AbstractDataset, x::Real, y::Real )
 
 Convert coordinates to the indexes of the respective cell in `dtm` raster
 """
-function toIndexes( dtm::AbstractDataset, x::Real, y::Real )
+function toIndexes( dtm::ArchGDAL.AbstractDataset, x::Real, y::Real )
     gtf = agd.getgeotransform(dtm)
     return round.( Int64, ( ( (x, y) .- gtf[[1,4]] ) ./ gtf[[2,6]] ) )
 end

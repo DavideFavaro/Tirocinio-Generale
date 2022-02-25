@@ -646,30 +646,36 @@ ProfileView.@profview run_light(dtmr, 15.0f0, src[1], src[2], 0.0f0)
 using PyCall
 # Serve per indicare a Python dove trovare i moduli aggiuntivi scaricati con Conda (in questo caso "qgis")
 #   pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library\\python")
-pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\Lenovo\\.julia\\conda\\3\\Library\\python")
-#= ESEMPI DI USO DI Qgis DA Python
-https://gis.stackexchange.com/questions/129513/accessing-processing-with-python
-https://gis.stackexchange.com/questions/279874/using-qgis-3-processing-algorithms-from-pyqgis-standalone-scripts-outside-of-gu
-=#
-
+# pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\Lenovo\\.julia\\conda\\3\\Library\\python")
+pushfirst!(PyVector(pyimport("sys")."path"), "C:\\Users\\DAVIDE-FAVARO\\.julia\\conda\\3\\Library\\python")
 dtm = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-output_path = "D:\\Z_Tirocinio_Dati\\test_viewshed.tiff"
+# output_path = "D:\\Z_Tirocinio_Dati\\test_viewshed.tiff"
+output_path = "C:\\Users\\DAVIDE-FAVARO\\Desktop\\DatiRaster\\test_viewshed.tiff"
 x_source, y_source = (11.930065824163105,45.425861311724816)
 coords = string(x_source)*","*string(y_source)*"[4326]"
 source_height = 1.0
 observer_height = 1.75
 rarefraction = 0.14286
 
+
+#= ESEMPI DI USO DI Qgis DA Python
+https://gis.stackexchange.com/questions/129513/accessing-processing-with-python
+https://gis.stackexchange.com/questions/279874/using-qgis-3-processing-algorithms-from-pyqgis-standalone-scripts-outside-of-gu
+=#
 py"""
+import sys
 import qgis
 from qgis.core import *
 
 # QGIS installation path
-QgsApplication.setPrefixPath("C:\\Program Files\\QGIS 3.16.16\\bin\\qgis-ltr-bin.exe", True)
+# QgsApplication.setPrefixPath("C:\\Program Files\\QGIS 3.16.16\\bin\\qgis-ltr-bin.exe", True)
+QgsApplication.setPrefixPath("C:\\Program Files\\QGIS 3.22.0\\bin\\qgis-bin.exe", True)
 # Reference the application without using a GUI
 qgs = QgsApplication([], False)
 # Load providers
 qgs.initQgis()
+
+sys.path.append("C:\\Program Files\\QGIS 3.22.0\\apps\\qgis\\plugins")
 
 import processing
 from porcessing.core.Processing import Processing
