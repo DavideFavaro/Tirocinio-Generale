@@ -13,6 +13,10 @@ using Shapefile
 include("..\\Library\\Functions.jl")
 
 
+const agd = ArchGDAL
+const ga = GeoArrays
+
+
 
 repeat!(A::AbstractVector, count::Integer ) = append!( A, repeat(A, count-1) )
 # Functions to find the coordinates of the point resulting from the rotation of "(xp, yp)" by a angle "θ" around "(xc, yc)"
@@ -424,29 +428,18 @@ function fres( y::Real )::Complex
     return complex( (-f * si + g * co)/c, (f * co + g * si)/c )
 end
 
-function diffraction( r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real )::Complex
-    df = -ℯ^complex(0.0, k*r1+π/4.0) / complex(r1, 0.0)
+function diffraction!( aalast::Ref{Float32}, r1::Real, a::Real, al2::Real, pm::Real, any::Real, k::Real )::Complex
+    df = -ℯ^complex(0.0, k * r1 + π / 4.0) / complex(r1, 0.0)
     tangent = tan( (π + pm * al2) / (2.0 * any) )
-
-    if tangent != 0
-        aa = 1.0 / tangent / (2.0 * any) / √(2.0 * π * k * a)
-    else
-        # NON SO COSA RAPPRESENTI "aalast" 
-        aa = aalast
-    end
-    aalast = aa
-    df *= complex( aa, 0.0 )
-
+    aa = tangent != 0 ? ( 1.0 / tangent / (2.0 * any) / √(2.0 * π * k * a) ) : aalast[]
+    aalast[] = aa
+    df *= complex(aa, 0.0)
     n = pm < -0.9 ?
-            al2 > π+any*π ? 1 :
-                al2 > π-any*π ? 0 : -1 :
-            al2 > any*π-π ? 1 : 0
+            al2 > π + any * π ? 1 :
+                al2 > π - any * π ? 0 : -1 :
+            al2 > any * π - π ? 1 : 0
     xv = 2.0 * k * a * cos( (2.0 * n * any * π - al2) / 2.0 )^2
-
-    aa = -2.0 * √xv
-    y = ℯ^complex(0.0, -xv) * fres(√xv)
-
-    return df * y * complex(0.0, aa)
+    return df * ℯ^complex(0.0, -xv) * fres(√xv) * complex(0.0, -2.0√xv)
 end
 
 function calc_mirror( locs, points; source::Bool )
@@ -590,10 +583,11 @@ function bakkernn( hills::AbstractVector, src_loc::AbstractVector, rec_loc::Abst
 
             a = rh0 * rh1 / tot_propag_path
             any = 2.0 - θ / π
-            dif1 = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno )
-            dif2 = diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1
-            dif3 = diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2
-            dif4 = diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
+            aalast = Ref{Float32}(0.0f0)
+            dif1 = diffraction!( aalast, tot_propag_path, a, f1-f0, -1.0, any, waveno )
+            dif2 = diffraction!( aalast, tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1
+            dif3 = diffraction!( aalast, tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2
+            dif4 = diffraction!( aalast, tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
             pl = dif1 + dif2 + dif3 + dif4
 
             # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
@@ -667,12 +661,14 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 
     a = rh0 * rh1 / r1
     any = 2.0 - src_slope_α / π
+    aalast = Ref{Float32}(0.0)
  # NON SONO CERTO I DUE MODI SIANO EQUIVALENTI
     #   pl = diffraction( tot_propag_path, a, f1-f0, -1.0, any, waveno ) +
     #        diffraction( tot_propag_path, a, f1+f0, -1.0, any, waveno ) * wedge_impedence1 +
     #        diffraction( tot_propag_path, a, f1+f0, 1.0, any, waveno ) * wedge_impedence2 +
     #        diffraction( tot_propag_path, a, f1-f0, 1.0, any, waveno ) * wedge_impedence1 * wedge_impedence2
-    pl = sum( diffraction.(
+    pl = sum( diffraction!.(
+                Ref(aalast),
                 r1,
                 a,
                 [ f1-f0, f1+f0, f1+f0, f1-f0 ],
@@ -772,7 +768,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
-function onCut( distances::SubArray{T}, heights::SubArray{T}, impdcs::Vector{T}, src_h::AbstractFloat, rec_h::AbstractFloat, nfreq::Int64, freqs::Vector{Int64} ) where {T <: Real}
+function onCut( distances::Union{Vector, SubArray}, heights::Union{Vector, SubArray}, impdcs::Union{Vector, SubArray}, src_h::AbstractFloat, rec_h::AbstractFloat, nfreq::Int64, freqs::Vector{Int64} ) where {T <: AbstractFloat}
 
     ihard = 0
     isoft = 0 
@@ -1014,7 +1010,7 @@ function DDA( map::GeoArrays.GeoArray, r0::Integer, c0::Integer, rn::Integer, cn
     for i in 1:steps
         rint, cint = round.(Int64, [r, c])
         push!( heigths_profile, map[rint, cint][1] )
-        push!( coords_profile, Tuple{Float64, Float64}(GeoArrays.coords( map, [rint, cint])) )
+        push!( coords_profile, Tuple{Float64, Float64}(ga.coords( map, [rint, cint])) )
         r += r_inc
         c += c_inc
     end
@@ -1040,22 +1036,22 @@ function DDA( map::Rasters.Raster{Float32, 3}, x0::Float64, y0::Float64, xn::Flo
 end
 =#
 
-function ground_loss( dtm::GeoArrays.GeoArray, x0::Float64, y0::Float64, frequency::Float64 )
+function ground_loss( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64, frequency::Int64 )
     dB = frequency - 32
     # Dimensioni in metri di una cella
-    Δx, Δy = ( GeoArrays.coords( dtm, size(dtm)[1:2] ) .- GeoArrays.coords( dtm, [1,1] ) ) ./ size(dtm)[1:2]
-    r0, c0 = GeoArrays.indices( dtm, [x0, y0] )
-    h0 = dtm[r0, c0][1]
-    max_radius = ceil(10^(dB/20))
-    cell_num = ceil( Int64, max_radius/max(Δx, Δy) )
+    Δx::Float64, Δy::Float64 = ( ga.coords( dtm, size(dtm)[1:2] ) .- ga.coords( dtm, [1,1] ) ) ./ size(dtm)[1:2]
+    r0, c0 = ga.indices( dtm, [x0, y0] )
+    h0::Float32 = dtm[r0, c0][1]
+    max_radius = ceil(10^(dB / 20))
+    cell_num = ceil( Int64, max_radius / max(Δx, Δy) )
     row_begin = r0 - cell_num
     row_end = r0 + cell_num
     col_begin = c0 - cell_num
     col_end = c0 + cell_num
-
     # Trivial profiles
     # Profile containing the heights
-    heights_profiles = [
+    heights_profiles = push!(
+        Vector{Vector{Float32}}(),
         dtm[ r0, c0:-1:col_begin ], # x axis first half
         dtm[ r0, c0:col_end ], # x axis second half
         dtm[ r0:-1:row_begin, c0 ], # y axis first half
@@ -1063,61 +1059,59 @@ function ground_loss( dtm::GeoArrays.GeoArray, x0::Float64, y0::Float64, frequen
         [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal first half
         [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal second half
         [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal first half
-        [ dtm[r0+i, c0+i][1] for i in 0:cell_num ]  # second diagonal second half
-    ]
+        [ dtm[r0+i, c0+i][1] for i in 0:cell_num ] # second diagonal second half
+    )
     # Profile containing the positions
-    coords_profiles = [
+    coords_profiles = push!(
+        Vector{Vector{Tuple{Float64, Float64}}}(),
         # x and y axes
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0, col])) for col in c0:-1:col_begin ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0, col])) for col in c0:col_end ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [row, c0])) for row in r0:-1:row_begin ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [row, c0])) for row in r0:row_end ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0, col])) for col in c0:-1:col_begin ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0, col])) for col in c0:col_end ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [row, c0])) for row in r0:-1:row_begin ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [row, c0])) for row in r0:row_end ],
         # diagonals
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0-i])) for i in 0:-1:-cell_num ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0-i])) for i in 0:cell_num ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0+i])) for i in 0:-1:-cell_num ],
-        [ Tuple{Float64, Float64}(GeoArrays.coords(dtm, [r0+i, c0+i])) for i in 0:cell_num ]
-    ]
-
-    # Indexes of a quarter of the border
-    top_idxs = [ (row_begin, col) for col in  c0+1:col_end-1 ]
-    right_idxs = [ (row, col_end) for row in  row_begin+1:r0 ]
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0-i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0-i])) for i in 0:cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0+i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0+i])) for i in 0:cell_num ]
+    )
     # Vector containing the indexes of the points on first quadrant of the border of the area of interest
-    endpoints = vcat( top_idxs, right_idxs )
-
+    endpoints = vcat(
+        [ (row_begin, col) for col in c0+1:col_end-1 ],
+        [ (row, col_end) for row in row_begin+1:r0 ]
+    )
     noData = -9999.f0
-    mat = fill( noData, row_end - row_begin, col_end - col_begin )
-
+    r, c = (0, 0)
+    dists = nothing
+    mat = fill( noData, row_end - row_begin + 1, col_end - col_begin + 1 )
     # Compute and insert the values for the trivial profiles( x and y axis )
     @inbounds for (heights, coords) in zip(heights_profiles, coords_profiles)
-        dists = [distance((x0, y0), coords[1])]
+        dists = [ distance((x0, y0), coords[1]) ]
         for j in 2:length(heights)
             push!( dists, distance((x0, y0), coords[j]) )
-            r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+            r, c = ga.indices( dtm, [ coords[j]... ] )
             if dtm[r, c] != noData
-                atten = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
-                if mat[r, c] == noData
-                    mat[r, c] = max( atten, 0.0f0 )
-                end
+                mat[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
             end
         end
     end
+
+ # PLACEHOLDER PER I PROFILI OTTENUTI DAL RASTER DELLE IMPEDENZE
+    impedences = zeros(Float32, length(heights_profiles[1]))
+
     # Compute the values for the remainder of the area
     @inbounds for point in endpoints
         for α in [0, 90, 180, 270]
             # Arrays of the heigths and the respective coordnates
-            heights, coords = DDA( dtm, r0, c0, rotate_point( point[1], point[2], r0, c0, α )... )
+            heights, coords = DDA( dtm, r0, c0, rotate_point( point..., r0, c0, α )... )
             # Compute array of the distances of each point of the profile from the source
-            dists = [distance((x0, y0), coords[1])]
+            dists = [ distance((x0, y0), coords[1]) ]
             # Array of the resulting attenuations for each point of a single profile
             for j in 2:length(heights)
                 push!( dists, distance((x0, y0), coords[j]) )
-                r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+                r, c = ga.indices( dtm, [ coords[j]... ] )
                 if dtm[r, c] != noData
-                    atten = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
-                    if mat[r, c] == noData
-                        mat[r, c] = max( atten, 0.0f0 )
-                    end
+                    mat[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), view(impedences, 1:j), h0, heights[j], 1, [dB] )[end]
                 end
             end
         end
@@ -1145,29 +1139,34 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
 # ========================================================== TESTING =========================================================================================================
 
-freq = 110.0
-x0, y0 = (726454.9302346368, 5.025993899219433e6)
-#   x0, y0 = (11.930065824163105,45.425861311724816)
+using BenchmarkTools
+
+frequency = 110
 dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_32.tiff"
 #   dtm_file = split( @__DIR__ , "\\Porting\\")[1] * "\\Mappe\\DTM_wgs84.tiff"
-dtm = GeoArrays.read(dtm_file)
+dtm = replace( ga.read(dtm_file), missing => -9999.0f0 )
+#   x0, y0 = (726454.9302346368, 5.025993899219433e6)
+#       x0, y0 = (11.930065824163105,45.425861311724816)
+x0, y0 = ga.coords(dtm, [4500, 5700])
 
-ground_loss(dtm, x0, y0, freq)
+GC.gc()
 
+@code_warntype ground_loss(dtm, x0, y0, frequency)
 
+@time ground_loss(dtm, x0, y0, frequency)
 
+@btime ground_loss(dtm, x0, y0, frequency)
+
+mat = ground_loss(dtm, x0, y0, frequency)
+
+cmat = map( x -> x = x == -9999.0f0 ? -30.0f0 : x, mat )
+cols, rows = size(cmat)
+# Risultato
+heatmap( 1:cols, 1:rows, cmat )
+# DTM della stessa area del risultato
+heatmap( 1:637, 1:637, dtm.A[ 4500-(637÷2):4500+(637÷2), 5700-(637÷2):5700+(637÷2), 1 ] )
 
 
 #=
@@ -1186,7 +1185,7 @@ for point in endpoints
         atten_point = []
         for j in 2:length(heights)
             atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )
-            x, y = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
+            x, y = ga.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
             push!( atten_point, ( [x, y], [coords[j]...], atten ) )
         end
         push!( attenuations_points, atten_point )
@@ -1196,7 +1195,7 @@ end
 mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
 for ( profile, results ) in zip( coords_profiles, attenuations )
     for (coords, atten) in zip(profile, results)
-        row, col = Int64.( GeoArrays.indices(dtm, [coords...]) .- [row_begin, col_begin] )
+        row, col = Int64.( ga.indices(dtm, [coords...]) .- [row_begin, col_begin] )
         if ismissing(mat[row, col]) || mat[row, col][3]  < atten[1]
             mat[row, col] = ( coords[1], coords[2], atten[1] )
         end
@@ -1243,7 +1242,7 @@ for point in endpoints
         # Array of the resulting attenuations for each point of a single profile
         for j in 2:length(heights)
             atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )[end]
-            r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+            r, c = ga.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
             if mat[r, c] == noData || atten > mat[r, c]
                 mat[r, c] = atten
             end
@@ -1331,7 +1330,7 @@ heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
             atten_point = []
             for j in 2:length(heights)
                 atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )
-                x, y = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
+                x, y = ga.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ] 
                 push!( atten_point, ( [x, y], [coords[j]...], atten ) )
             end
             push!( attenuations_points, atten_point )
@@ -1341,7 +1340,7 @@ heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
     mat = Array{Any}( missing, row_end - row_begin, col_end - col_begin )
     for ( profile, results ) in zip( coords_profiles, attenuations )
         for (coords, atten) in zip(profile, results)
-            row, col = Int64.( GeoArrays.indices(dtm, [coords...]) .- [row_begin, col_begin] )
+            row, col = Int64.( ga.indices(dtm, [coords...]) .- [row_begin, col_begin] )
             if ismissing(mat[row, col]) || mat[row, col][3]  < atten[1]
                 mat[row, col] = ( coords[1], coords[2], atten[1] )
             end
@@ -1396,7 +1395,7 @@ heatmap( 1:cols, 1:rows, mat, c=cgrad([:blue, :white, :yellow, :red]) )
             # Array of the resulting attenuations for each point of a single profile
             for j in 2:length(heights)
                 atten = onCut(dists[1:j], heights[1:j], zeros(length(heights[1:j])), h0, heights[j], 1, [dB] )[end]
-                r, c = GeoArrays.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
+                r, c = ga.indices( dtm, [ coords[j]... ] ) .- [ row_begin, col_begin ]
                 if mat[r, c] == noData || atten > mat[r, c]
                     mat[r, c] = atten
                 end
