@@ -768,7 +768,7 @@ function dal( first_second_dist::Real, second_third_dist::Real, src_h::Real, rec
 end
 =#
 
-function onCut( distances::Union{Vector, SubArray}, heights::Union{Vector, SubArray}, impdcs::Union{Vector, SubArray}, src_h::AbstractFloat, rec_h::AbstractFloat, nfreq::Int64, freqs::Vector{Int64} ) where {T <: AbstractFloat}
+function onCut( distances::Union{Vector{T1}, SubArray{T1}}, heights::Union{Vector{T2}, SubArray{T2}}, impdcs::Union{Vector{T2}, SubArray{T2}}, src_h::AbstractFloat, rec_h::AbstractFloat, nfreq::Int64, freqs::Vector{Int64} ) where {T1 <: Int64, T2 <: Float32}
 
     ihard = 0
     isoft = 0 
@@ -997,7 +997,7 @@ end
 """
 Digital Differential Analyzer, for line rasterization
 """
-function DDA( map::GeoArrays.GeoArray, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
+function DDA( dtm::GeoArrays.GeoArray{Float32}, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
     Δr = rn - r0
     Δc = cn - c0
     steps = max( abs(Δr), abs(Δc) )
@@ -1005,45 +1005,53 @@ function DDA( map::GeoArrays.GeoArray, r0::Integer, c0::Integer, rn::Integer, cn
     c_inc = Δc / steps
     r = Float64(r0)
     c = Float64(c0)
-    heigths_profile = Vector{Float64}()
+    heigths_profile = Vector{Float32}()
     coords_profile = Vector{Tuple{Float64, Float64}}()
     for i in 1:steps
         rint, cint = round.(Int64, [r, c])
-        push!( heigths_profile, map[rint, cint][1] )
+        push!( heigths_profile, dtm[rint, cint][1] )
         push!( coords_profile, Tuple{Float64, Float64}(ga.coords( map, [rint, cint])) )
         r += r_inc
         c += c_inc
     end
     return heigths_profile, coords_profile
 end
-
-#=
-function DDA( map::Rasters.Raster{Float32, 3}, x0::Float64, y0::Float64, xn::Float64, yn::Float64, dim_x::Float64, dim_y::Float64 )
-    Δx = xn - x0
-    Δy = yn - y0
-    steps = max( abs(Δx), abs(Δy) )
-    x_inc = Δx / steps * dim_x
-    y_inc = Δy / steps * dim_y
-    heigths_profile = Vector{Float64}()
+#=  VERSIONE CON IL RASTER DELLE IMPEDENZE
+function DDA( dtm::GeoArrays.GeoArray{Float32}, terrain_impedences::GeoArrays.GeoArray{Float32}, r0::Integer, c0::Integer, rn::Integer, cn::Integer )
+    Δr = rn - r0
+    Δc = cn - c0
+    steps = max( abs(Δr), abs(Δc) )
+    r_inc = Δr / steps
+    c_inc = Δc / steps
+    r = Float64(r0)
+    c = Float64(c0)
+    heigths_profile = Vector{Float32}()
+    impedences_profile = Vector{Float32}()
     coords_profile = Vector{Tuple{Float64, Float64}}()
-    for i in 0.0:max(abs(x_inc), abs(y_inc)):steps
-        push!(heigths_profile, map[x0, y0])
-        push!(coords_profile, (x0, y0))
-        x0 += x_inc
-        y0 += y_inc
+    for i in 1:steps
+        rint, cint = round.(Int64, [r, c])
+        push!( heigths_profile, dtm[rint, cint][1] )
+        push!( impedences_profile, terrain_impedences[rint, cint][1] )
+        push!( coords_profile, Tuple{Float64, Float64}(ga.coords( map, [rint, cint])) )
+        r += r_inc
+        c += c_inc
     end
-    return heigths_profile, coords_profile
+    return heigths_profile, impedences_profiles, coords_profile
 end
 =#
 
-function ground_loss( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64, frequency::Int64 )
-    dB = frequency - 32
-    # Dimensioni in metri di una cella
+function ground_loss( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64, frequency::Int64, noData::Float32 )
+    # Cell dimensions
     Δx::Float64, Δy::Float64 = ( ga.coords( dtm, size(dtm)[1:2] ) .- ga.coords( dtm, [1,1] ) ) ./ size(dtm)[1:2]
+    # Source cell
     r0, c0 = ga.indices( dtm, [x0, y0] )
+    # Source height
     h0::Float32 = dtm[r0, c0][1]
+    # Maximum radius according to transmission loss
     max_radius = ceil(10^(dB / 20))
+    # Number of cell fitting the radius of the area of effect of the sound
     cell_num = ceil( Int64, max_radius / max(Δx, Δy) )
+    # Limits of the area
     row_begin = r0 - cell_num
     row_end = r0 + cell_num
     col_begin = c0 - cell_num
@@ -1080,30 +1088,36 @@ function ground_loss( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64
         [ (row_begin, col) for col in c0+1:col_end-1 ],
         [ (row, col_end) for row in row_begin+1:r0 ]
     )
-    noData = -9999.f0
     r, c = (0, 0)
     dists = nothing
-    mat = fill( noData, row_end - row_begin + 1, col_end - col_begin + 1 )
-    # Compute and insert the values for the trivial profiles( x and y axis )
+    # Matrix with the resulting intenisty levels on the area of interest
+    intenisty_matrix = fill( noData, row_end - row_begin + 1, col_end - col_begin + 1 )
+
+
+ # PLACEHOLDER PER I PROFILI OTTENUTI DAL RASTER DELLE IMPEDENZE
+    impdcs = zeros(Float32, length(heights_profiles[1]))
+
+
+    # Compute and insert the values for the trivial profiles( x and y axes and diagonal profiles )
     @inbounds for (heights, coords) in zip(heights_profiles, coords_profiles)
+        # Vector holding the distances from the source to the current point
         dists = [ distance((x0, y0), coords[1]) ]
         for j in 2:length(heights)
+            # Add distance of the current point from source to the distances vector
             push!( dists, distance((x0, y0), coords[j]) )
+            # Current cell
             r, c = ga.indices( dtm, [ coords[j]... ] )
+            # If the cell should have a value
             if dtm[r, c] != noData
-                mat[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), zeros(length(1:j)), h0, heights[j], 1, [dB] )[end]
+                intenisty_matrix[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), view(impdcs, 1:j), h0, heights[j], 1, frequency )[end]
             end
         end
     end
-
- # PLACEHOLDER PER I PROFILI OTTENUTI DAL RASTER DELLE IMPEDENZE
-    impedences = zeros(Float32, length(heights_profiles[1]))
-
     # Compute the values for the remainder of the area
     @inbounds for point in endpoints
         for α in [0, 90, 180, 270]
             # Arrays of the heigths and the respective coordnates
-            heights, coords = DDA( dtm, r0, c0, rotate_point( point..., r0, c0, α )... )
+            heights, impedences, coords = DDA( dtm, r0, c0, rotate_point( point..., r0, c0, α )... )
             # Compute array of the distances of each point of the profile from the source
             dists = [ distance((x0, y0), coords[1]) ]
             # Array of the resulting attenuations for each point of a single profile
@@ -1111,15 +1125,134 @@ function ground_loss( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64
                 push!( dists, distance((x0, y0), coords[j]) )
                 r, c = ga.indices( dtm, [ coords[j]... ] )
                 if dtm[r, c] != noData
-                    mat[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), view(impedences, 1:j), h0, heights[j], 1, [dB] )[end]
+                    intenisty_matrix[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] = onCut( view(dists, 1:j), view(heights, 1:j), view(impdcs, 1:j), h0, heights[j], 1, frequency )[end]
                 end
             end
         end
     end
-    return mat 
+    return intenisty_matrix 
+end
+
+# function noise_level( dtm::GeoArrays.GeoArray{Float32}, terrain_impedence::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64, relative_humidity::Float64, temperature_k::FLoat64, frequencies::Union{Int64, Vector{Int64}}, noData::Float32 )
+function noise_level( dtm::GeoArrays.GeoArray{Float32}, x0::Float64, y0::Float64, relative_humidity::Float64, temperature_k::FLoat64, frequency::Int64, noData::Float32 )
+    # Cell dimensions
+    Δx::Float64, Δy::Float64 = ( ga.coords( dtm, size(dtm)[1:2] ) .- ga.coords( dtm, [1,1] ) ) ./ size(dtm)[1:2]
+    # Source cell
+    r0, c0 = ga.indices( dtm, [x0, y0] )
+    # Source height
+    h0::Float32 = dtm[r0, c0][1]
+    # Maximum radius according to transmission loss
+    max_radius = ceil(10^(dB / 20))
+    # Number of cell fitting the radius of the area of effect of the sound
+    cell_num = ceil( Int64, max_radius / max(Δx, Δy) )
+    # Limits of the area
+    row_begin = r0 - cell_num
+    row_end = r0 + cell_num
+    col_begin = c0 - cell_num
+    col_end = c0 + cell_num
+    # Trivial profiles
+    # Profile containing the heights
+    heights_profiles = push!(
+        Vector{Vector{Float32}}(),
+        dtm[ r0, c0:-1:col_begin ], # x axis first half
+        dtm[ r0, c0:col_end ], # x axis second half
+        dtm[ r0:-1:row_begin, c0 ], # y axis first half
+        dtm[ r0:row_end, c0 ], # y axis second half
+        [ dtm[r0+i, c0-i][1] for i in 0:-1:-cell_num ], # first diagonal first half
+        [ dtm[r0+i, c0-i][1] for i in 0:cell_num ], # first diagonal second half
+        [ dtm[r0+i, c0+i][1] for i in 0:-1:-cell_num ], # second diagonal first half
+        [ dtm[r0+i, c0+i][1] for i in 0:cell_num ] # second diagonal second half
+    )
+    # Profile containing the positions
+    coords_profiles = push!(
+        Vector{Vector{Tuple{Float64, Float64}}}(),
+        # x and y axes
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0, col])) for col in c0:-1:col_begin ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0, col])) for col in c0:col_end ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [row, c0])) for row in r0:-1:row_begin ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [row, c0])) for row in r0:row_end ],
+        # diagonals
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0-i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0-i])) for i in 0:cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0+i])) for i in 0:-1:-cell_num ],
+        [ Tuple{Float64, Float64}(ga.coords(dtm, [r0+i, c0+i])) for i in 0:cell_num ]
+    )
+    # Vector containing the indexes of the points on first quadrant of the border of the area of interest
+    endpoints = vcat(
+        [ (row_begin, col) for col in c0+1:col_end-1 ],
+        [ (row, col_end) for row in row_begin+1:r0 ]
+    )
+    r, c = (0, 0)
+    dists = nothing
+    # Matrix with the resulting intenisty levels on the area of interest
+    intenisty_matrix = fill( noData, row_end - row_begin + 1, col_end - col_begin + 1 )
+
+
+ # PLACEHOLDER PER I PROFILI OTTENUTI DAL RASTER DELLE IMPEDENZE
+    impdcs = zeros(Float32, length(heights_profiles[1]))
+
+
+    # Compute and insert the values for the trivial profiles( x and y axes and diagonal profiles )
+    @inbounds for (heights, coords) in zip(heights_profiles, coords_profiles)
+        # Vector holding the distances from the source to the current point
+        dists = [ distance((x0, y0), coords[1]) ]
+        for j in 2:length(heights)
+            # Add distance of the current point from source to the distances vector
+            push!( dists, distance((x0, y0), coords[j]) )
+            # Current cell
+            r, c = ga.indices( dtm, [ coords[j]... ] )
+            # If the cell should have a value
+            if dtm[r, c] != noData
+                intenisty_matrix[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] =
+                    # Loss of intensity due to propagation
+                    transmission_loss( dists[j] ) -
+                    # Loss of intensity due to the atmosphere
+                    atmospheric_loss( dists[j], heights[j], relative_humidity, temperature_k, frequency ) -
+                    # Loss of intenisty due to the terrain
+                    onCut( view(dists, 1:j), view(heights, 1:j), view(impdcs, 1:j), h0, heights[j], 1, [dB] )[end]
+            end
+        end
+    end
+    # Compute the values for the remainder of the area
+    @inbounds for point in endpoints
+        for α in [0, 90, 180, 270]
+            # Arrays of the heigths and the respective coordnates
+            heights, impedences, coords = DDA( dtm, r0, c0, rotate_point( point..., r0, c0, α )... )
+            # Compute array of the distances of each point of the profile from the source
+            dists = [ distance((x0, y0), coords[1]) ]
+            # Array of the resulting attenuations for each point of a single profile
+            for j in 2:length(heights)
+                push!( dists, distance((x0, y0), coords[j]) )
+                r, c = ga.indices( dtm, [ coords[j]... ] )
+                if dtm[r, c] != noData
+                    intenisty_matrix[ ( (r, c) .- (row_begin, col_begin) .+ 1 )... ] =
+                        # Loss of intensity due to propagation
+                        transmission_loss( dists[j] ) -
+                        # Loss of intensity due to the atmosphere
+                        atmospheric_loss( dists[j], heights[j], relative_humidity, temperature_k, frequency ) -
+                        # Loss of intenisty due to the terrain
+                        onCut( view(dists, 1:j), view(heights, 1:j), view(impedences, 1:j), h0, heights[j], 1, [dB] )[end]
+                end
+            end
+        end
+    end
+    return intenisty_matrix 
 end
 
 
+
+
+
+
+function do_noise( dtm::AbstractString, terrain_impedences::AbstractString, source, temperature_K::Float64, relative_humidity::Float64, frequencies )
+    dtm_raster = replace( ga.read(dtm), missing => -9999.0f0 )
+    terrain_raster = replace( ga.read(terrain_impedences), missing => -9999.0f0 )
+    x0, y0 =
+
+    data = noise_level( dtm_raster, terrain_raster, x0, y0, relative_humidity, temperature_K, frequencies )
+
+    Functions.writeRaster()
+end
 
 
 
@@ -1159,7 +1292,7 @@ GC.gc()
 
 @btime ground_loss(dtm, x0, y0, frequency)
 
-mat = ground_loss(dtm, x0, y0, frequency)
+mat = noise_level(dtm, x0, y0, 0.2, 293.15, frequency)
 
 cmat = map( x -> x = x == -9999.0f0 ? -30.0f0 : x, mat )
 cols, rows = size(cmat)
