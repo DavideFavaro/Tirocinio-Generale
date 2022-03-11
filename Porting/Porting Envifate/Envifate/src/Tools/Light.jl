@@ -713,6 +713,22 @@ qgs.exitQgis()
 """
 
 
+using GRASS_jll
+
+ccal(
+    (:r.viewshed, spgrass7S)
+)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
